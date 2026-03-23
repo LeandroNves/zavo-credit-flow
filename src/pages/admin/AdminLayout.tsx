@@ -27,7 +27,6 @@ export default function AdminLayout() {
     <>
       <div className="p-5 flex items-center gap-2 border-b border-sidebar-border">
         <img src={mascote} alt="" className="w-10" />
-        <img src={logo} alt="Zavo" className="h-6 brightness-0 invert" />
         <Shield className="h-4 w-4 ml-auto text-sidebar-primary" />
       </div>
       <nav className="flex-1 p-4 space-y-1">

@@ -15,8 +15,6 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <img src={mascote} alt="Mascote Zavo" className="w-28 mx-auto mb-4" />
-          <img src={logo} alt="Zavo" className="h-10 mx-auto" />
         </div>
         <div className="bg-card rounded-lg shadow-sm border p-8 space-y-6">
           <h1 className="text-2xl font-bold text-primary text-center">Acesse sua conta</h1>

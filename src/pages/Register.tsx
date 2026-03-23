@@ -66,7 +66,6 @@ export default function Register() {
           <Button variant="ghost" size="icon" onClick={() => step > 0 ? setStep(step - 1) : navigate("/login")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <img src={logo} alt="Zavo" className="h-8" />
           <span className="text-sm text-muted-foreground ml-auto">Etapa {step + 1} de {steps.length}</span>
         </div>
 

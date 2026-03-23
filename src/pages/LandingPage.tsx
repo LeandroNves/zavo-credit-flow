@@ -22,12 +22,15 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* NAVBAR */}
-      <nav className="sticky top-0 z-50 bg-card/95 backdrop-blur border-b">
-        <div className="container mx-auto flex items-center justify-between h-16 px-4">
-          <div className="flex items-center gap-2">
-            <img src={logo} alt="Zavo" className="h-8" />
-            <img src={mascote} alt="Mascote Zavo" className="h-10 -ml-1" />
-          </div>
+      <nav className="sticky top-0 z-50 bg-card/95 backdrop-blur border-b shadow-sm">
+        <div className="container mx-auto flex items-center justify-between h-14 px-4">
+          <Link to="/" className="flex items-center gap-2 group">
+            <img
+              src={logo}
+              alt="Zavo"
+              className="h-24 md:h-32 drop-shadow-md transition-transform group-hover:scale-105"
+            />
+          </Link>
           <div className="hidden md:flex items-center gap-6 text-sm font-medium text-foreground">
             <a href="#sobre" className="hover:text-secondary transition-colors">Sobre</a>
             <a href="#servicos" className="hover:text-secondary transition-colors">Serviços</a>
@@ -40,7 +43,7 @@ export default function LandingPage() {
       </nav>
 
       {/* HERO */}
-      <section className="relative overflow-hidden py-20 md:py-32">
+      <section className="relative overflow-hidden py-20 md:py-8">
         <div className="container mx-auto px-4 flex flex-col md:flex-row items-center gap-10">
           <div className="flex-1 space-y-6">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-primary leading-tight">
@@ -130,7 +133,7 @@ export default function LandingPage() {
               </Button>
             </a>
             <Link to="/cadastro">
-              <Button size="lg" variant="outline" className="border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10 w-full sm:w-auto">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto text-foreground border-primary-foreground/50 hover:bg-primary-foreground/10 hover:text-white">
                 Solicitar Análise
               </Button>
             </Link>
