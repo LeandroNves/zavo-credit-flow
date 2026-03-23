@@ -3,8 +3,25 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
+
+import LandingPage from "./pages/LandingPage";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import RegisterSuccess from "./pages/RegisterSuccess";
+import NotFound from "./pages/NotFound";
+
+import ClientLayout from "./pages/client/ClientLayout";
+import ClientContracts from "./pages/client/ClientContracts";
+import ClientContractDetail from "./pages/client/ClientContractDetail";
+import ClientPersonalData from "./pages/client/ClientPersonalData";
+
+import AdminLayout from "./pages/admin/AdminLayout";
+import AdminClients from "./pages/admin/AdminClients";
+import AdminClientDetail from "./pages/admin/AdminClientDetail";
+import AdminClientData from "./pages/admin/AdminClientData";
+import AdminManageContract from "./pages/admin/AdminManageContract";
+import AdminPendingRegistrations from "./pages/admin/AdminPendingRegistrations";
+import AdminReports from "./pages/admin/AdminReports";
 
 const queryClient = new QueryClient();
 
@@ -15,8 +32,28 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/cadastro" element={<Register />} />
+          <Route path="/cadastro/sucesso" element={<RegisterSuccess />} />
+
+          {/* Client area */}
+          <Route path="/cliente" element={<ClientLayout />}>
+            <Route index element={<ClientContracts />} />
+            <Route path="contrato/:id" element={<ClientContractDetail />} />
+            <Route path="dados" element={<ClientPersonalData />} />
+          </Route>
+
+          {/* Admin area */}
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminClients />} />
+            <Route path="cliente/:id" element={<AdminClientDetail />} />
+            <Route path="cliente/:id/dados" element={<AdminClientData />} />
+            <Route path="cliente/:id/contrato/:contratoId" element={<AdminManageContract />} />
+            <Route path="pendentes" element={<AdminPendingRegistrations />} />
+            <Route path="relatorios" element={<AdminReports />} />
+          </Route>
+
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
