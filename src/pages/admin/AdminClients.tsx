@@ -25,7 +25,11 @@ export default function AdminClients() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-primary">Gestão de Clientes</h1>
-        <Button className="gap-2"><Plus className="h-4 w-4" /> Criar Cliente</Button>
+        <Button className="gap-2" asChild>
+          <Link to="/admin/cliente/novo">
+            <Plus className="h-4 w-4" /> Criar cliente
+          </Link>
+        </Button>
       </div>
 
       <div className="relative max-w-sm">

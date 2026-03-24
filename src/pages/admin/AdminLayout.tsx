@@ -14,6 +14,7 @@ const menuItems = [
 export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout } = useAdminAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isActive = (path: string) => {

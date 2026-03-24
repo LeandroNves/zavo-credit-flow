@@ -16,14 +16,20 @@ import {
 } from "@/lib/contractsLocalStorage";
 import { isContractNumeroTaken, resolveContractNumero } from "@/lib/contractNumero";
 import {
+  buildClienteFromManualFields,
   ensureSupabaseSeed,
   fetchClientesFromSupabase,
+  type ManualClienteFields,
+  supabaseCreateClientManual,
+  supabaseCreateClienteWithPortalAuth,
   supabaseCreateContractWithInstallments,
+  supabaseDeleteContract,
   supabaseFinalizeContract,
   supabaseUpdateContractNumero,
   supabaseUpdateInstallmentStatus,
   supabaseUploadInstallmentBoleto,
 } from "@/lib/contractsSupabase";
+import { validatePortalPassword } from "@/lib/clientPasswordPolicy";
 import { deriveClienteStatus } from "@/lib/deriveClienteStatus";
 import {
   buildParcelaDueDates,
@@ -82,6 +88,15 @@ type ContractsContextValue = {
     contractId: string,
     rawNumero: string,
   ) => Promise<boolean>;
+  deleteContract: (clientId: string, contractId: string) => Promise<boolean>;
+  /**
+   * Cria cliente manual (só nome obrigatório).
+   * Com `portalPassword`, cria também Auth + perfil aprovado (exige e-mail válido).
+   */
+  createClienteManual: (
+    fields: ManualClienteFields,
+    options?: { portalPassword?: string },
+  ) => Promise<string | null>;
   getClienteById: (id: string) => Cliente | undefined;
 };
 
@@ -431,6 +446,113 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
     [clientes, dataSource, persistLocal, reload],
   );
 
+  const createClienteManual = useCallback(
+    async (
+      fields: ManualClienteFields,
+      options?: { portalPassword?: string },
+    ): Promise<string | null> => {
+      const nome = fields.nome.trim();
+      if (!nome) {
+        toast.error("Informe o nome do cliente.");
+        return null;
+      }
+      const portalPw = options?.portalPassword ?? "";
+      const wantsPortal = portalPw.length > 0;
+
+      const emailTrim = (fields.email ?? "").trim();
+      if (
+        emailTrim &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim.toLowerCase())
+      ) {
+        toast.error("E-mail inválido.");
+        return null;
+      }
+
+      if (wantsPortal) {
+        if (!emailTrim) {
+          toast.error("Informe o e-mail do cliente para criar o acesso à conta.");
+          return null;
+        }
+        const pwErr = validatePortalPassword(portalPw);
+        if (pwErr) {
+          toast.error(pwErr);
+          return null;
+        }
+        if (dataSource !== "supabase" || !supabase) {
+          toast.error(
+            "Conta do cliente no login só é criada com Supabase configurado.",
+          );
+          return null;
+        }
+      }
+
+      try {
+        if (dataSource === "supabase" && supabase) {
+          let id: string;
+          if (wantsPortal) {
+            id = await supabaseCreateClienteWithPortalAuth(
+              supabase,
+              fields,
+              portalPw,
+            );
+            toast.success("Cliente criado com acesso à área do cliente.");
+          } else {
+            id = await supabaseCreateClientManual(supabase, fields);
+            toast.success("Cliente criado.");
+          }
+          await reload();
+          return id;
+        }
+        const id = crypto.randomUUID();
+        const newCliente = buildClienteFromManualFields(id, fields);
+        const next = [...clientes, newCliente];
+        setClientes(next);
+        persistLocal(next);
+        toast.success("Cliente criado.");
+        return id;
+      } catch (e) {
+        console.error(e);
+        const msg =
+          e instanceof Error
+            ? e.message
+            : "Não foi possível criar o cliente.";
+        toast.error(msg);
+        return null;
+      }
+    },
+    [clientes, dataSource, persistLocal, reload],
+  );
+
+  const deleteContract = useCallback(
+    async (clientId: string, contractId: string): Promise<boolean> => {
+      try {
+        if (dataSource === "supabase" && supabase) {
+          await supabaseDeleteContract(supabase, clientId, contractId);
+          await reload();
+        } else {
+          const next = clientes.map((c) => {
+            if (c.id !== clientId) return c;
+            const contratos = c.contratos.filter((k) => k.id !== contractId);
+            return {
+              ...c,
+              contratos,
+              statusContrato: deriveClienteStatus(contratos),
+            };
+          });
+          setClientes(next);
+          persistLocal(next);
+        }
+        toast.success("Contrato excluído permanentemente.");
+        return true;
+      } catch (e) {
+        console.error(e);
+        toast.error("Não foi possível excluir o contrato.");
+        return false;
+      }
+    },
+    [clientes, dataSource, persistLocal, reload],
+  );
+
   const value = useMemo(
     () => ({
       clientes,
@@ -443,6 +565,8 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       uploadParcelaBoleto,
       finalizeContract,
       renameContractNumero,
+      deleteContract,
+      createClienteManual,
       getClienteById,
     }),
     [
@@ -456,6 +580,8 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       uploadParcelaBoleto,
       finalizeContract,
       renameContractNumero,
+      deleteContract,
+      createClienteManual,
       getClienteById,
     ],
   );

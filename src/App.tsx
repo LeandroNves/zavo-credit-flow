@@ -22,6 +22,7 @@ import ClientPersonalData from "./pages/client/ClientPersonalData";
 
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminClients from "./pages/admin/AdminClients";
+import AdminCreateCliente from "./pages/admin/AdminCreateCliente";
 import AdminClientDetail from "./pages/admin/AdminClientDetail";
 import AdminClientData from "./pages/admin/AdminClientData";
 import AdminManageContract from "./pages/admin/AdminManageContract";
@@ -64,6 +65,7 @@ const App = () => (
             }
           >
             <Route index element={<AdminClients />} />
+            <Route path="cliente/novo" element={<AdminCreateCliente />} />
             <Route path="cliente/:id" element={<AdminClientDetail />} />
             <Route path="cliente/:id/dados" element={<AdminClientData />} />
             <Route path="cliente/:id/contrato/novo" element={<AdminCreateContract />} />

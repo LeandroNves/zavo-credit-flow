@@ -85,6 +85,242 @@ function rowToCliente(row: ClientRow, contratos: Contrato[]): Cliente {
   };
 }
 
+const ESTADO_CIVIL_LABEL: Record<string, string> = {
+  solteiro: "Solteiro(a)",
+  casado: "Casado(a)",
+  divorciado: "Divorciado(a)",
+  viuvo: "Viúvo(a)",
+};
+
+const TIPO_MORADIA_LABEL: Record<string, string> = {
+  propria: "Própria",
+  aluguel: "Aluguel",
+  financiada: "Financiada",
+  familiar: "Familiar",
+};
+
+function emptyToNull(s: string | undefined): string | null {
+  const t = (s ?? "").trim();
+  return t.length ? t : null;
+}
+
+function resolvedEstadoCivilKey(key: string | undefined): string | null {
+  const k = (key ?? "").trim();
+  if (!k) return null;
+  return ESTADO_CIVIL_LABEL[k] ?? k;
+}
+
+function resolvedTipoMoradiaKey(key: string | undefined): string | null {
+  const k = (key ?? "").trim();
+  if (!k) return null;
+  return TIPO_MORADIA_LABEL[k] ?? k;
+}
+
+/** Campos do formulário admin; apenas `nome` é obrigatório na aplicação. */
+export type ManualClienteFields = {
+  nome: string;
+  cpf?: string;
+  email?: string;
+  telefone?: string;
+  estadoCivil?: string;
+  instagram?: string;
+  contato1?: string;
+  contato2?: string;
+  enderecoResidencial?: string;
+  enderecoTrabalho?: string;
+  salario?: string;
+  dependentes?: string;
+  tipoMoradia?: string;
+  outrasRendas?: string;
+};
+
+export function buildClienteFromManualFields(
+  id: string,
+  fields: ManualClienteFields,
+): Cliente {
+  const ec = resolvedEstadoCivilKey(fields.estadoCivil);
+  const tm = resolvedTipoMoradiaKey(fields.tipoMoradia);
+  return {
+    id,
+    nome: fields.nome.trim(),
+    cpf: (fields.cpf ?? "").trim(),
+    email: (fields.email ?? "").trim().toLowerCase(),
+    telefone: (fields.telefone ?? "").trim(),
+    estadoCivil: ec ?? "",
+    instagram: (fields.instagram ?? "").trim(),
+    contato1: (fields.contato1 ?? "").trim(),
+    contato2: (fields.contato2 ?? "").trim(),
+    enderecoResidencial: (fields.enderecoResidencial ?? "").trim(),
+    enderecoTrabalho: (fields.enderecoTrabalho ?? "").trim(),
+    salario: (fields.salario ?? "").trim(),
+    dependentes: (fields.dependentes ?? "").trim(),
+    tipoMoradia: tm ?? "",
+    outrasRendas: (fields.outrasRendas ?? "").trim(),
+    statusContrato: "sem_contrato",
+    contratos: [],
+  };
+}
+
+export async function supabaseCreateClientManual(
+  sb: SupabaseClient,
+  fields: ManualClienteFields,
+): Promise<string> {
+  const nome = fields.nome.trim();
+  if (!nome) throw new Error("Nome é obrigatório.");
+
+  const id = crypto.randomUUID();
+  const row = {
+    id,
+    nome,
+    cpf: emptyToNull(fields.cpf),
+    email: emptyToNull(fields.email?.toLowerCase()),
+    telefone: emptyToNull(fields.telefone),
+    estado_civil: resolvedEstadoCivilKey(fields.estadoCivil),
+    instagram: emptyToNull(fields.instagram),
+    contato1: emptyToNull(fields.contato1),
+    contato2: emptyToNull(fields.contato2),
+    endereco_residencial: emptyToNull(fields.enderecoResidencial),
+    endereco_trabalho: emptyToNull(fields.enderecoTrabalho),
+    salario: emptyToNull(fields.salario),
+    dependentes: emptyToNull(fields.dependentes),
+    tipo_moradia: resolvedTipoMoradiaKey(fields.tipoMoradia),
+    outras_rendas: emptyToNull(fields.outrasRendas),
+    status_contrato: "sem_contrato",
+  };
+
+  const { error } = await sb.from("clients").insert(row);
+  if (error) throw new Error(error.message);
+  return id;
+}
+
+function profileRowFromManualForAdminPortal(
+  userId: string,
+  clientId: string,
+  fields: ManualClienteFields,
+  emailLower: string,
+): Record<string, unknown> {
+  const t = (s: string | undefined) => (s ?? "").trim();
+  const fb = (s: string | undefined, fallback: string) => {
+    const x = t(s);
+    return x.length ? x : fallback;
+  };
+  return {
+    id: userId,
+    nome_completo: fields.nome.trim(),
+    cpf: fb(fields.cpf, "—"),
+    email: emailLower,
+    telefone: fb(fields.telefone, "—"),
+    estado_civil: fb(fields.estadoCivil, "nao_informado"),
+    instagram: t(fields.instagram),
+    contato1: fb(fields.contato1, "—"),
+    contato2: fb(fields.contato2, "—"),
+    endereco_residencial: fb(fields.enderecoResidencial, "—"),
+    endereco_trabalho: fb(fields.enderecoTrabalho, "—"),
+    salario: fb(fields.salario, "—"),
+    dependentes: fb(fields.dependentes, "—"),
+    tipo_moradia: fb(fields.tipoMoradia, "nao_informado"),
+    outras_rendas: t(fields.outrasRendas),
+    doc_rg_path: null,
+    doc_selfie_path: null,
+    doc_comprovante_path: null,
+    doc_holerite_path: null,
+    doc_ctps_path: null,
+    doc_extrato_path: null,
+    registration_status: "approved",
+    linked_client_id: clientId,
+  };
+}
+
+/**
+ * Cria usuário (Auth), cliente e perfil aprovado já vinculado.
+ * Encerra a sessão do Supabase no final (evita trocar sessão do admin pelo cliente).
+ */
+export async function supabaseCreateClienteWithPortalAuth(
+  sb: SupabaseClient,
+  fields: ManualClienteFields,
+  password: string,
+): Promise<string> {
+  const nome = fields.nome.trim();
+  const email = (fields.email ?? "").trim().toLowerCase();
+  if (!nome) throw new Error("Nome é obrigatório.");
+  if (!email) throw new Error("E-mail é obrigatório para criar o acesso.");
+
+  const { data: signData, error: signError } = await sb.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        nome_completo: nome,
+      },
+    },
+  });
+
+  if (signError) {
+    const msg = signError.message.toLowerCase();
+    if (
+      msg.includes("already registered") ||
+      msg.includes("user already registered")
+    ) {
+      throw new Error("Este e-mail já possui cadastro.");
+    }
+    throw new Error(signError.message);
+  }
+
+  const userId = signData.user?.id;
+  if (!userId) {
+    await sb.auth.signOut();
+    throw new Error("Não foi possível criar o usuário.");
+  }
+
+  if (!signData.session) {
+    await sb.auth.signOut();
+    throw new Error(
+      "Confirmação de e-mail está ativa no projeto. Desative em Authentication → Providers → Email ou confirme o e-mail antes de o cliente acessar.",
+    );
+  }
+
+  const clientId = crypto.randomUUID();
+  const clientRow = {
+    id: clientId,
+    nome,
+    cpf: emptyToNull(fields.cpf),
+    email: email,
+    telefone: emptyToNull(fields.telefone),
+    estado_civil: resolvedEstadoCivilKey(fields.estadoCivil),
+    instagram: emptyToNull(fields.instagram),
+    contato1: emptyToNull(fields.contato1),
+    contato2: emptyToNull(fields.contato2),
+    endereco_residencial: emptyToNull(fields.enderecoResidencial),
+    endereco_trabalho: emptyToNull(fields.enderecoTrabalho),
+    salario: emptyToNull(fields.salario),
+    dependentes: emptyToNull(fields.dependentes),
+    tipo_moradia: resolvedTipoMoradiaKey(fields.tipoMoradia),
+    outras_rendas: emptyToNull(fields.outrasRendas),
+    status_contrato: "sem_contrato",
+  };
+
+  const { error: cErr } = await sb.from("clients").insert(clientRow);
+  if (cErr) {
+    await sb.auth.signOut();
+    throw new Error(cErr.message);
+  }
+
+  const profilePayload = profileRowFromManualForAdminPortal(
+    userId,
+    clientId,
+    fields,
+    email,
+  );
+  const { error: pErr } = await sb.from("profiles").insert(profilePayload);
+  if (pErr) {
+    await sb.auth.signOut();
+    throw new Error(pErr.message);
+  }
+
+  await sb.auth.signOut();
+  return clientId;
+}
+
 function sanitizeFileName(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
 }
@@ -309,4 +545,33 @@ export async function supabaseUpdateContractNumero(
     .update({ numero })
     .eq("id", contractId);
   if (error) throw error;
+}
+
+/** Remove boletos no Storage, depois o contrato (parcelas em cascade). */
+export async function supabaseDeleteContract(
+  sb: SupabaseClient,
+  clientId: string,
+  contractId: string,
+) {
+  const { data: rows, error: qErr } = await sb
+    .from("installments")
+    .select("boleto_storage_path")
+    .eq("contract_id", contractId);
+  if (qErr) throw qErr;
+  const paths = (rows || [])
+    .map((r) => r.boleto_storage_path as string | null)
+    .filter((p): p is string => Boolean(p));
+  if (paths.length > 0) {
+    const { error: rmErr } = await sb.storage.from("boletos").remove(paths);
+    if (rmErr) {
+      console.warn("Storage boletos:", rmErr);
+    }
+  }
+  const { error: dErr } = await sb
+    .from("contracts")
+    .delete()
+    .eq("id", contractId)
+    .eq("client_id", clientId);
+  if (dErr) throw dErr;
+  await recomputeClientRowStatus(sb, clientId);
 }

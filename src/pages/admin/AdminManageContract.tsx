@@ -1,6 +1,6 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useRef, useState } from "react";
-import { ArrowLeft, Check, Pencil, Upload } from "lucide-react";
+import { ArrowLeft, Check, Pencil, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -36,6 +36,7 @@ import type { Parcela } from "@/data/mockData";
 import { toast } from "sonner";
 
 export default function AdminManageContract() {
+  const navigate = useNavigate();
   const { id, contratoId } = useParams();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadParcelaNum, setUploadParcelaNum] = useState<number | null>(null);
@@ -48,6 +49,7 @@ export default function AdminManageContract() {
     uploadParcelaBoleto,
     finalizeContract,
     renameContractNumero,
+    deleteContract,
     ready,
     loading,
   } = useContractsData();
@@ -95,6 +97,12 @@ export default function AdminManageContract() {
     if (!id || !contratoId) return;
     const ok = await renameContractNumero(id, contratoId, numeroEdit);
     if (ok) setRenameOpen(false);
+  };
+
+  const handleDeleteContract = async () => {
+    if (!id || !contratoId) return;
+    const ok = await deleteContract(id, contratoId);
+    if (ok) navigate(`/admin/cliente/${id}`);
   };
 
   if (!ready || loading) {
@@ -186,7 +194,7 @@ export default function AdminManageContract() {
         </span>
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 items-center">
         {contrato.status === "ativo" && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -211,6 +219,50 @@ export default function AdminManageContract() {
             </AlertDialogContent>
           </AlertDialog>
         )}
+
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              size="sm"
+              variant="outline"
+              type="button"
+              className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              Excluir contrato
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir este contrato para sempre?</AlertDialogTitle>
+              <AlertDialogDescription className="text-left space-y-3">
+                <span className="block font-medium text-destructive">
+                  Esta ação não pode ser desfeita pelo painel.
+                </span>
+                <span className="block text-foreground">
+                  Serão removidos permanentemente: todas as{" "}
+                  <strong>parcelas</strong>, histórico de status, referências no
+                  cadastro do cliente e os <strong>arquivos de boleto</strong>{" "}
+                  associados (quando aplicável).
+                </span>
+                <span className="block">
+                  Confirme apenas se tiver certeza de que este contrato e seus
+                  dados devem sumir da base e da área do cliente.
+                </span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel type="button">Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                type="button"
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => void handleDeleteContract()}
+              >
+                Sim, excluir permanentemente
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       <div className="bg-card rounded-lg border overflow-hidden">
