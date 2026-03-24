@@ -12,10 +12,12 @@ import {
 } from "@/components/ui/select";
 import { Check, Upload, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
+import { submitRegistration } from "@/lib/registerSubmit";
 
 const steps = ["Dados Pessoais", "Endereço", "Financeiro", "Criar Senha"];
 
-type RegisterFormState = {
+export type RegisterFormState = {
   nome: string;
   cpf: string;
   email: string;
@@ -197,6 +199,7 @@ export default function Register() {
   const [form, setForm] = useState<RegisterFormState>(() => ({ ...emptyForm }));
   const navigate = useNavigate();
   const [showPass, setShowPass] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const patch = (partial: Partial<RegisterFormState>) =>
     setForm((prev) => ({ ...prev, ...partial }));
@@ -218,12 +221,26 @@ export default function Register() {
     setStep(fromStep + 1);
   }
 
-  function finalize() {
+  async function finalize() {
     const err = validateStep3(form);
     if (err) {
       toast.error(err);
       return;
     }
+    if (!isSupabaseConfigured || !supabase) {
+      toast.error(
+        "Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY para salvar o cadastro.",
+      );
+      return;
+    }
+    setSubmitting(true);
+    const res = await submitRegistration(supabase, form);
+    setSubmitting(false);
+    if (!res.ok) {
+      toast.error(res.message);
+      return;
+    }
+    toast.success("Cadastro enviado! Aguarde a análise da equipe.");
     navigate("/cadastro/sucesso");
   }
 
@@ -617,12 +634,13 @@ export default function Register() {
                 <Button
                   type="button"
                   className="flex-1"
-                  onClick={finalize}
+                  onClick={() => void finalize()}
                   disabled={
+                    submitting ||
                     !(hasUpper && hasSpecial && hasLength && passwordsMatch)
                   }
                 >
-                  Finalizar cadastro
+                  {submitting ? "Enviando…" : "Finalizar cadastro"}
                 </Button>
               </div>
             </div>

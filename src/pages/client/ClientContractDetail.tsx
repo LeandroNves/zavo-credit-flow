@@ -9,7 +9,8 @@ import { toast } from "sonner";
 export default function ClientContractDetail() {
   const { id } = useParams();
   const { getClienteById, ready, loading } = useContractsData();
-  const cliente = getClienteById(getClienteAtualId());
+  const cid = getClienteAtualId();
+  const cliente = cid ? getClienteById(cid) : undefined;
   const contrato = cliente?.contratos.find((c) => c.id === id);
 
   const handleOpenBoleto = (parcela: Parcela) => {

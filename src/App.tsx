@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import AdminLogin from "./pages/AdminLogin";
 import Register from "./pages/Register";
 import RegisterSuccess from "./pages/RegisterSuccess";
+import RegisterAwaitingApproval from "./pages/RegisterAwaitingApproval";
 import NotFound from "./pages/NotFound";
 
 import ClientLayout from "./pages/client/ClientLayout";
@@ -44,6 +45,7 @@ const App = () => (
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/cadastro" element={<Register />} />
           <Route path="/cadastro/sucesso" element={<RegisterSuccess />} />
+          <Route path="/cadastro/aguardando" element={<RegisterAwaitingApproval />} />
 
           {/* Client area */}
           <Route path="/cliente" element={<ClientLayout />}>

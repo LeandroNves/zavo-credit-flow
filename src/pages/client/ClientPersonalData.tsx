@@ -24,7 +24,8 @@ function Field({ label, value }: { label: string; value: string }) {
 
 export default function ClientPersonalData() {
   const { getClienteById, ready, loading } = useContractsData();
-  const cliente = getClienteById(getClienteAtualId());
+  const cid = getClienteAtualId();
+  const cliente = cid ? getClienteById(cid) : undefined;
 
   if (!ready || loading) {
     return <div className="text-center py-12 text-muted-foreground">Carregando…</div>;
