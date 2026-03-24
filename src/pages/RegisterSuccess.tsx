@@ -7,8 +7,7 @@ export default function RegisterSuccess() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="max-w-md text-center space-y-6">
-        <img src={mascote} alt="Mascote Zavo" className="w-36 mx-auto" />
-        <div className="bg-card rounded-lg border shadow-sm p-8 space-y-4">
+                <div className="bg-card rounded-lg border shadow-sm p-8 space-y-4">
           <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mx-auto">
             <CheckCircle className="h-8 w-8 text-success" />
           </div>
