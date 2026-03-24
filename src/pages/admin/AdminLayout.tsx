@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { Users, Clock, BarChart3, LogOut, Menu, X, Shield } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import logo from "@/assets/logo.png";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import mascote from "@/assets/mascote.png";
 
 const menuItems = [
@@ -39,7 +39,14 @@ export default function AdminLayout() {
         ))}
       </nav>
       <div className="p-4 border-t border-sidebar-border">
-        <button onClick={() => navigate("/login")} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium hover:bg-sidebar-accent/50 w-full text-sidebar-foreground">
+        <button
+          type="button"
+          onClick={() => {
+            logout();
+            navigate("/admin/login", { replace: true });
+          }}
+          className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium hover:bg-sidebar-accent/50 w-full text-sidebar-foreground"
+        >
           <LogOut className="h-5 w-5" /> Sair
         </button>
       </div>

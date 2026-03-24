@@ -1,0 +1,250 @@
+import { useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { format } from "date-fns";
+import { ArrowLeft, Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useContractsData } from "@/contexts/ContractsDataContext";
+import {
+  buildParcelaDueDates,
+  formatVencimentoBR,
+  splitTotalAcrossInstallments,
+} from "@/lib/parcelSchedule";
+
+export default function AdminCreateContract() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const {
+    getClienteById,
+    createContractForCliente,
+    ready,
+    loading,
+  } = useContractsData();
+
+  const cliente = id ? getClienteById(id) : undefined;
+
+  const [valorTotal, setValorTotal] = useState("");
+  const [qtdParcelas, setQtdParcelas] = useState("12");
+  const [diaVencimento, setDiaVencimento] = useState("10");
+  const [primeiroMes, setPrimeiroMes] = useState(() =>
+    format(new Date(), "yyyy-MM"),
+  );
+  const [arquivos, setArquivos] = useState<(File | null)[]>(() =>
+    Array.from({ length: 12 }, () => null),
+  );
+  const [submitting, setSubmitting] = useState(false);
+
+  const nParcelas = Math.max(1, parseInt(qtdParcelas, 10) || 1);
+  const dia = Math.min(31, Math.max(1, parseInt(diaVencimento, 10) || 10));
+  const valorNum = parseFloat(valorTotal.replace(",", ".")) || 0;
+
+  const preview = useMemo(() => {
+    if (valorNum <= 0 || nParcelas < 1) return [];
+    const valores = splitTotalAcrossInstallments(valorNum, nParcelas);
+    const dates = buildParcelaDueDates(primeiroMes, nParcelas, dia);
+    return dates.map((d, i) => ({
+      n: i + 1,
+      vencimento: formatVencimentoBR(d),
+      valor: valores[i],
+    }));
+  }, [valorNum, nParcelas, primeiroMes, dia]);
+
+  function syncArquivosLength(len: number) {
+    setArquivos((prev) => {
+      const next = prev.slice(0, len);
+      while (next.length < len) next.push(null);
+      return next;
+    });
+  }
+
+  const handleQtdParcelasChange = (v: string) => {
+    setQtdParcelas(v);
+    const n = Math.max(1, parseInt(v, 10) || 1);
+    syncArquivosLength(n);
+  };
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!id || !cliente || submitting) return;
+    if (valorNum <= 0) return;
+    setSubmitting(true);
+    try {
+      await createContractForCliente(id, {
+        valorTotal: valorNum,
+        parcelasCount: nParcelas,
+        diaVencimento: dia,
+        primeiroVencimentoYm: primeiroMes,
+        arquivosPorParcela: arquivos.slice(0, nParcelas),
+      });
+      navigate(`/admin/cliente/${id}`);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (!ready || loading) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        Carregando dados…
+      </div>
+    );
+  }
+
+  if (!cliente) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        Cliente não encontrado.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 max-w-4xl">
+      <div className="flex items-center gap-3">
+        <Link to={`/admin/cliente/${id}`}>
+          <Button variant="ghost" size="icon" type="button">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold text-primary">Novo contrato</h1>
+          <p className="text-sm text-muted-foreground">{cliente.nome}</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <div className="bg-card rounded-lg border p-6 space-y-4">
+          <h2 className="font-semibold text-primary">Condições do crédito</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="valor">Valor total do crédito (R$)</Label>
+              <Input
+                id="valor"
+                inputMode="decimal"
+                placeholder="Ex: 5000,00"
+                value={valorTotal}
+                onChange={(e) => setValorTotal(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="parcelas">Número de parcelas</Label>
+              <Input
+                id="parcelas"
+                type="number"
+                min={1}
+                max={120}
+                value={qtdParcelas}
+                onChange={(e) => handleQtdParcelasChange(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dia">Dia de vencimento (todo mês)</Label>
+              <Input
+                id="dia"
+                type="number"
+                min={1}
+                max={31}
+                value={diaVencimento}
+                onChange={(e) => setDiaVencimento(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="mes">Mês da 1ª parcela</Label>
+              <Input
+                id="mes"
+                type="month"
+                value={primeiroMes}
+                onChange={(e) => setPrimeiroMes(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            As parcelas serão geradas em meses consecutivos, no dia escolhido
+            (ajustado ao último dia do mês quando necessário).
+          </p>
+        </div>
+
+        {preview.length > 0 && (
+          <div className="bg-card rounded-lg border overflow-hidden">
+            <div className="p-4 border-b">
+              <h2 className="font-semibold text-primary">
+                Parcelas e boletos (opcional por parcela)
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Os arquivos ficam disponíveis para o cliente em “Pagar” na área
+                do cliente.
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="px-4 py-3 font-medium">Parcela</th>
+                    <th className="px-4 py-3 font-medium">Vencimento</th>
+                    <th className="px-4 py-3 font-medium">Valor</th>
+                    <th className="px-4 py-3 font-medium">Boleto (PDF/imagem)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.map((row) => (
+                    <tr key={row.n} className="border-b last:border-0">
+                      <td className="px-4 py-3 font-medium text-primary">
+                        {row.n}/{preview.length}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {row.vencimento}
+                      </td>
+                      <td className="px-4 py-3">
+                        R$ {row.valor.toFixed(2).replace(".", ",")}
+                      </td>
+                      <td className="px-4 py-3">
+                        <label className="inline-flex items-center gap-2 cursor-pointer text-secondary hover:underline">
+                          <Upload className="h-4 w-4" />
+                          <span className="text-xs">
+                            {arquivos[row.n - 1]?.name ?? "Anexar arquivo"}
+                          </span>
+                          <input
+                            type="file"
+                            className="sr-only"
+                            accept=".pdf,image/*"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0] ?? null;
+                              setArquivos((prev) => {
+                                const next = [...prev];
+                                while (next.length < preview.length) next.push(null);
+                                next[row.n - 1] = f;
+                                return next;
+                              });
+                            }}
+                          />
+                        </label>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-3 justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate(`/admin/cliente/${id}`)}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={submitting || valorNum <= 0}>
+            {submitting ? "Salvando…" : "Criar contrato"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}

@@ -1,11 +1,16 @@
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, User, FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { mockClientes } from "@/data/mockData";
+import { useContractsData } from "@/contexts/ContractsDataContext";
 
 export default function AdminClientDetail() {
   const { id } = useParams();
-  const cliente = mockClientes.find((c) => c.id === id);
+  const { getClienteById, ready, loading } = useContractsData();
+  const cliente = id ? getClienteById(id) : undefined;
+
+  if (!ready || loading) {
+    return <div className="text-center py-12 text-muted-foreground">Carregando…</div>;
+  }
 
   if (!cliente) return <div className="text-center py-12 text-muted-foreground">Cliente não encontrado.</div>;
 
@@ -34,7 +39,11 @@ export default function AdminClientDetail() {
       {/* Contratos */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-primary">Contratos</h2>
-        <Button size="sm" className="gap-2"><Plus className="h-4 w-4" /> Novo Contrato</Button>
+        <Link to={`/admin/cliente/${cliente.id}/contrato/novo`}>
+          <Button size="sm" className="gap-2" type="button">
+            <Plus className="h-4 w-4" /> Novo contrato
+          </Button>
+        </Link>
       </div>
 
       {cliente.contratos.length === 0 ? (

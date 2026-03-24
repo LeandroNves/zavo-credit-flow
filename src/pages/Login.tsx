@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import logo from "@/assets/logo.png";
-import mascote from "@/assets/mascote.png";
+import { setClienteAtualId } from "@/lib/clienteSession";
 
 export default function Login() {
   const [nome, setNome] = useState("");
@@ -12,7 +12,16 @@ export default function Login() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="relative min-h-screen flex items-center justify-center bg-background px-4">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute left-4 top-4 md:left-8 md:top-8"
+        onClick={() => navigate("/")}
+        aria-label="Voltar para a landing page"
+      >
+        <ArrowLeft className="h-5 w-5" />
+      </Button>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
         </div>
@@ -29,8 +38,17 @@ export default function Login() {
             </div>
           </div>
           <div className="space-y-3">
-            <Button className="w-full" onClick={() => navigate("/cliente")}>Entrar</Button>
-            <Button variant="outline" className="w-full" onClick={() => navigate("/admin")}>
+            <Button
+              className="w-full"
+              type="button"
+              onClick={() => {
+                setClienteAtualId("1");
+                navigate("/cliente");
+              }}
+            >
+              Entrar
+            </Button>
+            <Button variant="outline" className="w-full" onClick={() => navigate("/admin/login")}>
               Entrar como Admin
             </Button>
           </div>

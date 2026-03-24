@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Search, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { mockClientes } from "@/data/mockData";
+import { useContractsData } from "@/contexts/ContractsDataContext";
 
 const statusLabels: Record<string, { label: string; color: string }> = {
   ativo: { label: "Ativo", color: "bg-success/10 text-success" },
@@ -14,7 +14,12 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 
 export default function AdminClients() {
   const [search, setSearch] = useState("");
-  const filtered = mockClientes.filter((c) => c.nome.toLowerCase().includes(search.toLowerCase()));
+  const { clientes, ready, loading } = useContractsData();
+  const filtered = clientes.filter((c) => c.nome.toLowerCase().includes(search.toLowerCase()));
+
+  if (!ready || loading) {
+    return <div className="text-center py-12 text-muted-foreground">Carregando clientes…</div>;
+  }
 
   return (
     <div className="space-y-6">

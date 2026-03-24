@@ -1,15 +1,30 @@
 import { Link } from "react-router-dom";
 import { FileText, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { mockClientes } from "@/data/mockData";
-
-const cliente = mockClientes[0]; // João Silva
+import { useContractsData } from "@/contexts/ContractsDataContext";
+import { getClienteAtualId } from "@/lib/clienteSession";
 
 export default function ClientContracts() {
+  const { getClienteById, ready, loading } = useContractsData();
+  const cliente = getClienteById(getClienteAtualId());
+
+  if (!ready || loading) {
+    return <div className="text-center py-12 text-muted-foreground">Carregando…</div>;
+  }
+
+  if (!cliente) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        Cliente não encontrado. Faça login novamente.
+      </div>
+    );
+  }
+
   const totalParcelas = cliente.contratos.reduce((a, c) => a + c.listaParcelas.length, 0);
   const pagas = cliente.contratos.reduce((a, c) => a + c.listaParcelas.filter(p => p.status === "pago").length, 0);
   const atrasadas = cliente.contratos.reduce((a, c) => a + c.listaParcelas.filter(p => p.status === "atrasado").length, 0);
   const proxima = cliente.contratos.flatMap(c => c.listaParcelas).find(p => p.status === "pendente");
+  const progressPct = totalParcelas > 0 ? Math.round((pagas / totalParcelas) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -51,10 +66,10 @@ export default function ClientContracts() {
       <div className="bg-card rounded-lg border p-5">
         <div className="flex justify-between text-sm mb-2">
           <span className="text-muted-foreground">Progresso geral</span>
-          <span className="font-semibold text-primary">{Math.round((pagas / totalParcelas) * 100)}%</span>
+          <span className="font-semibold text-primary">{progressPct}%</span>
         </div>
         <div className="w-full bg-muted rounded-full h-3">
-          <div className="bg-secondary h-3 rounded-full transition-all" style={{ width: `${(pagas / totalParcelas) * 100}%` }} />
+          <div className="bg-secondary h-3 rounded-full transition-all" style={{ width: `${progressPct}%` }} />
         </div>
       </div>
 

@@ -1,7 +1,6 @@
-import { mockClientes } from "@/data/mockData";
 import { User, MapPin, DollarSign, FileText } from "lucide-react";
-
-const cliente = mockClientes[0];
+import { useContractsData } from "@/contexts/ContractsDataContext";
+import { getClienteAtualId } from "@/lib/clienteSession";
 
 function Section({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
   return (
@@ -24,6 +23,21 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 export default function ClientPersonalData() {
+  const { getClienteById, ready, loading } = useContractsData();
+  const cliente = getClienteById(getClienteAtualId());
+
+  if (!ready || loading) {
+    return <div className="text-center py-12 text-muted-foreground">Carregando…</div>;
+  }
+
+  if (!cliente) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        Cliente não encontrado.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-primary">Dados Pessoais</h1>

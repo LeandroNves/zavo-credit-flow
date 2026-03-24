@@ -4,6 +4,10 @@ export interface Parcela {
   valor: number;
   vencimento: string;
   status: "pago" | "pendente" | "atrasado";
+  /** URL pública, data URL (modo local) ou link assinado — usada na área do cliente */
+  boletoUrl?: string | null;
+  /** Caminho no bucket Supabase Storage (modo nuvem) */
+  boletoPath?: string | null;
 }
 
 export interface Contrato {

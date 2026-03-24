@@ -1,7 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, User, MapPin, DollarSign, FileText, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { mockClientes } from "@/data/mockData";
+import { useContractsData } from "@/contexts/ContractsDataContext";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -14,7 +14,12 @@ function Field({ label, value }: { label: string; value: string }) {
 
 export default function AdminClientData() {
   const { id } = useParams();
-  const cliente = mockClientes.find((c) => c.id === id);
+  const { getClienteById, ready, loading } = useContractsData();
+  const cliente = id ? getClienteById(id) : undefined;
+
+  if (!ready || loading) {
+    return <div className="text-center py-12 text-muted-foreground">Carregando…</div>;
+  }
 
   if (!cliente) return <div className="text-center py-12 text-muted-foreground">Cliente não encontrado.</div>;
 
