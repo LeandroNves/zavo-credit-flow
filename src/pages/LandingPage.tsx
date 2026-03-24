@@ -18,14 +18,15 @@ import {
   ChevronRight,
   Menu,
   X as XIcon,
+  Instagram,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
 import mascote from "@/assets/mascote.png";
-import heroIphone from "@/assets/hero-iphone.png";
-import iphone17 from "@/assets/iphone17.png";
-import iphone17pro from "@/assets/iphone17pro.png";
-import iphone17promax from "@/assets/iphone17promax.png";
+import heroIphone from "@/assets/iphone17azul.png";
+import iphone17Digital from "@/assets/iPhone-17-Digital-PNG.png";
+import iphone17Enhanced from "@/assets/iPhone-17-Enhanced-Audio-Quality-PNG.png";
+import iphone17Branco from "@/assets/iphone17branco.png";
 
 /* ─── Intersection Observer fade-in hook ─── */
 function useFadeIn() {
@@ -52,10 +53,35 @@ function useFadeIn() {
   return ref;
 }
 
+function useInViewOnce<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || isVisible) return;
+
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          obs.unobserve(el);
+        }
+      },
+      { threshold: 0.2, rootMargin: "0px 0px -8% 0px" }
+    );
+
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [isVisible]);
+
+  return { ref, isVisible };
+}
+
 const products = [
-  { name: "iPhone 17", img: iphone17, color: "Verde" },
-  { name: "iPhone 17 Pro", img: iphone17pro, color: "Titânio Azul" },
-  { name: "iPhone 17 Pro Max", img: iphone17promax, color: "Titânio Branco" },
+  { name: "iPhone 17 Pro max", img: iphone17Digital, color: "Laranja" },
+  { name: "iPhone 17", img: iphone17Enhanced, color: "Titânio Azul" },
+  { name: "iPhone 17 Pro Max", img: iphone17Branco, color: "Titânio Branco" },
 ];
 
 const services = [
@@ -72,6 +98,13 @@ const diferenciais = [
   { icon: Settings2, title: "Condições Flexíveis", desc: "Parcelamento adaptado à sua realidade financeira." },
 ];
 
+const diferenciaisExtras = [
+  { icon: CreditCard, title: "Pagamentos", desc: "Parcelamento recorrente sem ocupar limite" },
+  { icon: Shield, title: "Proteção", desc: "Cobertura contra danos e imprevistos" },
+  { icon: Zap, title: "Frete grátis", desc: "Entregamos para todo o Brasil" },
+  { icon: MessageCircle, title: "Suporte", desc: "Atendimento humano via WhatsApp" },
+];
+
 export default function LandingPage() {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -83,6 +116,7 @@ export default function LandingPage() {
   const compareRef = useFadeIn();
   const diffRef = useFadeIn();
   const ctaRef = useFadeIn();
+  const { ref: diffCardsRef, isVisible: diffCardsVisible } = useInViewOnce<HTMLDivElement>();
 
   return (
     <div className="min-h-screen bg-white scroll-smooth">
@@ -90,7 +124,7 @@ export default function LandingPage() {
       <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-border/40">
         <div className="max-w-7xl mx-auto flex items-center justify-between h-16 px-4 lg:px-8">
           <div className="flex items-center gap-2">
-            <img src={logo} alt="Zavo" className="h-7" />
+            <img src={logo} alt="Zavo" className="h-36" />
           </div>
 
           {/* Desktop links */}
@@ -133,7 +167,7 @@ export default function LandingPage() {
 
       {/* ─── HERO ─── */}
       <section className="relative overflow-hidden bg-gradient-to-br from-white via-background to-accent/30">
-        <div ref={heroRef} className="max-w-7xl mx-auto px-4 lg:px-8 py-16 md:py-24 lg:py-32 flex flex-col md:flex-row items-center gap-8 lg:gap-16">
+        <div ref={heroRef} className="max-w-7xl mx-auto px-4 lg:px-8 py-16 md:py-12 lg:py-32 flex flex-col md:flex-row items-center gap-8 lg:gap-16">
           <div className="flex-1 space-y-6 text-center md:text-left">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-secondary/10 text-secondary text-sm font-medium">
               <Zap className="h-3.5 w-3.5" /> Novidade disponível!
@@ -163,7 +197,7 @@ export default function LandingPage() {
             <img
               src={heroIphone}
               alt="iPhone 17 Pro"
-              className="relative w-72 md:w-80 lg:w-[420px] drop-shadow-2xl"
+              className="relative w-[22.464rem] md:w-[24.96rem] lg:w-[32.76rem] drop-shadow-2xl"
               width={1024}
               height={1024}
             />
@@ -195,7 +229,14 @@ export default function LandingPage() {
             <div className="flex justify-center">
               <div className="relative">
                 <div className="absolute -inset-4 bg-gradient-to-br from-accent/40 to-secondary/10 rounded-3xl blur-2xl" />
-                <img src={mascote} alt="Mascote Zavo" className="relative w-56 lg:w-72 drop-shadow-lg" loading="lazy" width={1024} height={1024} />
+                <img
+                  src={mascote}
+                  alt="Mascote Zavo"
+                  className="relative w-56 lg:w-72 drop-shadow-lg"
+                  loading="lazy"
+                  width={1024}
+                  height={1024}
+                />
               </div>
             </div>
           </div>
@@ -324,7 +365,7 @@ export default function LandingPage() {
             </div>
 
             {/* Zavo */}
-            <div className="rounded-2xl bg-primary p-6 lg:p-8 text-primary-foreground">
+            <div className="rounded-2xl bg-gradient-to-br from-primary via-primary to-secondary p-6 lg:p-8 text-primary-foreground shadow-lg">
               <h3 className="font-bold text-lg mb-4">Financiar na Zavo</h3>
               <div className="space-y-2.5">
                 {[
@@ -373,34 +414,22 @@ export default function LandingPage() {
             <span className="text-secondary font-semibold text-sm uppercase tracking-wider">Diferenciais</span>
             <h2 className="text-3xl lg:text-4xl font-bold text-primary mt-3">Por que escolher a Zavo?</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {diferenciais.map((d) => (
-              <div key={d.title} className="text-center group">
+          <div ref={diffCardsRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {[...diferenciais, ...diferenciaisExtras].map((d, index) => (
+              <div
+                key={d.title}
+                className="text-center group transition-all duration-700 ease-out will-change-transform"
+                style={{
+                  transitionDelay: `${index * 90}ms`,
+                  opacity: diffCardsVisible ? 1 : 0,
+                  transform: diffCardsVisible ? "translateY(0)" : "translateY(18px)",
+                }}
+              >
                 <div className="w-16 h-16 rounded-2xl bg-accent/60 flex items-center justify-center mx-auto mb-5 group-hover:bg-secondary/15 transition-colors duration-300">
                   <d.icon className="h-7 w-7 text-primary" />
                 </div>
                 <h3 className="font-bold text-primary mb-2">{d.title}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">{d.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── BENEFÍCIOS BAR ─── */}
-      <section className="py-12 border-y border-border/40 bg-background/30">
-        <div className="max-w-7xl mx-auto px-4 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            {[
-              { icon: CreditCard, label: "Pagamentos", sub: "Parcelamento recorrente sem ocupar limite" },
-              { icon: Shield, label: "Proteção", sub: "Cobertura contra danos e imprevistos" },
-              { icon: Zap, label: "Frete grátis", sub: "Entregamos para todo o Brasil" },
-              { icon: MessageCircle, label: "Suporte", sub: "Atendimento humano via WhatsApp" },
-            ].map((b) => (
-              <div key={b.label} className="space-y-2">
-                <b.icon className="h-6 w-6 mx-auto text-muted-foreground" />
-                <p className="font-semibold text-primary text-sm">{b.label}</p>
-                <p className="text-xs text-muted-foreground">{b.sub}</p>
               </div>
             ))}
           </div>
@@ -427,7 +456,7 @@ export default function LandingPage() {
               <Button
                 size="lg"
                 variant="outline"
-                className="rounded-full px-8 w-full sm:w-auto border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11 rounded-full px-8 w-full sm:w-auto"
               >
                 Solicitar Análise
               </Button>
@@ -442,16 +471,20 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-5 gap-10">
             {/* Brand */}
             <div className="md:col-span-2 space-y-4">
-              <img src={logo} alt="Zavo" className="h-8" />
+              <img src={logo} alt="Zavo" className="h-32" />
               <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
                 Crédito alternativo para quem precisa. Acesso a tecnologia com parcelamento acessível e análise humanizada.
               </p>
               <div className="flex gap-3 pt-2">
-                {["instagram", "twitter", "facebook"].map((s) => (
-                  <a key={s} href="#" className="w-9 h-9 rounded-full bg-background flex items-center justify-center text-muted-foreground hover:text-secondary transition-colors">
-                    <span className="text-xs font-bold uppercase">{s[0]}</span>
-                  </a>
-                ))}
+                <a
+                  href="https://www.instagram.com/"
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Instagram da Zavo"
+                  className="w-[3.15rem] h-[3.15rem] rounded-full bg-background flex items-center justify-center text-muted-foreground hover:text-secondary transition-colors"
+                >
+                  <Instagram className="h-[1.4rem] w-[1.4rem]" strokeWidth={1.75} />
+                </a>
               </div>
             </div>
 
@@ -460,8 +493,6 @@ export default function LandingPage() {
               <h4 className="font-semibold text-primary text-sm mb-4">Sobre Nós</h4>
               <div className="space-y-2.5 text-sm text-muted-foreground">
                 <p className="hover:text-secondary cursor-pointer transition-colors">Quem somos</p>
-                <p className="hover:text-secondary cursor-pointer transition-colors">Blog</p>
-                <p className="hover:text-secondary cursor-pointer transition-colors">Trabalhe conosco</p>
               </div>
             </div>
 
