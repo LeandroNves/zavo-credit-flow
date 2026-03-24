@@ -298,3 +298,15 @@ export async function supabaseFinalizeContract(
   if (error) throw error;
   await recomputeClientRowStatus(sb, clientId);
 }
+
+export async function supabaseUpdateContractNumero(
+  sb: SupabaseClient,
+  contractId: string,
+  numero: string,
+) {
+  const { error } = await sb
+    .from("contracts")
+    .update({ numero })
+    .eq("id", contractId);
+  if (error) throw error;
+}

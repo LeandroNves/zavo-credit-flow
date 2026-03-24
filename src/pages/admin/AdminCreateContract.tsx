@@ -24,6 +24,7 @@ export default function AdminCreateContract() {
 
   const cliente = id ? getClienteById(id) : undefined;
 
+  const [numeroContrato, setNumeroContrato] = useState("");
   const [valorTotal, setValorTotal] = useState("");
   const [qtdParcelas, setQtdParcelas] = useState("12");
   const [diaVencimento, setDiaVencimento] = useState("10");
@@ -71,6 +72,7 @@ export default function AdminCreateContract() {
     setSubmitting(true);
     try {
       await createContractForCliente(id, {
+        numeroPersonalizado: numeroContrato,
         valorTotal: valorNum,
         parcelasCount: nParcelas,
         diaVencimento: dia,
@@ -117,6 +119,20 @@ export default function AdminCreateContract() {
         <div className="bg-card rounded-lg border p-6 space-y-4">
           <h2 className="font-semibold text-primary">Condições do crédito</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="numero-contrato">Identificação do contrato</Label>
+              <Input
+                id="numero-contrato"
+                placeholder="Ex.: 395-2025 (o # será adicionado se necessário)"
+                value={numeroContrato}
+                onChange={(e) => setNumeroContrato(e.target.value)}
+                autoComplete="off"
+              />
+              <p className="text-xs text-muted-foreground">
+                Opcional: se deixar em branco, um código é gerado automaticamente.
+                Não pode repetir outro contrato deste mesmo cliente.
+              </p>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="valor">Valor total do crédito (R$)</Label>
               <Input

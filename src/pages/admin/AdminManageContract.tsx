@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { useRef, useState } from "react";
-import { ArrowLeft, Check, Upload } from "lucide-react";
+import { ArrowLeft, Check, Pencil, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -20,7 +20,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useContractsData } from "@/contexts/ContractsDataContext";
+import { contractNumeroForInput } from "@/lib/contractNumero";
 import type { Parcela } from "@/data/mockData";
 import { toast } from "sonner";
 
@@ -28,12 +39,15 @@ export default function AdminManageContract() {
   const { id, contratoId } = useParams();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadParcelaNum, setUploadParcelaNum] = useState<number | null>(null);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [numeroEdit, setNumeroEdit] = useState("");
 
   const {
     getClienteById,
     updateParcelaStatus,
     uploadParcelaBoleto,
     finalizeContract,
+    renameContractNumero,
     ready,
     loading,
   } = useContractsData();
@@ -72,6 +86,17 @@ export default function AdminManageContract() {
     await finalizeContract(id, contratoId);
   };
 
+  const openRename = () => {
+    if (contrato) setNumeroEdit(contractNumeroForInput(contrato.numero));
+    setRenameOpen(true);
+  };
+
+  const handleRenameSave = async () => {
+    if (!id || !contratoId) return;
+    const ok = await renameContractNumero(id, contratoId, numeroEdit);
+    if (ok) setRenameOpen(false);
+  };
+
   if (!ready || loading) {
     return (
       <div className="text-center py-12 text-muted-foreground">
@@ -98,23 +123,64 @@ export default function AdminManageContract() {
         onChange={onFileChange}
       />
 
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Identificação do contrato</DialogTitle>
+            <DialogDescription>
+              Ex.: 395-2025 — o símbolo # é acrescentado automaticamente se faltar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="rename-numero">Nome / número do contrato</Label>
+            <Input
+              id="rename-numero"
+              value={numeroEdit}
+              onChange={(e) => setNumeroEdit(e.target.value)}
+              placeholder="395-2025"
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setRenameOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={() => void handleRenameSave()}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex items-center gap-3">
         <Link to={`/admin/cliente/${id}`}>
           <Button variant="ghost" size="icon" type="button">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-primary">
-            Contrato {contrato.numero}
-          </h1>
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-bold text-primary truncate">
+              Contrato {contrato.numero}
+            </h1>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-1 shrink-0"
+              onClick={openRename}
+            >
+              <Pencil className="h-3 w-3" />
+              Renomear
+            </Button>
+          </div>
           <p className="text-sm text-muted-foreground">
             {cliente.nome} • R$ {contrato.valor.toFixed(2).replace(".", ",")} •{" "}
             {contrato.parcelas} parcelas
           </p>
         </div>
         <span
-          className={`text-xs font-medium px-3 py-1 rounded-full ${contrato.status === "ativo" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}
+          className={`text-xs font-medium px-3 py-1 rounded-full shrink-0 ${contrato.status === "ativo" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}
         >
           {contrato.status === "ativo" ? "Ativo" : "Finalizado"}
         </span>

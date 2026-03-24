@@ -14,11 +14,13 @@ import {
   loadClientesFromLocalStorage,
   saveClientesToLocalStorage,
 } from "@/lib/contractsLocalStorage";
+import { isContractNumeroTaken, resolveContractNumero } from "@/lib/contractNumero";
 import {
   ensureSupabaseSeed,
   fetchClientesFromSupabase,
   supabaseCreateContractWithInstallments,
   supabaseFinalizeContract,
+  supabaseUpdateContractNumero,
   supabaseUpdateInstallmentStatus,
   supabaseUploadInstallmentBoleto,
 } from "@/lib/contractsSupabase";
@@ -41,6 +43,8 @@ function fileToDataUrl(file: File): Promise<string> {
 }
 
 export type CreateContractInput = {
+  /** Texto livre (ex.: 395-2025); vazio gera código automático. */
+  numeroPersonalizado: string;
   valorTotal: number;
   parcelasCount: number;
   diaVencimento: number;
@@ -73,6 +77,11 @@ type ContractsContextValue = {
     file: File,
   ) => Promise<void>;
   finalizeContract: (clientId: string, contractId: string) => Promise<void>;
+  renameContractNumero: (
+    clientId: string,
+    contractId: string,
+    rawNumero: string,
+  ) => Promise<boolean>;
   getClienteById: (id: string) => Cliente | undefined;
 };
 
@@ -161,7 +170,15 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
 
       const contractId = crypto.randomUUID();
       const year = new Date().getFullYear();
-      const numero = `#${contractId.slice(0, 6).toUpperCase()}-${year}`;
+      const autoNumero = `#${contractId.slice(0, 6).toUpperCase()}-${year}`;
+      const numero = resolveContractNumero(
+        input.numeroPersonalizado,
+        autoNumero,
+      );
+      if (isContractNumeroTaken(client, numero)) {
+        toast.error("Já existe um contrato com essa identificação neste cliente.");
+        return;
+      }
       const valorParcela =
         Math.round((input.valorTotal / input.parcelasCount) * 100) / 100;
 
@@ -358,6 +375,62 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
     [clientes, dataSource, persistLocal, reload],
   );
 
+  const renameContractNumero = useCallback(
+    async (
+      clientId: string,
+      contractId: string,
+      rawNumero: string,
+    ): Promise<boolean> => {
+      const client = clientes.find((c) => c.id === clientId);
+      if (!client) {
+        toast.error("Cliente não encontrado.");
+        return false;
+      }
+      const atual = client.contratos.find((c) => c.id === contractId)?.numero;
+      if (!atual) {
+        toast.error("Contrato não encontrado.");
+        return false;
+      }
+      if (!rawNumero.trim()) {
+        toast.error("Informe a identificação do contrato.");
+        return false;
+      }
+      const novo = resolveContractNumero(rawNumero, atual);
+      if (novo.toLowerCase() === atual.toLowerCase()) {
+        return true;
+      }
+      if (isContractNumeroTaken(client, novo, contractId)) {
+        toast.error("Já existe um contrato com essa identificação neste cliente.");
+        return false;
+      }
+      try {
+        if (dataSource === "supabase" && supabase) {
+          await supabaseUpdateContractNumero(supabase, contractId, novo);
+          await reload();
+        } else {
+          const next = clientes.map((c) => {
+            if (c.id !== clientId) return c;
+            return {
+              ...c,
+              contratos: c.contratos.map((k) =>
+                k.id === contractId ? { ...k, numero: novo } : k,
+              ),
+            };
+          });
+          setClientes(next);
+          persistLocal(next);
+        }
+        toast.success("Identificação do contrato atualizada.");
+        return true;
+      } catch (e) {
+        console.error(e);
+        toast.error("Falha ao atualizar identificação.");
+        return false;
+      }
+    },
+    [clientes, dataSource, persistLocal, reload],
+  );
+
   const value = useMemo(
     () => ({
       clientes,
@@ -369,6 +442,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       updateParcelaStatus,
       uploadParcelaBoleto,
       finalizeContract,
+      renameContractNumero,
       getClienteById,
     }),
     [
@@ -381,6 +455,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       updateParcelaStatus,
       uploadParcelaBoleto,
       finalizeContract,
+      renameContractNumero,
       getClienteById,
     ],
   );
