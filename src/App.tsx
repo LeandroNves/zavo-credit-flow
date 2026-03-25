@@ -29,6 +29,7 @@ import AdminManageContract from "./pages/admin/AdminManageContract";
 import AdminCreateContract from "./pages/admin/AdminCreateContract";
 import AdminPendingRegistrations from "./pages/admin/AdminPendingRegistrations";
 import AdminReports from "./pages/admin/AdminReports";
+import AdminProducts from "./pages/admin/AdminProducts";
 
 const queryClient = new QueryClient();
 
@@ -71,6 +72,7 @@ const App = () => (
             <Route path="cliente/:id/contrato/novo" element={<AdminCreateContract />} />
             <Route path="cliente/:id/contrato/:contratoId" element={<AdminManageContract />} />
             <Route path="pendentes" element={<AdminPendingRegistrations />} />
+            <Route path="produtos" element={<AdminProducts />} />
             <Route path="relatorios" element={<AdminReports />} />
           </Route>
 

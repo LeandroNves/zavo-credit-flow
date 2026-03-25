@@ -19,14 +19,55 @@ import {
   Menu,
   X as XIcon,
   Instagram,
+  ShoppingCart,
+  Minus,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import logo from "@/assets/logo.png";
 import mascote from "@/assets/mascote.png";
 import heroIphone from "@/assets/iphone17azul.png";
 import iphone17Digital from "@/assets/iPhone-17-Digital-PNG.png";
 import iphone17Enhanced from "@/assets/iPhone-17-Enhanced-Audio-Quality-PNG.png";
 import iphone17Branco from "@/assets/iphone17branco.png";
+import {
+  ALL_INSTALLMENTS,
+  type LandingProduct,
+  PRODUCTS_UPDATED_EVENT,
+  calculateInstallmentCents,
+  formatBRLFromCents,
+  loadLandingProducts,
+  makeProductId,
+} from "@/lib/productsStore";
+import {
+  CART_UPDATED_EVENT,
+  type CartItem,
+  loadCart,
+  makeCartItemId,
+  pickDefaultMonths,
+  saveCart,
+} from "@/lib/cartStore";
 
 /* ─── Intersection Observer fade-in hook ─── */
 function useFadeIn() {
@@ -53,36 +94,91 @@ function useFadeIn() {
   return ref;
 }
 
-function useInViewOnce<T extends HTMLElement>() {
-  const ref = useRef<T | null>(null);
-  const [isVisible, setIsVisible] = useState(false);
+const seedProducts: LandingProduct[] = [
+  {
+    id: makeProductId(),
+    name: "iPhone 17 Pro max",
+    color: "Laranja",
+    imageSrc: iphone17Digital,
+    priceCents: 0,
+    enabledMonths: [...ALL_INSTALLMENTS],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: makeProductId(),
+    name: "iPhone 17",
+    color: "Titânio Azul",
+    imageSrc: iphone17Enhanced,
+    priceCents: 0,
+    enabledMonths: [...ALL_INSTALLMENTS],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: makeProductId(),
+    name: "iPhone 17 Pro Max",
+    color: "Titânio Branco",
+    imageSrc: iphone17Branco,
+    priceCents: 0,
+    enabledMonths: [...ALL_INSTALLMENTS],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+function useLandingProducts() {
+  const [products, setProducts] = useState<LandingProduct[]>(() => loadLandingProducts(seedProducts));
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el || isVisible) return;
+    const onUpdate = () => setProducts(loadLandingProducts(seedProducts));
+    window.addEventListener(PRODUCTS_UPDATED_EVENT, onUpdate);
+    return () => window.removeEventListener(PRODUCTS_UPDATED_EVENT, onUpdate);
+  }, []);
 
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-          obs.unobserve(el);
-        }
-      },
-      { threshold: 0.2, rootMargin: "0px 0px -8% 0px" }
-    );
-
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [isVisible]);
-
-  return { ref, isVisible };
+  return products;
 }
 
-const products = [
-  { name: "iPhone 17 Pro max", img: iphone17Digital, color: "Laranja" },
-  { name: "iPhone 17", img: iphone17Enhanced, color: "Titânio Azul" },
-  { name: "iPhone 17 Pro Max", img: iphone17Branco, color: "Titânio Branco" },
-];
+function useCart() {
+  const [items, setItems] = useState<CartItem[]>(() => loadCart());
+
+  useEffect(() => {
+    const onUpdate = () => setItems(loadCart());
+    window.addEventListener(CART_UPDATED_EVENT, onUpdate);
+    return () => window.removeEventListener(CART_UPDATED_EVENT, onUpdate);
+  }, []);
+
+  const persist = (next: CartItem[]) => {
+    setItems(next);
+    saveCart(next);
+  };
+
+  return { items, persist };
+}
+
+function buildWhatsAppMessage(args: {
+  items: CartItem[];
+  products: LandingProduct[];
+}): string {
+  const { items, products } = args;
+  const byId = new Map(products.map((p) => [p.id, p]));
+  const lines: string[] = [];
+  lines.push("Olá! Quero finalizar um pedido na Zavo:");
+  lines.push("");
+
+  for (const it of items) {
+    const p = byId.get(it.productId);
+    if (!p) continue;
+    const per = calculateInstallmentCents(p.priceCents, it.months);
+    lines.push(
+      `- ${it.qty}x ${p.name}${p.color ? ` (${p.color})` : ""} — ${it.months}x de ${formatBRLFromCents(per)}`,
+    );
+  }
+
+  lines.push("");
+  lines.push("Pode me ajudar a concluir?");
+  return lines.join("\n");
+}
 
 const services = [
   { icon: CreditCard, title: "Crédito Facilitado", desc: "Soluções de crédito para quem precisa, sem burocracia desnecessária." },
@@ -107,7 +203,9 @@ const diferenciaisExtras = [
 
 export default function LandingPage() {
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const products = useLandingProducts();
+  const { items: cartItems, persist: persistCart } = useCart();
+  const [cartOpen, setCartOpen] = useState(false);
 
   const heroRef = useFadeIn();
   const aboutRef = useFadeIn();
@@ -116,7 +214,48 @@ export default function LandingPage() {
   const compareRef = useFadeIn();
   const diffRef = useFadeIn();
   const ctaRef = useFadeIn();
-  const { ref: diffCardsRef, isVisible: diffCardsVisible } = useInViewOnce<HTMLDivElement>();
+
+  const cartCount = cartItems.reduce((sum, it) => sum + it.qty, 0);
+
+  const addToCart = (productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
+    const months = pickDefaultMonths(product);
+
+    const existingIdx = cartItems.findIndex((it) => it.productId === productId && it.months === months);
+    if (existingIdx >= 0) {
+      const next = cartItems.map((it, i) => (i === existingIdx ? { ...it, qty: Math.min(99, it.qty + 1) } : it));
+      persistCart(next);
+      setCartOpen(true);
+      return;
+    }
+
+    const next: CartItem[] = [
+      { id: makeCartItemId(), productId, months, qty: 1, addedAt: new Date().toISOString() },
+      ...cartItems,
+    ];
+    persistCart(next);
+    setCartOpen(true);
+  };
+
+  const setQty = (id: string, qty: number) => {
+    const q = Math.max(1, Math.min(99, Math.round(qty)));
+    persistCart(cartItems.map((it) => (it.id === id ? { ...it, qty: q } : it)));
+  };
+
+  const setMonths = (id: string, months: number) => {
+    if (![6, 12, 18, 24].includes(months)) return;
+    persistCart(cartItems.map((it) => (it.id === id ? { ...it, months: months as any } : it)));
+  };
+
+  const removeItem = (id: string) => persistCart(cartItems.filter((it) => it.id !== id));
+  const clearCart = () => persistCart([]);
+
+  const goCheckoutWhatsApp = () => {
+    const msg = buildWhatsAppMessage({ items: cartItems, products });
+    const url = `https://wa.me/5511999999999?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank", "noreferrer");
+  };
 
   return (
     <div className="min-h-screen bg-white scroll-smooth">
@@ -136,6 +275,19 @@ export default function LandingPage() {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setCartOpen(true)}
+              className="relative rounded-full p-2 text-foreground/70 hover:text-foreground transition-colors"
+              aria-label="Abrir carrinho"
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-secondary text-secondary-foreground text-[11px] font-bold flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </button>
             <Link to="/login">
               <Button variant="ghost" size="sm" className="text-foreground/70 hover:text-foreground">Entrar</Button>
             </Link>
@@ -144,10 +296,26 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          {/* Mobile hamburger */}
-          <button className="md:hidden p-2" onClick={() => setMobileMenu(!mobileMenu)}>
-            {mobileMenu ? <XIcon className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          {/* Mobile actions */}
+          <div className="md:hidden flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setCartOpen(true)}
+              className="relative rounded-full p-2 text-foreground/70 hover:text-foreground transition-colors"
+              aria-label="Abrir carrinho"
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-secondary text-secondary-foreground text-[11px] font-bold flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+
+            <button className="p-2" onClick={() => setMobileMenu(!mobileMenu)} aria-label="Abrir menu">
+              {mobileMenu ? <XIcon className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile menu */}
@@ -164,6 +332,116 @@ export default function LandingPage() {
           </div>
         )}
       </nav>
+
+      {/* ─── CART SHEET ─── */}
+      <Sheet open={cartOpen} onOpenChange={setCartOpen}>
+        <SheetContent side="left" className="w-full sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Carrinho</SheetTitle>
+          </SheetHeader>
+
+          <div className="mt-6 flex flex-col h-[calc(100vh-7rem)]">
+            {cartItems.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground">
+                <ShoppingCart className="h-10 w-10 mb-3 opacity-50" />
+                <p className="font-medium text-foreground">Seu carrinho está vazio</p>
+                <p className="text-sm mt-1">Adicione produtos para continuar.</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex-1 overflow-auto pr-1 space-y-4">
+                  {cartItems.map((it) => {
+                    const p = products.find((x) => x.id === it.productId);
+                    if (!p) return null;
+                    const allowedMonths = (p.enabledMonths?.length ? p.enabledMonths : ALL_INSTALLMENTS).slice().sort((a, b) => a - b);
+                    const per = calculateInstallmentCents(p.priceCents, it.months);
+                    return (
+                      <div key={it.id} className="border rounded-xl p-3 bg-background">
+                        <div className="flex gap-3">
+                          <div className="w-16 h-16 rounded-lg border bg-white flex items-center justify-center overflow-hidden">
+                            <img src={p.imageSrc} alt={p.name} className="h-14 object-contain" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="font-semibold text-primary truncate">{p.name}</p>
+                                {p.color && <p className="text-xs text-muted-foreground truncate">{p.color}</p>}
+                              </div>
+                              <button
+                                type="button"
+                                className="text-muted-foreground hover:text-destructive transition-colors"
+                                onClick={() => removeItem(it.id)}
+                                aria-label="Remover item"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+
+                            <div className="mt-3 grid grid-cols-2 gap-2 items-center">
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Parcelas</p>
+                                <Select value={String(it.months)} onValueChange={(v) => setMonths(it.id, Number(v))}>
+                                  <SelectTrigger className="h-9">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {allowedMonths.map((m) => (
+                                      <SelectItem key={m} value={String(m)}>
+                                        {m}x
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Qtd</p>
+                                <div className="flex items-center justify-between border rounded-md h-9 px-2 bg-white">
+                                  <button
+                                    type="button"
+                                    className="p-1 text-muted-foreground hover:text-foreground"
+                                    onClick={() => setQty(it.id, it.qty - 1)}
+                                    aria-label="Diminuir quantidade"
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </button>
+                                  <span className="text-sm font-medium">{it.qty}</span>
+                                  <button
+                                    type="button"
+                                    className="p-1 text-muted-foreground hover:text-foreground"
+                                    onClick={() => setQty(it.id, it.qty + 1)}
+                                    aria-label="Aumentar quantidade"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            <p className="mt-3 text-sm text-muted-foreground">
+                              <span className="font-semibold text-primary">{it.months}x</span> de{" "}
+                              <span className="font-semibold text-primary">{formatBRLFromCents(per)}</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-4 border-t mt-4 space-y-2">
+                  <Button className="w-full rounded-full" onClick={goCheckoutWhatsApp}>
+                    Finalizar compra
+                  </Button>
+                  <Button variant="outline" className="w-full rounded-full" onClick={clearCart}>
+                    Limpar carrinho
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* ─── HERO ─── */}
       <section className="relative overflow-hidden bg-gradient-to-br from-white via-background to-accent/30">
@@ -251,68 +529,75 @@ export default function LandingPage() {
             <h2 className="text-3xl lg:text-4xl font-bold text-primary mt-3">Produtos mais procurados</h2>
           </div>
 
-          {/* Desktop grid */}
-          <div className="hidden md:grid grid-cols-3 gap-8">
-            {products.map((p) => (
-              <div
-                key={p.name}
-                className="group bg-white rounded-2xl p-8 border border-border/50 hover:shadow-xl hover:border-secondary/30 transition-all duration-300 text-center"
-              >
-                <div className="h-56 flex items-center justify-center mb-6">
-                  <img
-                    src={p.img}
-                    alt={p.name}
-                    className="h-48 object-contain group-hover:scale-105 transition-transform duration-500"
-                    loading="lazy"
-                    width={600}
-                    height={800}
-                  />
-                </div>
-                <h3 className="text-lg font-bold text-primary">{p.name}</h3>
-                <p className="text-sm text-muted-foreground mt-1">{p.color}</p>
-              </div>
-            ))}
-          </div>
+          <Carousel
+            opts={{ align: "start", loop: true }}
+            className="max-w-6xl mx-auto"
+          >
+            <CarouselContent>
+              {products.map((p) => {
+                const months = (p.enabledMonths?.length ? p.enabledMonths : ALL_INSTALLMENTS).slice().sort((a, b) => a - b);
+                return (
+                  <CarouselItem key={p.id} className="md:basis-1/2 lg:basis-1/3">
+                    <div className="group bg-white rounded-2xl p-8 border border-border/50 hover:shadow-xl hover:border-secondary/30 transition-all duration-300 text-center h-full">
+                      <div className="h-56 flex items-center justify-center mb-6">
+                        <img
+                          src={p.imageSrc}
+                          alt={p.name}
+                          className="h-48 object-contain group-hover:scale-105 transition-transform duration-500"
+                          loading="lazy"
+                          width={600}
+                          height={800}
+                        />
+                      </div>
+                      <h3 className="text-lg font-bold text-primary">{p.name}</h3>
+                      <p className="text-sm text-muted-foreground mt-1">{p.color}</p>
 
-          {/* Mobile carousel */}
-          <div className="md:hidden">
-            <div className="relative">
-              <div className="overflow-hidden">
-                <div
-                  className="flex transition-transform duration-300"
-                  style={{ transform: `translateX(-${currentSlide * 100}%)` }}
-                >
-                  {products.map((p) => (
-                    <div key={p.name} className="w-full flex-shrink-0 px-4">
-                      <div className="bg-white rounded-2xl p-8 border border-border/50 text-center">
-                        <div className="h-48 flex items-center justify-center mb-4">
-                          <img src={p.img} alt={p.name} className="h-40 object-contain" loading="lazy" width={600} height={800} />
-                        </div>
-                        <h3 className="text-lg font-bold text-primary">{p.name}</h3>
-                        <p className="text-sm text-muted-foreground mt-1">{p.color}</p>
+                      <div className="mt-5 space-y-1.5">
+                        {months.map((m) => {
+                          const per = calculateInstallmentCents(p.priceCents, m);
+                          // se o admin ainda não preencheu preço, evita mostrar "R$ 0,00"
+                          if (!p.priceCents) return null;
+                          return (
+                            <div key={m} className="text-sm text-muted-foreground">
+                              <span className="font-semibold text-primary">{m}x</span>{" "}
+                              de{" "}
+                              <span className="font-semibold text-primary">
+                                {formatBRLFromCents(per)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {!p.priceCents && (
+                          <div className="text-sm text-muted-foreground">
+                            Consulte condições pelo WhatsApp.
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-6">
+                        <Button
+                          className="rounded-full w-full"
+                          onClick={() => addToCart(p.id)}
+                          disabled={!p.priceCents}
+                        >
+                          <ShoppingCart className="h-4 w-4" /> Adicionar ao carrinho
+                        </Button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-              <div className="flex justify-center gap-2 mt-6">
-                {products.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setCurrentSlide(i)}
-                    className={`w-2.5 h-2.5 rounded-full transition-colors ${i === currentSlide ? "bg-secondary" : "bg-border"}`}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
+                  </CarouselItem>
+                );
+              })}
+            </CarouselContent>
+
+            <CarouselPrevious className="hidden md:flex" />
+            <CarouselNext className="hidden md:flex" />
+
+            {/* Mobile controls (precisam ficar dentro do Carousel) */}
+            <CarouselPrevious className="md:hidden left-3 top-full mt-6 translate-y-0" />
+            <CarouselNext className="md:hidden right-3 top-full mt-6 translate-y-0" />
+          </Carousel>
 
           <div className="text-center mt-12">
-            <Link to="/cadastro">
-              <Button variant="outline" className="rounded-full gap-2 px-8">
-                Ver produtos <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
           </div>
         </div>
       </section>
@@ -414,17 +699,9 @@ export default function LandingPage() {
             <span className="text-secondary font-semibold text-sm uppercase tracking-wider">Diferenciais</span>
             <h2 className="text-3xl lg:text-4xl font-bold text-primary mt-3">Por que escolher a Zavo?</h2>
           </div>
-          <div ref={diffCardsRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[...diferenciais, ...diferenciaisExtras].map((d, index) => (
-              <div
-                key={d.title}
-                className="text-center group transition-all duration-700 ease-out will-change-transform"
-                style={{
-                  transitionDelay: `${index * 90}ms`,
-                  opacity: diffCardsVisible ? 1 : 0,
-                  transform: diffCardsVisible ? "translateY(0)" : "translateY(18px)",
-                }}
-              >
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {[...diferenciais, ...diferenciaisExtras].map((d) => (
+              <div key={d.title} className="text-center group">
                 <div className="w-16 h-16 rounded-2xl bg-accent/60 flex items-center justify-center mx-auto mb-5 group-hover:bg-secondary/15 transition-colors duration-300">
                   <d.icon className="h-7 w-7 text-primary" />
                 </div>

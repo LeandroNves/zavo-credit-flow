@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { Users, Clock, BarChart3, LogOut, Menu, X, Shield } from "lucide-react";
+import { Users, Clock, BarChart3, LogOut, Menu, X, Shield, ShoppingBag } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
@@ -7,6 +7,7 @@ import mascote from "@/assets/mascote.png";
 
 const menuItems = [
   { icon: Users, label: "Gestão de Clientes", path: "/admin" },
+  { icon: ShoppingBag, label: "Produtos (Landing)", path: "/admin/produtos" },
   { icon: Clock, label: "Cadastros Pendentes", path: "/admin/pendentes" },
   { icon: BarChart3, label: "Relatórios", path: "/admin/relatorios" },
 ];

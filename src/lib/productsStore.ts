@@ -1,0 +1,136 @@
+export type InstallmentMonths = 6 | 12 | 18 | 24;
+
+export type LandingProduct = {
+  id: string;
+  name: string;
+  color: string;
+  priceCents: number;
+  imageSrc: string;
+  enabledMonths: InstallmentMonths[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+const STORAGE_KEY = "zavo_landing_products_v1";
+export const PRODUCTS_UPDATED_EVENT = "zavo:products-updated";
+
+export const INSTALLMENT_RATES: Record<InstallmentMonths, number> = {
+  6: 0.6,
+  12: 0.96,
+  18: 1.44,
+  24: 1.92,
+};
+
+export const ALL_INSTALLMENTS: InstallmentMonths[] = [6, 12, 18, 24];
+
+function isInstallmentMonths(n: number): n is InstallmentMonths {
+  return n === 6 || n === 12 || n === 18 || n === 24;
+}
+
+function safeString(v: unknown): string {
+  return typeof v === "string" ? v : "";
+}
+
+function safeNumber(v: unknown): number {
+  return typeof v === "number" && Number.isFinite(v) ? v : 0;
+}
+
+function normalizeEnabledMonths(v: unknown): InstallmentMonths[] {
+  const raw = Array.isArray(v) ? v : [];
+  const out = raw
+    .map((x) => (typeof x === "number" ? x : Number.NaN))
+    .filter((x): x is number => Number.isFinite(x) && isInstallmentMonths(x))
+    .filter((x, i, a) => a.indexOf(x) === i)
+    .sort((a, b) => a - b) as InstallmentMonths[];
+  return out.length ? out : ALL_INSTALLMENTS;
+}
+
+function normalizeProduct(p: unknown): LandingProduct | null {
+  if (!p || typeof p !== "object") return null;
+  const obj = p as Record<string, unknown>;
+
+  const id = safeString(obj.id).trim();
+  const name = safeString(obj.name).trim();
+  const color = safeString(obj.color).trim();
+  const imageSrc = safeString(obj.imageSrc).trim();
+  const priceCents = Math.max(0, Math.round(safeNumber(obj.priceCents)));
+
+  if (!id || !name || !imageSrc) return null;
+
+  const nowIso = new Date().toISOString();
+  const createdAt = safeString(obj.createdAt) || nowIso;
+  const updatedAt = safeString(obj.updatedAt) || nowIso;
+
+  return {
+    id,
+    name,
+    color,
+    imageSrc,
+    priceCents,
+    enabledMonths: normalizeEnabledMonths(obj.enabledMonths),
+    createdAt,
+    updatedAt,
+  };
+}
+
+export function loadLandingProducts(seed?: LandingProduct[]): LandingProduct[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      if (seed?.length) {
+        saveLandingProducts(seed);
+        return seed;
+      }
+      return [];
+    }
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    const normalized = parsed.map(normalizeProduct).filter(Boolean) as LandingProduct[];
+    if (normalized.length === 0) return [];
+    return normalized;
+  } catch {
+    return seed?.length ? seed : [];
+  }
+}
+
+export function saveLandingProducts(list: LandingProduct[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  } catch {
+    /* ignore quota errors */
+  }
+  try {
+    window.dispatchEvent(new Event(PRODUCTS_UPDATED_EVENT));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function formatBRLFromCents(cents: number): string {
+  const value = (Math.round(cents) || 0) / 100;
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+}
+
+/**
+ * Regra "preço charme":
+ * - arredonda o valor da parcela para o próximo múltiplo de R$10,00
+ * - e finaliza com R$X...9,99 (ex.: 1866,66 -> 1869,99)
+ */
+export function charmRoundToTenMinusOneCent(perInstallmentCents: number): number {
+  const tenReaisInCents = 1000;
+  const ceilToTen = Math.ceil(perInstallmentCents / tenReaisInCents) * tenReaisInCents;
+  return Math.max(0, ceilToTen - 1);
+}
+
+export function calculateInstallmentCents(priceCents: number, months: InstallmentMonths): number {
+  const rate = INSTALLMENT_RATES[months];
+  const totalCents = Math.round(priceCents * (1 + rate));
+  const rawPerInstallment = totalCents / months;
+  return charmRoundToTenMinusOneCent(rawPerInstallment);
+}
+
+export function makeProductId(): string {
+  // bom o suficiente para chave local (sem dependências)
+  return `prod_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
