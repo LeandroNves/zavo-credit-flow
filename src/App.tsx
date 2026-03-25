@@ -19,6 +19,7 @@ import ClientLayout from "./pages/client/ClientLayout";
 import ClientContracts from "./pages/client/ClientContracts";
 import ClientContractDetail from "./pages/client/ClientContractDetail";
 import ClientPersonalData from "./pages/client/ClientPersonalData";
+import ClientProducts from "./pages/client/ClientProducts";
 
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminClients from "./pages/admin/AdminClients";
@@ -28,6 +29,7 @@ import AdminClientData from "./pages/admin/AdminClientData";
 import AdminManageContract from "./pages/admin/AdminManageContract";
 import AdminCreateContract from "./pages/admin/AdminCreateContract";
 import AdminPendingRegistrations from "./pages/admin/AdminPendingRegistrations";
+import AdminPendingProductRequests from "./pages/admin/AdminPendingProductRequests";
 import AdminReports from "./pages/admin/AdminReports";
 import AdminProducts from "./pages/admin/AdminProducts";
 
@@ -53,6 +55,7 @@ const App = () => (
           <Route path="/cliente" element={<ClientLayout />}>
             <Route index element={<ClientContracts />} />
             <Route path="contrato/:id" element={<ClientContractDetail />} />
+            <Route path="produtos" element={<ClientProducts />} />
             <Route path="dados" element={<ClientPersonalData />} />
           </Route>
 
@@ -73,6 +76,7 @@ const App = () => (
             <Route path="cliente/:id/contrato/:contratoId" element={<AdminManageContract />} />
             <Route path="pendentes" element={<AdminPendingRegistrations />} />
             <Route path="produtos" element={<AdminProducts />} />
+            <Route path="produtos-pendentes" element={<AdminPendingProductRequests />} />
             <Route path="relatorios" element={<AdminReports />} />
           </Route>
 

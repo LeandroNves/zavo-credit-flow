@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { User, FileText, LogOut, Menu, X } from "lucide-react";
+import { User, FileText, LogOut, Menu, ShoppingBag, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
@@ -9,6 +9,7 @@ import { clearClienteAtualId, setClienteAtualId } from "@/lib/clienteSession";
 
 const menuItems = [
   { icon: FileText, label: "Contratos", path: "/cliente" },
+  { icon: ShoppingBag, label: "Produtos", path: "/cliente/produtos" },
   { icon: User, label: "Dados Pessoais", path: "/cliente/dados" },
 ];
 

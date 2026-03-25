@@ -33,12 +33,37 @@ const DOC_LABELS: { key: DocKey; label: string }[] = [
   { key: "doc_extrato_path", label: "Extrato bancário" },
 ];
 
+type InterestCartItem = {
+  qty?: number;
+  name?: string;
+  color?: string;
+  months?: number;
+  perInstallmentBRL?: string;
+};
+
+function readInterestCartItems(value: unknown): InterestCartItem[] {
+  if (!value || typeof value !== "object") return [];
+  const maybeItems = (value as { items?: unknown }).items;
+  if (!Array.isArray(maybeItems)) return [];
+  return maybeItems
+    .filter((it): it is InterestCartItem => Boolean(it) && typeof it === "object")
+    .map((it) => ({
+      qty: typeof it.qty === "number" ? it.qty : undefined,
+      name: typeof it.name === "string" ? it.name : undefined,
+      color: typeof it.color === "string" ? it.color : undefined,
+      months: typeof it.months === "number" ? it.months : undefined,
+      perInstallmentBRL:
+        typeof it.perInstallmentBRL === "string" ? it.perInstallmentBRL : undefined,
+    }));
+}
+
 export default function AdminPendingRegistrations() {
   const { reload: reloadContracts } = useContractsData();
   const [pendentes, setPendentes] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ProfileRow | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const selectedInterestItems = selected ? readInterestCartItems(selected.interest_cart) : [];
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured || !supabase) {
@@ -135,6 +160,47 @@ export default function AdminPendingRegistrations() {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="bg-card rounded-lg border p-6 space-y-4">
+          <h2 className="font-semibold text-primary">Interesse do cliente</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-muted-foreground">Tipo</p>
+              <p className="text-sm font-medium">
+                {selected.interest_type === "emprestimo"
+                  ? "Empréstimo"
+                  : selected.interest_type === "produto"
+                    ? "Produto"
+                    : "Ambos"}
+              </p>
+            </div>
+          </div>
+
+          {selectedInterestItems.length > 0 &&
+          (selected.interest_type === "produto" || selected.interest_type === "ambos") ? (
+            <div className="rounded-lg border bg-background p-4 space-y-2">
+              <p className="text-sm font-medium text-primary">Produtos selecionados</p>
+              {selectedInterestItems.map((it, idx) => (
+                <div key={`${it.name ?? "item"}-${idx}`} className="text-sm text-muted-foreground">
+                  <span className="font-medium text-primary">{it.qty ?? 1}x</span>{" "}
+                  {it.name || "Produto"}
+                  {it.color ? ` (${it.color})` : ""} —{" "}
+                  <span className="font-medium text-primary">{it.months ?? "-" }x</span>{" "}
+                  de{" "}
+                  <span className="font-medium text-primary">
+                    {it.perInstallmentBRL || "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            (selected.interest_type === "produto" || selected.interest_type === "ambos") && (
+              <p className="text-sm text-muted-foreground">
+                Nenhum produto anexado ao cadastro.
+              </p>
+            )
+          )}
         </div>
 
         <div className="bg-card rounded-lg border p-6 space-y-4">

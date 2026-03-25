@@ -575,3 +575,46 @@ export async function supabaseDeleteContract(
   if (dErr) throw dErr;
   await recomputeClientRowStatus(sb, clientId);
 }
+
+/** Remove cliente e dados vinculados (contratos/parcelas em cascade + boletos do storage). */
+export async function supabaseDeleteClient(
+  sb: SupabaseClient,
+  clientId: string,
+) {
+  // Remove perfil vinculado ao cliente (cadastro/portal), se existir.
+  // Obs.: apagar auth.users exige service role (não disponível no front-end).
+  const { error: pErr } = await sb
+    .from("profiles")
+    .delete()
+    .eq("linked_client_id", clientId);
+  if (pErr) throw pErr;
+
+  const { data: contracts, error: cErr } = await sb
+    .from("contracts")
+    .select("id")
+    .eq("client_id", clientId);
+  if (cErr) throw cErr;
+
+  const contractIds = (contracts || []).map((c) => c.id as string);
+  if (contractIds.length > 0) {
+    const { data: instRows, error: iErr } = await sb
+      .from("installments")
+      .select("boleto_storage_path")
+      .in("contract_id", contractIds);
+    if (iErr) throw iErr;
+
+    const paths = (instRows || [])
+      .map((r) => r.boleto_storage_path as string | null)
+      .filter((p): p is string => Boolean(p));
+
+    if (paths.length > 0) {
+      const { error: rmErr } = await sb.storage.from("boletos").remove(paths);
+      if (rmErr) {
+        console.warn("Storage boletos:", rmErr);
+      }
+    }
+  }
+
+  const { error: dErr } = await sb.from("clients").delete().eq("id", clientId);
+  if (dErr) throw dErr;
+}

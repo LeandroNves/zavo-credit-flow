@@ -1,7 +1,18 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, User, MapPin, DollarSign, FileText, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useContractsData } from "@/contexts/ContractsDataContext";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -14,8 +25,15 @@ function Field({ label, value }: { label: string; value: string }) {
 
 export default function AdminClientData() {
   const { id } = useParams();
-  const { getClienteById, ready, loading } = useContractsData();
+  const navigate = useNavigate();
+  const { getClienteById, deleteCliente, ready, loading } = useContractsData();
   const cliente = id ? getClienteById(id) : undefined;
+
+  const handleDeleteClient = async () => {
+    if (!id) return;
+    const ok = await deleteCliente(id);
+    if (ok) navigate("/admin");
+  };
 
   if (!ready || loading) {
     return <div className="text-center py-12 text-muted-foreground">Carregando…</div>;
@@ -32,7 +50,41 @@ export default function AdminClientData() {
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" className="gap-2"><Pencil className="h-3 w-3" /> Editar</Button>
-          <Button size="sm" variant="destructive" className="gap-2"><Trash2 className="h-3 w-3" /> Excluir</Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="destructive" className="gap-2">
+                <Trash2 className="h-3 w-3" /> Excluir
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Excluir este cliente para sempre?</AlertDialogTitle>
+                <AlertDialogDescription className="text-left space-y-3">
+                  <span className="block font-medium text-destructive">
+                    Esta ação não pode ser desfeita pelo painel.
+                  </span>
+                  <span className="block text-foreground">
+                    Serão removidos permanentemente os dados do cliente, contratos,
+                    parcelas e arquivos de boletos associados.
+                  </span>
+                  <span className="block">
+                    Use esta opção apenas quando tiver certeza de que o usuário deve
+                    ser removido do sistema.
+                  </span>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel type="button">Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  type="button"
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={() => void handleDeleteClient()}
+                >
+                  Sim, excluir permanentemente
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 

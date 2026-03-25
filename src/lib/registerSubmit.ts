@@ -102,6 +102,8 @@ export async function submitRegistration(
       dependentes: form.dependentes.trim(),
       tipo_moradia: form.tipoMoradia,
       outras_rendas: form.outrasRendas.trim(),
+      interest_type: form.interesseTipo || "emprestimo",
+      interest_cart: form.interesseCarrinho,
       doc_rg_path: rgPath,
       doc_selfie_path: selfiePath,
       doc_comprovante_path: compPath,

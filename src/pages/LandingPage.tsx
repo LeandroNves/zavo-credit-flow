@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import {
   CreditCard,
@@ -68,6 +68,10 @@ import {
   pickDefaultMonths,
   saveCart,
 } from "@/lib/cartStore";
+import {
+  buildCartSnapshot,
+  saveRegistrationInterest,
+} from "@/lib/registrationInterest";
 
 /* ─── Intersection Observer fade-in hook ─── */
 function useFadeIn() {
@@ -206,6 +210,7 @@ export default function LandingPage() {
   const products = useLandingProducts();
   const { items: cartItems, persist: persistCart } = useCart();
   const [cartOpen, setCartOpen] = useState(false);
+  const navigate = useNavigate();
 
   const heroRef = useFadeIn();
   const aboutRef = useFadeIn();
@@ -251,10 +256,22 @@ export default function LandingPage() {
   const removeItem = (id: string) => persistCart(cartItems.filter((it) => it.id !== id));
   const clearCart = () => persistCart([]);
 
-  const goCheckoutWhatsApp = () => {
-    const msg = buildWhatsAppMessage({ items: cartItems, products });
-    const url = `https://wa.me/5511999999999?text=${encodeURIComponent(msg)}`;
-    window.open(url, "_blank", "noreferrer");
+  const goCheckoutCadastro = () => {
+    const hasMissingPrice = cartItems.some((it) => {
+      const p = products.find((x) => x.id === it.productId);
+      return !p || !p.priceCents;
+    });
+    if (hasMissingPrice) {
+      // Não prossegue sem preço configurado para não gerar parcelas inválidas
+      setCartOpen(true);
+      return;
+    }
+    saveRegistrationInterest({
+      interestType: "produto",
+      cart: buildCartSnapshot({ cartItems, products }),
+    });
+    setCartOpen(false);
+    navigate("/cadastro");
   };
 
   return (
@@ -420,7 +437,9 @@ export default function LandingPage() {
 
                             <p className="mt-3 text-sm text-muted-foreground">
                               <span className="font-semibold text-primary">{it.months}x</span> de{" "}
-                              <span className="font-semibold text-primary">{formatBRLFromCents(per)}</span>
+                              <span className="font-semibold text-primary">
+                                {p.priceCents ? formatBRLFromCents(per) : "—"}
+                              </span>
                             </p>
                           </div>
                         </div>
@@ -430,7 +449,11 @@ export default function LandingPage() {
                 </div>
 
                 <div className="pt-4 border-t mt-4 space-y-2">
-                  <Button className="w-full rounded-full" onClick={goCheckoutWhatsApp}>
+                  <Button
+                    className="w-full rounded-full"
+                    onClick={goCheckoutCadastro}
+                    disabled={cartItems.some((it) => !products.find((p) => p.id === it.productId)?.priceCents)}
+                  >
                     Finalizar compra
                   </Button>
                   <Button variant="outline" className="w-full rounded-full" onClick={clearCart}>
@@ -578,7 +601,6 @@ export default function LandingPage() {
                         <Button
                           className="rounded-full w-full"
                           onClick={() => addToCart(p.id)}
-                          disabled={!p.priceCents}
                         >
                           <ShoppingCart className="h-4 w-4" /> Adicionar ao carrinho
                         </Button>

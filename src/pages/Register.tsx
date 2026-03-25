@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,10 +14,19 @@ import { Check, Upload, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import { submitRegistration } from "@/lib/registerSubmit";
+import {
+  clearRegistrationInterest,
+  loadRegistrationInterest,
+  saveRegistrationInterest,
+  type RegistrationCartSnapshot,
+  type RegistrationInterestType,
+} from "@/lib/registrationInterest";
 
-const steps = ["Dados Pessoais", "Endereço", "Financeiro", "Criar Senha"];
+const steps = ["Objetivo", "Dados Pessoais", "Endereço", "Financeiro", "Criar Senha"];
 
 export type RegisterFormState = {
+  interesseTipo: RegistrationInterestType | "";
+  interesseCarrinho: RegistrationCartSnapshot | null;
   nome: string;
   cpf: string;
   email: string;
@@ -43,6 +52,8 @@ export type RegisterFormState = {
 };
 
 const emptyForm: RegisterFormState = {
+  interesseTipo: "",
+  interesseCarrinho: null,
   nome: "",
   cpf: "",
   email: "",
@@ -75,7 +86,15 @@ function isValidEmail(s: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 }
 
-function validateStep0(f: RegisterFormState): string | null {
+function validateStepObjective(f: RegisterFormState): string | null {
+  if (!f.interesseTipo) return "Selecione o que você deseja (Empréstimo, Produto ou Ambos).";
+  if ((f.interesseTipo === "produto" || f.interesseTipo === "ambos") && (!f.interesseCarrinho || f.interesseCarrinho.items.length === 0)) {
+    return "Você selecionou Produto, mas não escolheu nenhum item. Volte e selecione os produtos antes de continuar.";
+  }
+  return null;
+}
+
+function validateStepPersonal(f: RegisterFormState): string | null {
   if (!isNonEmpty(f.nome)) return "Informe o nome completo.";
   if (!isNonEmpty(f.cpf)) return "Informe o CPF.";
   if (!isNonEmpty(f.email)) return "Informe o e-mail.";
@@ -89,14 +108,14 @@ function validateStep0(f: RegisterFormState): string | null {
   return null;
 }
 
-function validateStep1(f: RegisterFormState): string | null {
+function validateStepAddress(f: RegisterFormState): string | null {
   if (!isNonEmpty(f.enderecoResidencial)) return "Informe o endereço residencial.";
   if (!isNonEmpty(f.enderecoTrabalho)) return "Informe o endereço de trabalho.";
   if (!f.comprovante) return "Envie o comprovante de endereço.";
   return null;
 }
 
-function validateStep2(f: RegisterFormState): string | null {
+function validateStepFinancial(f: RegisterFormState): string | null {
   if (!isNonEmpty(f.salario)) return "Informe o salário.";
   if (!isNonEmpty(f.dependentes)) return "Informe a quantidade de dependentes.";
   if (!isNonEmpty(f.tipoMoradia)) return "Selecione o tipo de moradia.";
@@ -104,7 +123,7 @@ function validateStep2(f: RegisterFormState): string | null {
   return null;
 }
 
-function validateStep3(f: RegisterFormState): string | null {
+function validateStepPassword(f: RegisterFormState): string | null {
   const hasUpper = /[A-Z]/.test(f.senha);
   const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(f.senha);
   const hasLength = f.senha.length >= 8;
@@ -209,11 +228,23 @@ export default function Register() {
   const hasLength = form.senha.length >= 8;
   const passwordsMatch = form.senha === form.confirmar && form.senha.length > 0;
 
+  useEffect(() => {
+    const { interestType, cart } = loadRegistrationInterest();
+    if (interestType && !form.interesseTipo) {
+      setForm((prev) => ({
+        ...prev,
+        interesseTipo: interestType,
+        interesseCarrinho: cart ?? null,
+      }));
+    }
+  }, [form.interesseTipo]);
+
   function goNext(fromStep: number) {
     let err: string | null = null;
-    if (fromStep === 0) err = validateStep0(form);
-    else if (fromStep === 1) err = validateStep1(form);
-    else if (fromStep === 2) err = validateStep2(form);
+    if (fromStep === 0) err = validateStepObjective(form);
+    else if (fromStep === 1) err = validateStepPersonal(form);
+    else if (fromStep === 2) err = validateStepAddress(form);
+    else if (fromStep === 3) err = validateStepFinancial(form);
     if (err) {
       toast.error(err);
       return;
@@ -222,7 +253,7 @@ export default function Register() {
   }
 
   async function finalize() {
-    const err = validateStep3(form);
+    const err = validateStepPassword(form);
     if (err) {
       toast.error(err);
       return;
@@ -241,6 +272,7 @@ export default function Register() {
       return;
     }
     toast.success("Cadastro enviado! Aguarde a análise da equipe.");
+    clearRegistrationInterest();
     navigate("/cadastro/sucesso");
   }
 
@@ -252,7 +284,7 @@ export default function Register() {
             variant="ghost"
             size="icon"
             type="button"
-            onClick={() => (step > 0 ? setStep(step - 1) : navigate("/login"))}
+            onClick={() => (step > 0 ? setStep(step - 1) : navigate("/", { replace: true }))}
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -278,6 +310,80 @@ export default function Register() {
 
         <div className="bg-card rounded-lg border shadow-sm p-6 md:p-8">
           {step === 0 && (
+            <div className="space-y-5">
+              <h2 className="text-xl font-bold text-primary">O que você deseja?</h2>
+              <p className="text-sm text-muted-foreground">
+                Escolha a opção abaixo para a equipe entender sua necessidade.
+              </p>
+
+              <div className="space-y-2">
+                <Label>
+                  Objetivo <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={form.interesseTipo || undefined}
+                  onValueChange={(v) => {
+                    const next = v as RegistrationInterestType;
+                    patch({ interesseTipo: next });
+                    saveRegistrationInterest({
+                      interestType: next,
+                      cart: form.interesseCarrinho,
+                    });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="emprestimo">Empréstimo</SelectItem>
+                    <SelectItem value="produto">Produto</SelectItem>
+                    <SelectItem value="ambos">Ambos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {(form.interesseTipo === "produto" || form.interesseTipo === "ambos") && (
+                <div className="rounded-lg border bg-background p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-semibold text-primary">Produtos selecionados</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate("/#produtos")}
+                    >
+                      Escolher produtos
+                    </Button>
+                  </div>
+
+                  {form.interesseCarrinho?.items?.length ? (
+                    <div className="space-y-2">
+                      {form.interesseCarrinho.items.map((it, idx) => (
+                        <div key={idx} className="text-sm text-muted-foreground">
+                          <span className="font-medium text-primary">{it.qty}x</span>{" "}
+                          {it.name}
+                          {it.color ? ` (${it.color})` : ""} —{" "}
+                          <span className="font-medium text-primary">{it.months}x</span>{" "}
+                          de{" "}
+                          <span className="font-medium text-primary">{it.perInstallmentBRL}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Você ainda não selecionou produtos. Clique em “Escolher produtos”.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <Button type="button" className="w-full" onClick={() => goNext(0)}>
+                Próximo
+              </Button>
+            </div>
+          )}
+
+          {step === 1 && (
             <div className="space-y-5">
               <h2 className="text-xl font-bold text-primary">Dados Pessoais</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -404,14 +510,14 @@ export default function Register() {
               <Button
                 type="button"
                 className="w-full"
-                onClick={() => goNext(0)}
+                onClick={() => goNext(1)}
               >
                 Próximo
               </Button>
             </div>
           )}
 
-          {step === 1 && (
+          {step === 2 && (
             <div className="space-y-5">
               <h2 className="text-xl font-bold text-primary">Endereço</h2>
               <div className="space-y-4">
@@ -454,14 +560,14 @@ export default function Register() {
                   type="button"
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setStep(0)}
+                  onClick={() => setStep(1)}
                 >
                   Voltar
                 </Button>
                 <Button
                   type="button"
                   className="flex-1"
-                  onClick={() => goNext(1)}
+                  onClick={() => goNext(2)}
                 >
                   Próximo
                 </Button>
@@ -469,7 +575,7 @@ export default function Register() {
             </div>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <div className="space-y-5">
               <h2 className="text-xl font-bold text-primary">Dados financeiros</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -552,14 +658,14 @@ export default function Register() {
                   type="button"
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setStep(1)}
+                  onClick={() => setStep(2)}
                 >
                   Voltar
                 </Button>
                 <Button
                   type="button"
                   className="flex-1"
-                  onClick={() => goNext(2)}
+                  onClick={() => goNext(3)}
                 >
                   Próximo
                 </Button>
@@ -567,7 +673,7 @@ export default function Register() {
             </div>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <div className="space-y-5">
               <h2 className="text-xl font-bold text-primary">Criar senha</h2>
               <div className="space-y-4">
@@ -627,7 +733,7 @@ export default function Register() {
                   type="button"
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setStep(2)}
+                  onClick={() => setStep(3)}
                 >
                   Voltar
                 </Button>

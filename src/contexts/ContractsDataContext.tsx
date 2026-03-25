@@ -23,6 +23,7 @@ import {
   supabaseCreateClientManual,
   supabaseCreateClienteWithPortalAuth,
   supabaseCreateContractWithInstallments,
+  supabaseDeleteClient,
   supabaseDeleteContract,
   supabaseFinalizeContract,
   supabaseUpdateContractNumero,
@@ -97,6 +98,7 @@ type ContractsContextValue = {
     fields: ManualClienteFields,
     options?: { portalPassword?: string },
   ) => Promise<string | null>;
+  deleteCliente: (clientId: string) => Promise<boolean>;
   getClienteById: (id: string) => Cliente | undefined;
 };
 
@@ -553,6 +555,28 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
     [clientes, dataSource, persistLocal, reload],
   );
 
+  const deleteCliente = useCallback(
+    async (clientId: string): Promise<boolean> => {
+      try {
+        if (dataSource === "supabase" && supabase) {
+          await supabaseDeleteClient(supabase, clientId);
+          await reload();
+        } else {
+          const next = clientes.filter((c) => c.id !== clientId);
+          setClientes(next);
+          persistLocal(next);
+        }
+        toast.success("Cliente excluído do sistema.");
+        return true;
+      } catch (e) {
+        console.error(e);
+        toast.error("Não foi possível excluir o cliente.");
+        return false;
+      }
+    },
+    [clientes, dataSource, persistLocal, reload],
+  );
+
   const value = useMemo(
     () => ({
       clientes,
@@ -566,6 +590,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       finalizeContract,
       renameContractNumero,
       deleteContract,
+      deleteCliente,
       createClienteManual,
       getClienteById,
     }),
@@ -581,6 +606,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       finalizeContract,
       renameContractNumero,
       deleteContract,
+      deleteCliente,
       createClienteManual,
       getClienteById,
     ],

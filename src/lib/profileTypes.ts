@@ -15,6 +15,8 @@ export type ProfileRow = {
   dependentes: string;
   tipo_moradia: string;
   outras_rendas: string;
+  interest_type: "emprestimo" | "produto" | "ambos";
+  interest_cart: unknown | null;
   doc_rg_path: string | null;
   doc_selfie_path: string | null;
   doc_comprovante_path: string | null;
