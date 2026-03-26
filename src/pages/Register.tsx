@@ -350,7 +350,7 @@ export default function Register() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => navigate("/#produtos")}
+                      onClick={() => navigate({ pathname: "/", hash: "#produtos" })}
                     >
                       Escolher produtos
                     </Button>

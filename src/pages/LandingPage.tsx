@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import {
   CreditCard,
@@ -212,6 +212,7 @@ const diferenciaisExtras = [
 ];
 
 export default function LandingPage() {
+  const location = useLocation();
   const [mobileMenu, setMobileMenu] = useState(false);
   const products = useLandingProducts();
   const { items: cartItems, persist: persistCart } = useCart();
@@ -227,6 +228,14 @@ export default function LandingPage() {
   const ctaRef = useFadeIn();
 
   const cartCount = cartItems.reduce((sum, it) => sum + it.qty, 0);
+
+  useEffect(() => {
+    if (location.hash !== "#produtos") return;
+    const timer = window.setTimeout(() => {
+      document.getElementById("produtos")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [location.hash]);
 
   const addToCart = (productId: string) => {
     const product = products.find((p) => p.id === productId);
@@ -318,6 +327,14 @@ export default function LandingPage() {
       cart: buildCartSnapshot({ cartItems, products }),
     });
     setCartOpen(false);
+    navigate("/cadastro");
+  };
+
+  const goCadastroEmprestimo = () => {
+    saveRegistrationInterest({
+      interestType: "emprestimo",
+      cart: null,
+    });
     navigate("/cadastro");
   };
 
@@ -578,7 +595,13 @@ export default function LandingPage() {
                 </Button>
               </a>
               <Link to="/cadastro">
-                <Button size="lg" variant="outline" className="rounded-full px-8 w-full sm:w-auto">
+                <Button
+                  type="button"
+                  size="lg"
+                  variant="outline"
+                  className="rounded-full px-8 w-full sm:w-auto"
+                  onClick={goCadastroEmprestimo}
+                >
                   Solicitar empréstimo 
                 </Button>
               </Link>
