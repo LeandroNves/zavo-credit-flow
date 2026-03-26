@@ -8,7 +8,7 @@ import mascote from "@/assets/mascote.png";
 const menuItems = [
   { icon: Users, label: "Gestão de Clientes", path: "/admin" },
   { icon: ShoppingBag, label: "Produtos (Landing)", path: "/admin/produtos" },
-  { icon: ShoppingBag, label: "Produtos Pendentes", path: "/admin/produtos-pendentes" },
+  { icon: ShoppingBag, label: "Pedidos Pendentes", path: "/admin/produtos-pendentes" },
   { icon: Clock, label: "Cadastros Pendentes", path: "/admin/pendentes" },
   { icon: BarChart3, label: "Relatórios", path: "/admin/relatorios" },
 ];

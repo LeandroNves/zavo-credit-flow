@@ -6,6 +6,7 @@ export type LandingProduct = {
   color: string;
   priceCents: number;
   imageSrc: string;
+  imageSrcs: string[];
   enabledMonths: InstallmentMonths[];
   createdAt: string;
   updatedAt: string;
@@ -53,9 +54,15 @@ function normalizeProduct(p: unknown): LandingProduct | null {
   const name = safeString(obj.name).trim();
   const color = safeString(obj.color).trim();
   const imageSrc = safeString(obj.imageSrc).trim();
+  const imageSrcsRaw = Array.isArray(obj.imageSrcs) ? obj.imageSrcs : [];
+  const imageSrcs = imageSrcsRaw
+    .map((v) => safeString(v).trim())
+    .filter(Boolean)
+    .filter((v, i, a) => a.indexOf(v) === i);
+  const primaryImageSrc = imageSrcs[0] || imageSrc;
   const priceCents = Math.max(0, Math.round(safeNumber(obj.priceCents)));
 
-  if (!id || !name || !imageSrc) return null;
+  if (!id || !name || !primaryImageSrc) return null;
 
   const nowIso = new Date().toISOString();
   const createdAt = safeString(obj.createdAt) || nowIso;
@@ -65,7 +72,8 @@ function normalizeProduct(p: unknown): LandingProduct | null {
     id,
     name,
     color,
-    imageSrc,
+    imageSrc: primaryImageSrc,
+    imageSrcs: imageSrcs.length ? imageSrcs : [primaryImageSrc],
     priceCents,
     enabledMonths: normalizeEnabledMonths(obj.enabledMonths),
     createdAt,
@@ -132,5 +140,13 @@ export function calculateInstallmentCents(priceCents: number, months: Installmen
 export function makeProductId(): string {
   // bom o suficiente para chave local (sem dependências)
   return `prod_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function parseProductColors(colorField: string): string[] {
+  return String(colorField || "")
+    .split(/[,/|]/g)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .filter((x, i, arr) => arr.indexOf(x) === i);
 }
 

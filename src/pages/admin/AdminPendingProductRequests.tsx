@@ -1,9 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, ShoppingBag } from "lucide-react";
+import { Loader2, ShoppingBag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
-import { fetchProductRequests, type ProductRequestRow } from "@/lib/productRequestsSupabase";
+import { deleteProductRequest, fetchProductRequests, type ProductRequestRow } from "@/lib/productRequestsSupabase";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type RequestWithClient = {
   request: ProductRequestRow;
@@ -27,6 +38,7 @@ function formatDate(iso: string): string {
 export default function AdminPendingProductRequests() {
   const [rows, setRows] = useState<RequestWithClient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selected, setSelected] = useState<RequestWithClient | null>(null);
 
   const load = useCallback(async () => {
@@ -50,6 +62,21 @@ export default function AdminPendingProductRequests() {
     void load();
   }, [load]);
 
+  const handleDeleteRequest = async (requestId: string) => {
+    if (!supabase) return;
+    setDeletingId(requestId);
+    try {
+      await deleteProductRequest(supabase, requestId);
+      setRows((prev) => prev.filter((row) => row.request.id !== requestId));
+      setSelected((prev) => (prev?.request.id === requestId ? null : prev));
+      toast.success("Solicitação excluída com sucesso.");
+    } catch {
+      toast.error("Não foi possível excluir a solicitação.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (!isSupabaseConfigured) {
     return (
       <div className="space-y-6">
@@ -66,9 +93,53 @@ export default function AdminPendingProductRequests() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-primary">Solicitação de produtos</h1>
-          <Button variant="outline" onClick={() => setSelected(null)}>
-            Voltar à lista
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setSelected(null)}>
+              Voltar à lista
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  type="button"
+                  disabled={deletingId === selected.request.id}
+                  className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Excluir solicitação
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir esta solicitação para sempre?</AlertDialogTitle>
+                  <AlertDialogDescription className="text-left space-y-3">
+                    <span className="block font-medium text-destructive">
+                      Esta ação não pode ser desfeita pelo painel.
+                    </span>
+                    <span className="block text-foreground">
+                      Serão removidos permanentemente os produtos selecionados,
+                      data da solicitação e o vínculo desta solicitação com o cliente.
+                    </span>
+                    <span className="block">
+                      Confirme apenas se tiver certeza de que este pedido já foi tratado
+                      e deve sumir da lista de pendentes.
+                    </span>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel type="button">Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    type="button"
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={() => void handleDeleteRequest(selected.request.id)}
+                  >
+                    Sim, excluir permanentemente
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
 
         <div className="bg-card rounded-lg border p-6 space-y-3">
@@ -101,7 +172,7 @@ export default function AdminPendingProductRequests() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-primary">Produtos pendentes</h1>
+      <h1 className="text-2xl font-bold text-primary">Pedidos pendentes</h1>
 
       {loading ? (
         <div className="flex justify-center py-12 text-muted-foreground">
@@ -127,9 +198,53 @@ export default function AdminPendingProductRequests() {
                     </p>
                   </div>
                 </div>
-                <Button size="sm" onClick={() => setSelected(row)}>
-                  Ver solicitação
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" onClick={() => setSelected(row)}>
+                    Ver solicitação
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        type="button"
+                        disabled={deletingId === row.request.id}
+                        className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive gap-2"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Excluir
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir esta solicitação para sempre?</AlertDialogTitle>
+                        <AlertDialogDescription className="text-left space-y-3">
+                          <span className="block font-medium text-destructive">
+                            Esta ação não pode ser desfeita pelo painel.
+                          </span>
+                          <span className="block text-foreground">
+                            Serão removidos permanentemente os produtos selecionados,
+                            data da solicitação e o vínculo desta solicitação com o cliente.
+                          </span>
+                          <span className="block">
+                            Confirme apenas se tiver certeza de que este pedido já foi tratado
+                            e deve sumir da lista de pendentes.
+                          </span>
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel type="button">Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          type="button"
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          onClick={() => void handleDeleteRequest(row.request.id)}
+                        >
+                          Sim, excluir permanentemente
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </div>
             </div>
           ))}

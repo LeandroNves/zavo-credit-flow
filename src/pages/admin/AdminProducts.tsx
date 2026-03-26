@@ -49,7 +49,7 @@ type Draft = {
   name: string;
   color: string;
   price: string;
-  imageSrc: string;
+  imageSrcs: string[];
   enabledMonths: InstallmentMonths[];
 };
 
@@ -58,7 +58,7 @@ function makeEmptyDraft(): Draft {
     name: "",
     color: "",
     price: "",
-    imageSrc: "",
+    imageSrcs: [],
     enabledMonths: [...ALL_INSTALLMENTS],
   };
 }
@@ -107,7 +107,7 @@ export default function AdminProducts() {
       name: p.name,
       color: p.color,
       price: fromCentsToBRLInput(p.priceCents),
-      imageSrc: p.imageSrc,
+      imageSrcs: [...(p.imageSrcs?.length ? p.imageSrcs : [p.imageSrc])],
       enabledMonths: [...p.enabledMonths],
     });
   }
@@ -127,16 +127,28 @@ export default function AdminProducts() {
     });
   }
 
-  async function onPickImage(file: File | null) {
-    if (!file) return;
-    const dataUrl = await readFileAsDataUrl(file);
-    setDraft((d) => ({ ...d, imageSrc: dataUrl }));
+  async function onPickImages(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const picked = await Promise.all(Array.from(files).map((file) => readFileAsDataUrl(file)));
+    setDraft((d) => {
+      const merged = [...d.imageSrcs, ...picked].filter(Boolean);
+      const unique = merged.filter((v, i, a) => a.indexOf(v) === i);
+      return { ...d, imageSrcs: unique };
+    });
+  }
+
+  function removeDraftImage(idx: number) {
+    setDraft((d) => ({ ...d, imageSrcs: d.imageSrcs.filter((_, i) => i !== idx) }));
   }
 
   function save() {
     const name = draft.name.trim();
     const color = draft.color.trim();
-    const imageSrc = draft.imageSrc.trim();
+    const imageSrcs = draft.imageSrcs
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .filter((x, i, a) => a.indexOf(x) === i);
+    const imageSrc = imageSrcs[0] ?? "";
     const priceCents = toCentsFromBRL(draft.price);
     const enabledMonths = draft.enabledMonths.length ? draft.enabledMonths : [...ALL_INSTALLMENTS];
 
@@ -154,6 +166,7 @@ export default function AdminProducts() {
               name,
               color,
               imageSrc,
+              imageSrcs,
               priceCents,
               enabledMonths,
               updatedAt: nowIso,
@@ -170,6 +183,7 @@ export default function AdminProducts() {
       name,
       color,
       imageSrc,
+      imageSrcs,
       priceCents,
       enabledMonths,
       createdAt: nowIso,
@@ -215,7 +229,7 @@ export default function AdminProducts() {
             <h2 className="font-semibold text-primary">
               {editingId ? "Editar produto" : "Adicionar produto"}
             </h2>
-            {(editingId || draft.name || draft.imageSrc || draft.price || draft.color) && (
+            {(editingId || draft.name || draft.imageSrcs.length > 0 || draft.price || draft.color) && (
               <Button variant="ghost" size="sm" onClick={resetDraft}>
                 Limpar
               </Button>
@@ -254,18 +268,34 @@ export default function AdminProducts() {
           </div>
 
           <div className="space-y-2">
-            <Label>Imagem</Label>
+            <Label>Imagens do produto</Label>
             <div className="flex items-center gap-3">
               <Input
                 type="file"
                 accept="image/*"
-                onChange={(e) => void onPickImage(e.target.files?.[0] ?? null)}
+                multiple
+                onChange={(e) => void onPickImages(e.target.files)}
               />
               <Upload className="h-4 w-4 text-muted-foreground" />
             </div>
-            {draft.imageSrc && (
-              <div className="mt-3 rounded-xl border bg-background p-3 flex items-center justify-center">
-                <img src={draft.imageSrc} alt="" className="h-40 object-contain" />
+            {draft.imageSrcs.length > 0 && (
+              <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {draft.imageSrcs.map((src, idx) => (
+                  <div key={`${src}-${idx}`} className="rounded-xl border bg-background p-2">
+                    <div className="h-28 rounded-lg border bg-card flex items-center justify-center overflow-hidden">
+                      <img src={src} alt="" className="h-24 object-contain" />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full mt-1 text-destructive hover:text-destructive"
+                      onClick={() => removeDraftImage(idx)}
+                    >
+                      Remover
+                    </Button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -321,7 +351,7 @@ export default function AdminProducts() {
             {sorted.map((p) => (
               <div key={p.id} className="p-5 flex gap-4 items-start">
                 <div className="w-20 h-20 rounded-xl border bg-background flex items-center justify-center overflow-hidden">
-                  <img src={p.imageSrc} alt={p.name} className="h-16 object-contain" />
+                  <img src={(p.imageSrcs?.[0] ?? p.imageSrc)} alt={p.name} className="h-16 object-contain" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-3">

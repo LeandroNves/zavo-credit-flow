@@ -59,6 +59,7 @@ import {
   formatBRLFromCents,
   loadLandingProducts,
   makeProductId,
+  parseProductColors,
 } from "@/lib/productsStore";
 import {
   CART_UPDATED_EVENT,
@@ -72,6 +73,8 @@ import {
   buildCartSnapshot,
   saveRegistrationInterest,
 } from "@/lib/registrationInterest";
+import { RotatingProductImage } from "@/components/product/RotatingProductImage";
+import { toast } from "sonner";
 
 /* ─── Intersection Observer fade-in hook ─── */
 function useFadeIn() {
@@ -104,6 +107,7 @@ const seedProducts: LandingProduct[] = [
     name: "iPhone 17 Pro max",
     color: "Laranja",
     imageSrc: iphone17Digital,
+    imageSrcs: [iphone17Digital, iphone17Enhanced, iphone17Branco],
     priceCents: 0,
     enabledMonths: [...ALL_INSTALLMENTS],
     createdAt: new Date().toISOString(),
@@ -114,6 +118,7 @@ const seedProducts: LandingProduct[] = [
     name: "iPhone 17",
     color: "Titânio Azul",
     imageSrc: iphone17Enhanced,
+    imageSrcs: [iphone17Enhanced, iphone17Digital],
     priceCents: 0,
     enabledMonths: [...ALL_INSTALLMENTS],
     createdAt: new Date().toISOString(),
@@ -124,6 +129,7 @@ const seedProducts: LandingProduct[] = [
     name: "iPhone 17 Pro Max",
     color: "Titânio Branco",
     imageSrc: iphone17Branco,
+    imageSrcs: [iphone17Branco, iphone17Digital],
     priceCents: 0,
     enabledMonths: [...ALL_INSTALLMENTS],
     createdAt: new Date().toISOString(),
@@ -226,6 +232,7 @@ export default function LandingPage() {
     const product = products.find((p) => p.id === productId);
     if (!product) return;
     const months = pickDefaultMonths(product);
+    const colorOptions = parseProductColors(product.color);
 
     const existingIdx = cartItems.findIndex((it) => it.productId === productId && it.months === months);
     if (existingIdx >= 0) {
@@ -236,7 +243,14 @@ export default function LandingPage() {
     }
 
     const next: CartItem[] = [
-      { id: makeCartItemId(), productId, months, qty: 1, addedAt: new Date().toISOString() },
+      {
+        id: makeCartItemId(),
+        productId,
+        months,
+        qty: 1,
+        selectedColors: colorOptions.slice(0, 2),
+        addedAt: new Date().toISOString(),
+      },
       ...cartItems,
     ];
     persistCart(next);
@@ -253,6 +267,26 @@ export default function LandingPage() {
     persistCart(cartItems.map((it) => (it.id === id ? { ...it, months: months as any } : it)));
   };
 
+  const setPreferredColor = (id: string, color: string) => {
+    persistCart(
+      cartItems.map((it) => {
+        if (it.id !== id) return it;
+        const alt = it.selectedColors[1] ?? "";
+        return { ...it, selectedColors: [color, alt].filter(Boolean) };
+      }),
+    );
+  };
+
+  const setAlternativeColor = (id: string, color: string) => {
+    persistCart(
+      cartItems.map((it) => {
+        if (it.id !== id) return it;
+        const pref = it.selectedColors[0] ?? "";
+        return { ...it, selectedColors: [pref, color].filter(Boolean) };
+      }),
+    );
+  };
+
   const removeItem = (id: string) => persistCart(cartItems.filter((it) => it.id !== id));
   const clearCart = () => persistCart([]);
 
@@ -264,6 +298,19 @@ export default function LandingPage() {
     if (hasMissingPrice) {
       // Não prossegue sem preço configurado para não gerar parcelas inválidas
       setCartOpen(true);
+      return;
+    }
+    const hasMissingColors = cartItems.some((it) => {
+      const p = products.find((x) => x.id === it.productId);
+      if (!p) return true;
+      const options = parseProductColors(p.color);
+      const chosen = (it.selectedColors ?? []).filter(Boolean);
+      if (options.length >= 2) return chosen.length < 2 || chosen[0] === chosen[1];
+      return chosen.length < 2;
+    });
+    if (hasMissingColors) {
+      setCartOpen(true);
+      toast.error("Selecione duas cores por produto (preferencial e alternativa).");
       return;
     }
     saveRegistrationInterest({
@@ -371,12 +418,18 @@ export default function LandingPage() {
                     const p = products.find((x) => x.id === it.productId);
                     if (!p) return null;
                     const allowedMonths = (p.enabledMonths?.length ? p.enabledMonths : ALL_INSTALLMENTS).slice().sort((a, b) => a - b);
+                    const colorOptions = parseProductColors(p.color);
+                    const preferred = it.selectedColors?.[0] ?? "";
+                    const alternative = it.selectedColors?.[1] ?? "";
+                    const missingColors = colorOptions.length >= 2
+                      ? !preferred || !alternative || preferred === alternative
+                      : !preferred || !alternative;
                     const per = calculateInstallmentCents(p.priceCents, it.months);
                     return (
                       <div key={it.id} className="border rounded-xl p-3 bg-background">
                         <div className="flex gap-3">
                           <div className="w-16 h-16 rounded-lg border bg-white flex items-center justify-center overflow-hidden">
-                            <img src={p.imageSrc} alt={p.name} className="h-14 object-contain" />
+                            <img src={(p.imageSrcs?.[0] ?? p.imageSrc)} alt={p.name} className="h-14 object-contain" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2">
@@ -435,6 +488,44 @@ export default function LandingPage() {
                               </div>
                             </div>
 
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Cor preferencial</p>
+                                <Select value={preferred} onValueChange={(v) => setPreferredColor(it.id, v)}>
+                                  <SelectTrigger className="h-9">
+                                    <SelectValue placeholder="Escolha" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {colorOptions.map((c) => (
+                                      <SelectItem key={`pref-${it.id}-${c}`} value={c}>
+                                        {c}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Cor alternativa</p>
+                                <Select value={alternative} onValueChange={(v) => setAlternativeColor(it.id, v)}>
+                                  <SelectTrigger className="h-9">
+                                    <SelectValue placeholder="Escolha" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {colorOptions.map((c) => (
+                                      <SelectItem key={`alt-${it.id}-${c}`} value={c}>
+                                        {c}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            {missingColors && (
+                              <p className="mt-2 text-xs text-destructive">
+                                Selecione duas cores para este produto (preferencial e alternativa).
+                              </p>
+                            )}
+
                             <p className="mt-3 text-sm text-muted-foreground">
                               <span className="font-semibold text-primary">{it.months}x</span> de{" "}
                               <span className="font-semibold text-primary">
@@ -488,7 +579,7 @@ export default function LandingPage() {
               </a>
               <Link to="/cadastro">
                 <Button size="lg" variant="outline" className="rounded-full px-8 w-full sm:w-auto">
-                  Solicitar análise
+                  Solicitar empréstimo 
                 </Button>
               </Link>
             </div>
@@ -563,13 +654,11 @@ export default function LandingPage() {
                   <CarouselItem key={p.id} className="md:basis-1/2 lg:basis-1/3">
                     <div className="group bg-white rounded-2xl p-8 border border-border/50 hover:shadow-xl hover:border-secondary/30 transition-all duration-300 text-center h-full">
                       <div className="h-56 flex items-center justify-center mb-6">
-                        <img
-                          src={p.imageSrc}
+                        <RotatingProductImage
+                          images={p.imageSrcs?.length ? p.imageSrcs : [p.imageSrc]}
                           alt={p.name}
-                          className="h-48 object-contain group-hover:scale-105 transition-transform duration-500"
-                          loading="lazy"
-                          width={600}
-                          height={800}
+                          containerClassName="h-48 w-full"
+                          intervalMs={2500}
                         />
                       </div>
                       <h3 className="text-lg font-bold text-primary">{p.name}</h3>

@@ -11,6 +11,7 @@ import {
   calculateInstallmentCents,
   formatBRLFromCents,
   loadLandingProducts,
+  parseProductColors,
   type InstallmentMonths,
   type LandingProduct,
 } from "@/lib/productsStore";
@@ -23,6 +24,7 @@ import {
   type ClientProductCartItem,
 } from "@/lib/clientProductCartStore";
 import { createProductRequest } from "@/lib/productRequestsSupabase";
+import { RotatingProductImage } from "@/components/product/RotatingProductImage";
 
 export default function ClientProducts() {
   const [products, setProducts] = useState<LandingProduct[]>(() => loadLandingProducts());
@@ -49,12 +51,20 @@ export default function ClientProducts() {
     const p = products.find((x) => x.id === productId);
     if (!p) return;
     const months = pickDefaultMonths(p);
+    const colorOptions = parseProductColors(p.color);
     const idx = items.findIndex((it) => it.productId === productId && it.months === months);
     if (idx >= 0) {
       persist(items.map((it, i) => (i === idx ? { ...it, qty: Math.min(99, it.qty + 1) } : it)));
       return;
     }
-    persist([{ id: makeClientProductCartItemId(), productId, months, qty: 1, addedAt: new Date().toISOString() }, ...items]);
+    persist([{
+      id: makeClientProductCartItemId(),
+      productId,
+      months,
+      qty: 1,
+      selectedColors: colorOptions.slice(0, 2),
+      addedAt: new Date().toISOString(),
+    }, ...items]);
   }
 
   function setQty(id: string, qty: number) {
@@ -67,10 +77,26 @@ export default function ClientProducts() {
     persist(items.map((it) => (it.id === id ? { ...it, months: months as InstallmentMonths } : it)));
   }
 
+  function setPreferredColor(id: string, color: string) {
+    persist(items.map((it) => (it.id === id ? { ...it, selectedColors: [color, it.selectedColors?.[1] ?? ""].filter(Boolean) } : it)));
+  }
+
+  function setAlternativeColor(id: string, color: string) {
+    persist(items.map((it) => (it.id === id ? { ...it, selectedColors: [it.selectedColors?.[0] ?? "", color].filter(Boolean) } : it)));
+  }
+
   const cartCount = items.reduce((sum, it) => sum + it.qty, 0);
   const hasInvalid = items.some((it) => {
     const p = products.find((x) => x.id === it.productId);
     return !p || !p.priceCents;
+  });
+  const hasMissingColors = items.some((it) => {
+    const p = products.find((x) => x.id === it.productId);
+    if (!p) return true;
+    const chosen = (it.selectedColors ?? []).filter(Boolean);
+    const options = parseProductColors(p.color);
+    if (options.length >= 2) return chosen.length < 2 || chosen[0] === chosen[1];
+    return chosen.length < 2;
   });
 
   const cartLines = useMemo(
@@ -99,6 +125,10 @@ export default function ClientProducts() {
       toast.error("Há item sem preço configurado.");
       return;
     }
+    if (hasMissingColors) {
+      toast.error("Selecione duas cores por produto (preferencial e alternativa).");
+      return;
+    }
 
     const {
       data: { user },
@@ -112,7 +142,8 @@ export default function ClientProducts() {
     const payloadItems = cartLines.map(({ it, p, per }) => ({
       productId: p.id,
       name: p.name,
-      color: p.color,
+      color: (it.selectedColors ?? []).join(" / ") || p.color,
+      colors: (it.selectedColors ?? []).filter(Boolean).slice(0, 2),
       months: it.months,
       qty: it.qty,
       perInstallmentBRL: formatBRLFromCents(per),
@@ -150,7 +181,12 @@ export default function ClientProducts() {
             return (
               <div key={p.id} className="rounded-xl border bg-card p-4 space-y-3">
                 <div className="h-40 rounded-lg border bg-background flex items-center justify-center overflow-hidden">
-                  <img src={p.imageSrc} alt={p.name} className="h-32 object-contain" />
+                  <RotatingProductImage
+                    images={p.imageSrcs?.length ? p.imageSrcs : [p.imageSrc]}
+                    alt={p.name}
+                    containerClassName="h-32 w-full"
+                    intervalMs={2500}
+                  />
                 </div>
                 <div>
                   <p className="font-semibold text-primary">{p.name}</p>
@@ -209,6 +245,32 @@ export default function ClientProducts() {
                         ))}
                     </SelectContent>
                   </Select>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <Select value={it.selectedColors?.[0] ?? ""} onValueChange={(v) => setPreferredColor(it.id, v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Cor preferencial" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {parseProductColors(p.color).map((c) => (
+                          <SelectItem key={`cp-${it.id}-${c}`} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={it.selectedColors?.[1] ?? ""} onValueChange={(v) => setAlternativeColor(it.id, v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Cor alternativa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {parseProductColors(p.color).map((c) => (
+                          <SelectItem key={`ca-${it.id}-${c}`} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <p className="text-sm text-muted-foreground">
                     <span className="font-semibold text-primary">{it.months}x</span> de{" "}
                     <span className="font-semibold text-primary">{p.priceCents ? formatBRLFromCents(per) : "—"}</span>

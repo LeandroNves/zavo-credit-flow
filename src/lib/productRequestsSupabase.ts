@@ -61,3 +61,8 @@ export async function fetchProductRequests(
   }));
 }
 
+export async function deleteProductRequest(sb: SupabaseClient, requestId: string) {
+  const { error } = await sb.from("product_requests").delete().eq("id", requestId);
+  if (error) throw error;
+}
+

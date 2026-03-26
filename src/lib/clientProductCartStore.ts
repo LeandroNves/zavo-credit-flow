@@ -5,6 +5,7 @@ export type ClientProductCartItem = {
   productId: string;
   months: InstallmentMonths;
   qty: number;
+  selectedColors: string[];
   addedAt: string;
 };
 
@@ -25,11 +26,24 @@ export function loadClientProductCart(): ClientProductCartItem[] {
         const productId = typeof o.productId === "string" ? o.productId : "";
         const months = typeof o.months === "number" ? o.months : NaN;
         const qty = typeof o.qty === "number" ? o.qty : NaN;
+        const selectedColors = Array.isArray(o.selectedColors)
+          ? o.selectedColors
+              .map((v) => (typeof v === "string" ? v.trim() : ""))
+              .filter(Boolean)
+              .filter((v, i, a) => a.indexOf(v) === i)
+          : [];
         const addedAt = typeof o.addedAt === "string" ? o.addedAt : new Date().toISOString();
         if (!id || !productId) return null;
         if (![6, 12, 18, 24].includes(months)) return null;
         const safeQty = Number.isFinite(qty) ? Math.max(1, Math.min(99, Math.round(qty))) : 1;
-        return { id, productId, months: months as InstallmentMonths, qty: safeQty, addedAt };
+        return {
+          id,
+          productId,
+          months: months as InstallmentMonths,
+          qty: safeQty,
+          selectedColors: selectedColors.slice(0, 2),
+          addedAt,
+        };
       })
       .filter(Boolean) as ClientProductCartItem[];
   } catch {

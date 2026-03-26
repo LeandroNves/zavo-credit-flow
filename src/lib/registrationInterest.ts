@@ -8,6 +8,7 @@ export type RegistrationCartSnapshotItem = {
   productId: string;
   name: string;
   color: string;
+  colors: string[];
   months: 6 | 12 | 18 | 24;
   qty: number;
   perInstallmentBRL: string;
@@ -73,7 +74,8 @@ export function buildCartSnapshot(args: {
     items.push({
       productId: p.id,
       name: p.name,
-      color: p.color,
+      color: it.selectedColors.join(" / ") || p.color,
+      colors: it.selectedColors,
       months: it.months,
       qty: it.qty,
       perInstallmentBRL: formatBRLFromCents(per),
