@@ -19,6 +19,14 @@ export default function ClientContracts() {
   const cid = getClienteAtualId();
   const cliente = cid ? getClienteById(cid) : undefined;
 
+  // ✅ Hook SEMPRE executado
+  const contratosFiltrados = useMemo(() => {
+    if (!cliente) return [];
+    if (statusFilter === "todos") return cliente.contratos;
+    return cliente.contratos.filter((c) => c.status === statusFilter);
+  }, [cliente, statusFilter]);
+
+  // ✅ Agora pode usar return sem problema
   if (!ready || loading) {
     return <div className="text-center py-12 text-muted-foreground">Carregando…</div>;
   }
@@ -41,11 +49,6 @@ export default function ClientContracts() {
     cliente.situacao === "irregular"
       ? "bg-destructive/10 text-destructive"
       : "bg-success/10 text-success";
-
-  const contratosFiltrados = useMemo(() => {
-    if (statusFilter === "todos") return cliente.contratos;
-    return cliente.contratos.filter((c) => c.status === statusFilter);
-  }, [cliente.contratos, statusFilter]);
 
   return (
     <div className="space-y-6">
