@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
 import { ArrowLeft, Upload } from "lucide-react";
@@ -28,6 +28,7 @@ export default function AdminCreateContract() {
   const [valorTotal, setValorTotal] = useState("");
   const [qtdParcelas, setQtdParcelas] = useState("12");
   const [diaVencimento, setDiaVencimento] = useState("10");
+  const [vencimentosOverrideIso, setVencimentosOverrideIso] = useState<string[]>([]);
   const [primeiroMes, setPrimeiroMes] = useState(() =>
     format(new Date(), "yyyy-MM"),
   );
@@ -40,6 +41,14 @@ export default function AdminCreateContract() {
   const dia = Math.min(31, Math.max(1, parseInt(diaVencimento, 10) || 10));
   const valorNum = parseFloat(valorTotal.replace(",", ".")) || 0;
 
+  useEffect(() => {
+    setVencimentosOverrideIso((prev) => {
+      const next = prev.slice(0, nParcelas);
+      while (next.length < nParcelas) next.push("");
+      return next;
+    });
+  }, [nParcelas]);
+
   const preview = useMemo(() => {
     if (valorNum <= 0 || nParcelas < 1) return [];
     const valores = splitTotalAcrossInstallments(valorNum, nParcelas);
@@ -47,6 +56,7 @@ export default function AdminCreateContract() {
     return dates.map((d, i) => ({
       n: i + 1,
       vencimento: formatVencimentoBR(d),
+      vencimentoIso: format(d, "yyyy-MM-dd"),
       valor: valores[i],
     }));
   }, [valorNum, nParcelas, primeiroMes, dia]);
@@ -78,6 +88,7 @@ export default function AdminCreateContract() {
         diaVencimento: dia,
         primeiroVencimentoYm: primeiroMes,
         arquivosPorParcela: arquivos.slice(0, nParcelas),
+        vencimentosPorParcelaIso: vencimentosOverrideIso.slice(0, nParcelas),
       });
       navigate(`/admin/cliente/${id}`);
     } finally {
@@ -212,8 +223,25 @@ export default function AdminCreateContract() {
                       <td className="px-4 py-3 font-medium text-primary">
                         {row.n}/{preview.length}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {row.vencimento}
+                      <td className="px-4 py-3">
+                        <Input
+                          type="date"
+                          className="h-9"
+                          value={
+                            vencimentosOverrideIso[row.n - 1]
+                              ? vencimentosOverrideIso[row.n - 1]
+                              : row.vencimentoIso
+                          }
+                          onChange={(e) => {
+                            const nextVal = e.target.value ?? "";
+                            setVencimentosOverrideIso((prev) => {
+                              const next = prev.slice();
+                              while (next.length < nParcelas) next.push("");
+                              next[row.n - 1] = nextVal;
+                              return next;
+                            });
+                          }}
+                        />
                       </td>
                       <td className="px-4 py-3">
                         R$ {row.valor.toFixed(2).replace(".", ",")}

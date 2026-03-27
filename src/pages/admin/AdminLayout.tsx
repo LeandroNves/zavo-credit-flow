@@ -2,7 +2,6 @@ import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { Users, Clock, BarChart3, LogOut, Menu, X, Shield, ShoppingBag } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import mascote from "@/assets/mascote.png";
 
 const menuItems = [
@@ -16,7 +15,6 @@ const menuItems = [
 export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAdminAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isActive = (path: string) => {
@@ -45,8 +43,8 @@ export default function AdminLayout() {
         <button
           type="button"
           onClick={() => {
-            logout();
-            navigate("/admin/login", { replace: true });
+            // Basic Auth "logout": força 401 para o navegador limpar/re-pedir credenciais
+            window.location.href = "/admin/logout";
           }}
           className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium hover:bg-sidebar-accent/50 w-full text-sidebar-foreground"
         >

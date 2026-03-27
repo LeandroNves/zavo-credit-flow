@@ -3,6 +3,13 @@ import { Link } from "react-router-dom";
 import { Search, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useContractsData } from "@/contexts/ContractsDataContext";
 
 const statusLabels: Record<string, { label: string; color: string }> = {
@@ -14,8 +21,16 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 
 export default function AdminClients() {
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"todos" | "ativo" | "sem_contrato" | "finalizado">("todos");
   const { clientes, ready, loading } = useContractsData();
-  const filtered = clientes.filter((c) => c.nome.toLowerCase().includes(search.toLowerCase()));
+  const filtered = clientes.filter((c) => {
+    const matchesSearch = c.nome.toLowerCase().includes(search.toLowerCase());
+    if (!matchesSearch) return false;
+
+    if (statusFilter === "todos") return true;
+    if (statusFilter === "ativo") return c.statusContrato === "ativo" || c.statusContrato === "em_andamento";
+    return c.statusContrato === statusFilter;
+  });
 
   if (!ready || loading) {
     return <div className="text-center py-12 text-muted-foreground">Carregando clientes…</div>;
@@ -32,9 +47,30 @@ export default function AdminClients() {
         </Button>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Buscar por nome..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome..."
+            className="pl-9"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        <div className="max-w-xs">
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filtrar por status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="ativo">Ativo</SelectItem>
+              <SelectItem value="sem_contrato">Sem contrato</SelectItem>
+              <SelectItem value="finalizado">Finalizado</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="bg-card rounded-lg border overflow-hidden">

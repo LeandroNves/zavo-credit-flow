@@ -4,12 +4,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-import { AdminAuthProvider } from "./contexts/AdminAuthContext";
 import { ContractsDataProvider } from "./contexts/ContractsDataContext";
-import { RequireAdminAuth } from "./components/admin/RequireAdminAuth";
 import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
-import AdminLogin from "./pages/AdminLogin";
 import Register from "./pages/Register";
 import RegisterSuccess from "./pages/RegisterSuccess";
 import RegisterAwaitingApproval from "./pages/RegisterAwaitingApproval";
@@ -40,13 +37,11 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <AdminAuthProvider>
       <ContractsDataProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/cadastro" element={<Register />} />
           <Route path="/cadastro/sucesso" element={<RegisterSuccess />} />
           <Route path="/cadastro/aguardando" element={<RegisterAwaitingApproval />} />
@@ -59,14 +54,10 @@ const App = () => (
             <Route path="dados" element={<ClientPersonalData />} />
           </Route>
 
-          {/* Admin area — exige sessão após /admin/login */}
+          {/* Admin area — protegido por Basic Auth (middleware) */}
           <Route
             path="/admin"
-            element={
-              <RequireAdminAuth>
-                <AdminLayout />
-              </RequireAdminAuth>
-            }
+            element={<AdminLayout />}
           >
             <Route index element={<AdminClients />} />
             <Route path="cliente/novo" element={<AdminCreateCliente />} />
@@ -84,7 +75,6 @@ const App = () => (
         </Routes>
       </BrowserRouter>
       </ContractsDataProvider>
-      </AdminAuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

@@ -168,7 +168,7 @@ export default function Login() {
               variant="outline"
               className="w-full"
               type="button"
-              onClick={() => navigate("/admin/login")}
+              onClick={() => navigate("/admin")}
             >
               Entrar como Admin
             </Button>

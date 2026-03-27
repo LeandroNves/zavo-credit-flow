@@ -35,6 +35,7 @@ import { deriveClienteStatus } from "@/lib/deriveClienteStatus";
 import {
   buildParcelaDueDates,
   formatVencimentoBR,
+  formatIsoToBR,
   splitTotalAcrossInstallments,
 } from "@/lib/parcelSchedule";
 
@@ -57,6 +58,8 @@ export type CreateContractInput = {
   diaVencimento: number;
   primeiroVencimentoYm: string;
   arquivosPorParcela: (File | null | undefined)[];
+  /** Se preenchido, sobrescreve o vencimento (automático) de cada parcela por ISO yyyy-MM-dd. */
+  vencimentosPorParcelaIso?: string[];
 };
 
 type DataSource = "supabase" | "local";
@@ -179,7 +182,9 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
         numero: i + 1,
         total: input.parcelasCount,
         valor: valores[i],
-        vencimento: formatVencimentoBR(d),
+        vencimento: input.vencimentosPorParcelaIso?.[i]
+          ? formatIsoToBR(input.vencimentosPorParcelaIso[i]!)
+          : formatVencimentoBR(d),
         status: "pendente",
         boletoUrl: null,
         boletoPath: null,

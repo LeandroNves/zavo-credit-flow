@@ -65,25 +65,41 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     return null;
   }
 
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
+  const safeId = id.replace(/[^a-zA-Z0-9_-]/g, "");
+  const safeColor = (v: string): string | null => {
+    const s = v.trim();
+    // Aceita apenas formatos comuns e seguros para cor.
+    if (/^#[0-9a-fA-F]{3}$/.test(s)) return s;
+    if (/^#[0-9a-fA-F]{6}$/.test(s)) return s;
+    if (/^rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)$/.test(s)) return s;
+    if (/^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*(0|1|0?\.\d+)\s*\)$/.test(s)) return s;
+    if (/^hsl\(\s*\d{1,3}\s*,\s*\d{1,3}%\s*,\s*\d{1,3}%\s*\)$/.test(s)) return s;
+    if (/^hsla\(\s*\d{1,3}\s*,\s*\d{1,3}%\s*,\s*\d{1,3}%\s*,\s*(0|1|0?\.\d+)\s*\)$/.test(s)) return s;
+    return null;
+  };
+
+  const cssText = Object.entries(THEMES)
+    .map(
+      ([theme, prefix]) => `
+${prefix} [data-chart=${safeId}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
-    const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
+    const colorRaw = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
+    if (!colorRaw) return null;
+    const c = safeColor(colorRaw);
+    if (!c) return null;
+    const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, "");
+    return safeKey ? `  --color-${safeKey}: ${c};` : null;
   })
+  .filter(Boolean)
   .join("\n")}
 }
 `,
-          )
-          .join("\n"),
-      }}
-    />
+    )
+    .join("\n");
+
+  return (
+    <style>{cssText}</style>
   );
 };
 
