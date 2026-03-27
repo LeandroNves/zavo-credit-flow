@@ -5,7 +5,15 @@ import { ArrowLeft, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useContractsData } from "@/contexts/ContractsDataContext";
+import { CONTRACT_STATUS_LABELS, CONTRACT_STATUS_VALUES, type ContractStatus } from "@/lib/contractStatus";
 import {
   buildParcelaDueDates,
   formatVencimentoBR,
@@ -27,6 +35,7 @@ export default function AdminCreateContract() {
   const [numeroContrato, setNumeroContrato] = useState("");
   const [valorTotal, setValorTotal] = useState("");
   const [qtdParcelas, setQtdParcelas] = useState("12");
+  const [statusContrato, setStatusContrato] = useState<ContractStatus>("ativo");
   const [diaVencimento, setDiaVencimento] = useState("10");
   const [vencimentosOverrideIso, setVencimentosOverrideIso] = useState<string[]>([]);
   const [primeiroMes, setPrimeiroMes] = useState(() =>
@@ -85,6 +94,7 @@ export default function AdminCreateContract() {
         numeroPersonalizado: numeroContrato,
         valorTotal: valorNum,
         parcelasCount: nParcelas,
+        status: statusContrato,
         diaVencimento: dia,
         primeiroVencimentoYm: primeiroMes,
         arquivosPorParcela: arquivos.slice(0, nParcelas),
@@ -166,6 +176,21 @@ export default function AdminCreateContract() {
                 onChange={(e) => handleQtdParcelasChange(e.target.value)}
                 required
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Status do contrato</Label>
+              <Select value={statusContrato} onValueChange={(v) => setStatusContrato(v as ContractStatus)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CONTRACT_STATUS_VALUES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {CONTRACT_STATUS_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="dia">Dia de vencimento (todo mês)</Label>

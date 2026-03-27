@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,12 +7,23 @@ import { Label } from "@/components/ui/label";
 import { setClienteAtualId } from "@/lib/clienteSession";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
+import { validatePortalPassword } from "@/lib/clientPasswordPolicy";
 
 export default function Login() {
   const [identificador, setIdentificador] = useState("");
   const [senha, setSenha] = useState("");
+  const [novaSenha, setNovaSenha] = useState("");
+  const [confirmarNovaSenha, setConfirmarNovaSenha] = useState("");
+  const [recoveryMode, setRecoveryMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const s = window.location.search || "";
+    const h = window.location.hash || "";
+    const hasRecovery = s.includes("type=recovery") || h.includes("type=recovery");
+    setRecoveryMode(hasRecovery);
+  }, []);
 
   async function handleEntrar() {
     if (!isSupabaseConfigured || !supabase) {
@@ -109,6 +120,38 @@ export default function Login() {
     }
   }
 
+  async function handleRedefinirSenha() {
+    if (!isSupabaseConfigured || !supabase) {
+      toast.error("Supabase não configurado para redefinir senha.");
+      return;
+    }
+    const err = validatePortalPassword(novaSenha);
+    if (err) {
+      toast.error(err);
+      return;
+    }
+    if (novaSenha !== confirmarNovaSenha) {
+      toast.error("A confirmação da senha não confere.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: novaSenha });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success("Senha redefinida com sucesso. Faça login com a nova senha.");
+      await supabase.auth.signOut();
+      setNovaSenha("");
+      setConfirmarNovaSenha("");
+      setRecoveryMode(false);
+      navigate("/login", { replace: true });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-background px-4">
       <Button
@@ -125,54 +168,99 @@ export default function Login() {
         <div className="text-center mb-8" />
         <div className="bg-card rounded-lg shadow-sm border p-8 space-y-6">
           <h1 className="text-2xl font-bold text-primary text-center">
-            Acesse sua conta
+            {recoveryMode ? "Redefinir senha" : "Acesse sua conta"}
           </h1>
-          <p className="text-sm text-muted-foreground text-center">
-            Use o <strong className="text-foreground">e-mail do cadastro</strong> ou o{" "}
-            <strong className="text-foreground">nome completo</strong> (se for único).
-            A senha é armazenada com segurança pelo Supabase Auth (hash no servidor).
-          </p>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="ident">E-mail ou nome completo</Label>
-              <Input
-                id="ident"
-                placeholder="seu@email.com ou Maria Silva"
-                value={identificador}
-                onChange={(e) => setIdentificador(e.target.value)}
-                autoComplete="username"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="senha">Senha</Label>
-              <Input
-                id="senha"
-                type="password"
-                placeholder="Sua senha"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-                autoComplete="current-password"
-              />
-            </div>
-          </div>
-          <div className="space-y-3">
-            <Button
-              className="w-full"
-              type="button"
-              disabled={loading}
-              onClick={() => void handleEntrar()}
-            >
-              {loading ? "Entrando…" : "Entrar"}
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full"
-              type="button"
-              onClick={() => navigate("/admin")}
-            >
-              Entrar como Admin
-            </Button>
-          </div>
+          {!recoveryMode ? (
+            <p className="text-sm text-muted-foreground text-center">
+              Use o <strong className="text-foreground">e-mail do cadastro</strong> ou o{" "}
+              <strong className="text-foreground">nome completo</strong> (se for único).
+              A senha é armazenada com segurança pelo Supabase Auth (hash no servidor).
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center">
+              Defina sua nova senha de acesso.
+            </p>
+          )}
+          {!recoveryMode ? (
+            <>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="ident">E-mail ou nome completo</Label>
+                  <Input
+                    id="ident"
+                    placeholder="seu@email.com ou Maria Silva"
+                    value={identificador}
+                    onChange={(e) => setIdentificador(e.target.value)}
+                    autoComplete="username"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="senha">Senha</Label>
+                  <Input
+                    id="senha"
+                    type="password"
+                    placeholder="Sua senha"
+                    value={senha}
+                    onChange={(e) => setSenha(e.target.value)}
+                    autoComplete="current-password"
+                  />
+                </div>
+              </div>
+              <div className="space-y-3">
+                <Button
+                  className="w-full"
+                  type="button"
+                  disabled={loading}
+                  onClick={() => void handleEntrar()}
+                >
+                  {loading ? "Entrando…" : "Entrar"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  type="button"
+                  onClick={() => navigate("/admin")}
+                >
+                  Entrar como Admin
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nova-senha">Nova senha</Label>
+                  <Input
+                    id="nova-senha"
+                    type="password"
+                    placeholder="Nova senha"
+                    value={novaSenha}
+                    onChange={(e) => setNovaSenha(e.target.value)}
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmar-nova-senha">Confirmar nova senha</Label>
+                  <Input
+                    id="confirmar-nova-senha"
+                    type="password"
+                    placeholder="Repita a nova senha"
+                    value={confirmarNovaSenha}
+                    onChange={(e) => setConfirmarNovaSenha(e.target.value)}
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+              <Button
+                className="w-full"
+                type="button"
+                disabled={loading}
+                onClick={() => void handleRedefinirSenha()}
+              >
+                {loading ? "Salvando…" : "Salvar nova senha"}
+              </Button>
+            </>
+          )}
           <p className="text-center text-sm text-muted-foreground">
             Não tem conta?{" "}
             <Link

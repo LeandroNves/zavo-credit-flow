@@ -26,13 +26,18 @@ function Field({ label, value }: { label: string; value: string }) {
 export default function AdminClientData() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getClienteById, deleteCliente, ready, loading } = useContractsData();
+  const { getClienteById, deleteCliente, sendClientePasswordReset, ready, loading } = useContractsData();
   const cliente = id ? getClienteById(id) : undefined;
 
   const handleDeleteClient = async () => {
     if (!id) return;
     const ok = await deleteCliente(id);
     if (ok) navigate("/admin");
+  };
+
+  const handleResetPassword = async () => {
+    if (!id) return;
+    await sendClientePasswordReset(id);
   };
 
   if (!ready || loading) {
@@ -90,6 +95,17 @@ export default function AdminClientData() {
 
       <div className="bg-card rounded-lg border p-5 space-y-4">
         <h2 className="font-semibold text-primary flex items-center gap-2"><User className="h-5 w-5" /> Informações Pessoais</h2>
+        <div className="rounded-lg border bg-background p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-primary">Acesso à conta do cliente</p>
+            <p className="text-xs text-muted-foreground">
+              A senha é protegida (hash) e não pode ser visualizada. Envie uma redefinição segura por e-mail.
+            </p>
+          </div>
+          <Button type="button" size="sm" variant="outline" onClick={() => void handleResetPassword()}>
+            Enviar redefinição de senha
+          </Button>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           <Field label="Nome" value={cliente.nome} />
           <Field label="CPF" value={cliente.cpf} />

@@ -3,6 +3,7 @@ import type { Cliente, Contrato, Parcela } from "@/data/mockData";
 import { mockClientes } from "@/data/mockData";
 import { deriveClienteStatus } from "@/lib/deriveClienteStatus";
 import { formatIsoToBR, parseBRDateToIso } from "@/lib/parcelSchedule";
+import { type ContractStatus, isContractStatus } from "@/lib/contractStatus";
 
 type ClientRow = {
   id: string;
@@ -209,6 +210,27 @@ export async function supabaseUpdateClientManualStatus(
     .from("clients")
     .update({ status_manual: status })
     .eq("id", clientId);
+  if (error) throw error;
+}
+
+export async function supabaseUpdateContractStatus(
+  sb: SupabaseClient,
+  contractId: string,
+  status: ContractStatus,
+) {
+  const { error } = await sb
+    .from("contracts")
+    .update({ status })
+    .eq("id", contractId);
+  if (error) throw error;
+}
+
+export async function supabaseSendClientPasswordReset(
+  sb: SupabaseClient,
+  email: string,
+) {
+  const redirectTo = `${window.location.origin}/login`;
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
   if (error) throw error;
 }
 
@@ -420,13 +442,15 @@ export async function fetchClientesFromSupabase(sb: SupabaseClient): Promise<Cli
         };
       });
 
+    const statusRaw = String(k.status ?? "").toLowerCase();
+    const status: ContractStatus = isContractStatus(statusRaw) ? statusRaw : "ativo";
     const contrato: Contrato = {
       id: k.id,
       numero: k.numero,
       valor: Number(k.valor_total),
       parcelas: k.parcelas_count,
       valorParcela: Number(k.valor_parcela),
-      status: k.status as Contrato["status"],
+      status,
       listaParcelas,
     };
 
@@ -449,8 +473,8 @@ async function recomputeClientRowStatus(sb: SupabaseClient, clientId: string) {
   const list = contracts || [];
   let status: Cliente["statusContrato"] = "sem_contrato";
   if (list.length === 0) status = "sem_contrato";
-  else if (list.every((c) => c.status === "finalizado")) status = "finalizado";
-  else if (list.some((c) => c.status === "ativo")) status = "ativo";
+  else if (list.every((c) => c.status === "finalizado" || c.status === "cancelado")) status = "finalizado";
+  else if (list.some((c) => ["ativo", "aprovado", "enviado", "aguardando_aprovacao", "parcelas_pendentes"].includes(c.status))) status = "ativo";
   else status = "em_andamento";
 
   const { error: u } = await sb

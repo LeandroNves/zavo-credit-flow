@@ -1,3 +1,5 @@
+import type { ContractStatus } from "@/lib/contractStatus";
+
 export interface Parcela {
   numero: number;
   total: number;
@@ -16,7 +18,7 @@ export interface Contrato {
   valor: number;
   parcelas: number;
   valorParcela: number;
-  status: "ativo" | "finalizado";
+  status: ContractStatus;
   listaParcelas: Parcela[];
 }
 

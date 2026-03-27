@@ -34,6 +34,7 @@ import { useContractsData } from "@/contexts/ContractsDataContext";
 import { contractNumeroForInput } from "@/lib/contractNumero";
 import type { Parcela } from "@/data/mockData";
 import { toast } from "sonner";
+import { CONTRACT_STATUS_BADGE_CLASS, CONTRACT_STATUS_LABELS, CONTRACT_STATUS_VALUES, type ContractStatus } from "@/lib/contractStatus";
 
 export default function AdminManageContract() {
   const navigate = useNavigate();
@@ -47,7 +48,7 @@ export default function AdminManageContract() {
     getClienteById,
     updateParcelaStatus,
     uploadParcelaBoleto,
-    finalizeContract,
+    updateContractStatus,
     renameContractNumero,
     deleteContract,
     ready,
@@ -83,9 +84,9 @@ export default function AdminManageContract() {
     toast.success(`Parcela ${parcelaNumero} atualizada para ${status.toUpperCase()}.`);
   };
 
-  const handleFinalize = async () => {
+  const handleContractStatus = async (status: ContractStatus) => {
     if (!id || !contratoId) return;
-    await finalizeContract(id, contratoId);
+    await updateContractStatus(id, contratoId, status);
   };
 
   const openRename = () => {
@@ -187,38 +188,26 @@ export default function AdminManageContract() {
             {contrato.parcelas} parcelas
           </p>
         </div>
-        <span
-          className={`text-xs font-medium px-3 py-1 rounded-full shrink-0 ${contrato.status === "ativo" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}
-        >
-          {contrato.status === "ativo" ? "Ativo" : "Finalizado"}
+        <span className={`text-xs font-medium px-3 py-1 rounded-full shrink-0 ${CONTRACT_STATUS_BADGE_CLASS[contrato.status]}`}>
+          {CONTRACT_STATUS_LABELS[contrato.status]}
         </span>
       </div>
 
       <div className="flex flex-wrap gap-3 items-center">
-        {contrato.status === "ativo" && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button size="sm" variant="destructive" type="button">
-                Finalizar contrato
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Finalizar contrato?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  O contrato passará ao status finalizado. Esta ação pode ser
-                  revisada apenas pelo suporte ao banco de dados, se necessário.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel type="button">Cancelar</AlertDialogCancel>
-                <AlertDialogAction type="button" onClick={handleFinalize}>
-                  Confirmar
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
+        <div className="w-64">
+          <Select value={contrato.status} onValueChange={(v) => void handleContractStatus(v as ContractStatus)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CONTRACT_STATUS_VALUES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {CONTRACT_STATUS_LABELS[s]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -299,7 +288,7 @@ export default function AdminManageContract() {
                       onValueChange={(v) =>
                         handleStatusChange(p.numero, v as Parcela["status"])
                       }
-                      disabled={contrato.status === "finalizado"}
+                      disabled={contrato.status === "finalizado" || contrato.status === "cancelado"}
                     >
                       <SelectTrigger className="w-32 h-8 text-xs">
                         <SelectValue />
@@ -324,7 +313,7 @@ export default function AdminManageContract() {
                       size="sm"
                       variant="outline"
                       className="gap-1"
-                      disabled={contrato.status === "finalizado"}
+                      disabled={contrato.status === "finalizado" || contrato.status === "cancelado"}
                       onClick={() => openFilePicker(p.numero)}
                     >
                       <Upload className="h-3 w-3" />

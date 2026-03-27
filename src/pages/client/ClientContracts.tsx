@@ -1,10 +1,20 @@
 import { Link } from "react-router-dom";
 import { FileText, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useContractsData } from "@/contexts/ContractsDataContext";
 import { getClienteAtualId } from "@/lib/clienteSession";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { CONTRACT_STATUS_BADGE_CLASS, CONTRACT_STATUS_LABELS, CONTRACT_STATUS_VALUES, type ContractStatus } from "@/lib/contractStatus";
 
 export default function ClientContracts() {
+  const [statusFilter, setStatusFilter] = useState<"todos" | ContractStatus>("todos");
   const { getClienteById, ready, loading } = useContractsData();
   const cid = getClienteAtualId();
   const cliente = cid ? getClienteById(cid) : undefined;
@@ -31,6 +41,11 @@ export default function ClientContracts() {
     cliente.situacao === "irregular"
       ? "bg-destructive/10 text-destructive"
       : "bg-success/10 text-success";
+
+  const contratosFiltrados = useMemo(() => {
+    if (statusFilter === "todos") return cliente.contratos;
+    return cliente.contratos.filter((c) => c.status === statusFilter);
+  }, [cliente.contratos, statusFilter]);
 
   return (
     <div className="space-y-6">
@@ -85,9 +100,26 @@ export default function ClientContracts() {
       </div>
 
       {/* Contracts */}
-      <h2 className="text-lg font-semibold text-primary">Seus Contratos</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-primary">Seus Contratos</h2>
+        <div className="w-56">
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filtrar status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              {CONTRACT_STATUS_VALUES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {CONTRACT_STATUS_LABELS[s]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
       <div className="grid gap-4">
-        {cliente.contratos.map((contrato) => (
+        {contratosFiltrados.map((contrato) => (
           <div key={contrato.id} className="bg-card rounded-lg border p-5 hover:shadow-md transition-shadow">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
@@ -102,8 +134,8 @@ export default function ClientContracts() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className={`text-xs font-medium px-3 py-1 rounded-full ${contrato.status === "ativo" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
-                  {contrato.status === "ativo" ? "Ativo" : "Finalizado"}
+                <span className={`text-xs font-medium px-3 py-1 rounded-full ${CONTRACT_STATUS_BADGE_CLASS[contrato.status]}`}>
+                  {CONTRACT_STATUS_LABELS[contrato.status]}
                 </span>
                 <Link to={`/cliente/contrato/${contrato.id}`}>
                   <Button size="sm">Ver Detalhes</Button>
@@ -112,7 +144,7 @@ export default function ClientContracts() {
             </div>
           </div>
         ))}
-        {cliente.contratos.length === 0 && (
+        {contratosFiltrados.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">Nenhum contrato encontrado.</div>
         )}
       </div>

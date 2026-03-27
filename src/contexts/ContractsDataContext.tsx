@@ -26,6 +26,8 @@ import {
   supabaseDeleteClient,
   supabaseDeleteContract,
   supabaseFinalizeContract,
+  supabaseSendClientPasswordReset,
+  supabaseUpdateContractStatus,
   supabaseUpdateContractNumero,
   supabaseUpdateClientManualStatus,
   supabaseUpdateInstallmentStatus,
@@ -39,6 +41,7 @@ import {
   formatIsoToBR,
   splitTotalAcrossInstallments,
 } from "@/lib/parcelSchedule";
+import type { ContractStatus } from "@/lib/contractStatus";
 
 const MAX_LOCAL_FILE_BYTES = 2 * 1024 * 1024;
 
@@ -59,6 +62,7 @@ export type CreateContractInput = {
   diaVencimento: number;
   primeiroVencimentoYm: string;
   arquivosPorParcela: (File | null | undefined)[];
+  status: ContractStatus;
   /** Se preenchido, sobrescreve o vencimento (automático) de cada parcela por ISO yyyy-MM-dd. */
   vencimentosPorParcelaIso?: string[];
 };
@@ -88,6 +92,11 @@ type ContractsContextValue = {
     file: File,
   ) => Promise<void>;
   finalizeContract: (clientId: string, contractId: string) => Promise<void>;
+  updateContractStatus: (
+    clientId: string,
+    contractId: string,
+    status: ContractStatus,
+  ) => Promise<void>;
   renameContractNumero: (
     clientId: string,
     contractId: string,
@@ -105,6 +114,7 @@ type ContractsContextValue = {
   deleteCliente: (clientId: string) => Promise<boolean>;
   getClienteById: (id: string) => Cliente | undefined;
   setClienteSituacao: (clientId: string, situacao: Cliente["situacao"]) => Promise<void>;
+  sendClientePasswordReset: (clientId: string) => Promise<void>;
 };
 
 const ContractsDataContext = createContext<ContractsContextValue | null>(null);
@@ -212,7 +222,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
         valor: Math.round(input.valorTotal * 100) / 100,
         parcelas: input.parcelasCount,
         valorParcela,
-        status: "ativo",
+        status: input.status,
         listaParcelas,
       };
 
@@ -394,6 +404,36 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         console.error(e);
         toast.error("Não foi possível finalizar o contrato.");
+      }
+    },
+    [clientes, dataSource, persistLocal, reload],
+  );
+
+  const updateContractStatus = useCallback(
+    async (clientId: string, contractId: string, status: ContractStatus) => {
+      try {
+        if (dataSource === "supabase" && supabase) {
+          await supabaseUpdateContractStatus(supabase, contractId, status);
+          await reload();
+        } else {
+          const next = clientes.map((c) => {
+            if (c.id !== clientId) return c;
+            const contratos = c.contratos.map((k) =>
+              k.id === contractId ? { ...k, status } : k,
+            );
+            return {
+              ...c,
+              contratos,
+              statusContrato: deriveClienteStatus(contratos),
+            };
+          });
+          setClientes(next);
+          persistLocal(next);
+        }
+        toast.success("Status do contrato atualizado.");
+      } catch (e) {
+        console.error(e);
+        toast.error("Não foi possível atualizar o status do contrato.");
       }
     },
     [clientes, dataSource, persistLocal, reload],
@@ -608,6 +648,35 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
     [clientes, dataSource, persistLocal, reload],
   );
 
+  const sendClientePasswordReset = useCallback(
+    async (clientId: string) => {
+      const client = clientes.find((c) => c.id === clientId);
+      if (!client) {
+        toast.error("Cliente não encontrado.");
+        return;
+      }
+      const email = (client.email ?? "").trim().toLowerCase();
+      if (!email) {
+        toast.error("Cliente sem e-mail cadastrado.");
+        return;
+      }
+      if (!isSupabaseConfigured || !supabase || dataSource !== "supabase") {
+        toast.error("Redefinição disponível apenas com Supabase configurado.");
+        return;
+      }
+      try {
+        await supabaseSendClientPasswordReset(supabase, email);
+        toast.success("E-mail de redefinição enviado para o cliente.");
+      } catch (e) {
+        console.error(e);
+        const msg =
+          e instanceof Error ? e.message : "Não foi possível enviar redefinição.";
+        toast.error(msg);
+      }
+    },
+    [clientes, dataSource],
+  );
+
   const value = useMemo(
     () => ({
       clientes,
@@ -619,12 +688,14 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       updateParcelaStatus,
       uploadParcelaBoleto,
       finalizeContract,
+      updateContractStatus,
       renameContractNumero,
       deleteContract,
       deleteCliente,
       createClienteManual,
       getClienteById,
       setClienteSituacao,
+      sendClientePasswordReset,
     }),
     [
       clientes,
@@ -636,12 +707,14 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       updateParcelaStatus,
       uploadParcelaBoleto,
       finalizeContract,
+      updateContractStatus,
       renameContractNumero,
       deleteContract,
       deleteCliente,
       createClienteManual,
       getClienteById,
       setClienteSituacao,
+      sendClientePasswordReset,
     ],
   );
 

@@ -5,6 +5,7 @@ import { useContractsData } from "@/contexts/ContractsDataContext";
 import { getClienteAtualId } from "@/lib/clienteSession";
 import type { Parcela } from "@/data/mockData";
 import { toast } from "sonner";
+import { CONTRACT_STATUS_BADGE_CLASS, CONTRACT_STATUS_LABELS } from "@/lib/contractStatus";
 
 export default function ClientContractDetail() {
   const { id } = useParams();
@@ -56,9 +57,9 @@ export default function ClientContractDetail() {
           </p>
         </div>
         <span
-          className={`ml-auto text-xs font-medium px-3 py-1 rounded-full ${contrato.status === "ativo" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}
+          className={`ml-auto text-xs font-medium px-3 py-1 rounded-full ${CONTRACT_STATUS_BADGE_CLASS[contrato.status]}`}
         >
-          {contrato.status === "ativo" ? "Ativo" : "Finalizado"}
+          {CONTRACT_STATUS_LABELS[contrato.status]}
         </span>
       </div>
 

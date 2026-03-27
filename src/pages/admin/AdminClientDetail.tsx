@@ -1,5 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, User, FileText, Plus } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -9,11 +10,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useContractsData } from "@/contexts/ContractsDataContext";
+import { CONTRACT_STATUS_BADGE_CLASS, CONTRACT_STATUS_LABELS, CONTRACT_STATUS_VALUES, type ContractStatus } from "@/lib/contractStatus";
 
 export default function AdminClientDetail() {
   const { id } = useParams();
   const { getClienteById, setClienteSituacao, ready, loading } = useContractsData();
+  const [statusFilter, setStatusFilter] = useState<"todos" | ContractStatus>("todos");
   const cliente = id ? getClienteById(id) : undefined;
+  const contratosFiltrados = useMemo(() => {
+    if (!cliente) return [];
+    if (statusFilter === "todos") return cliente.contratos;
+    return cliente.contratos.filter((c) => c.status === statusFilter);
+  }, [cliente, statusFilter]);
 
   if (!ready || loading) {
     return <div className="text-center py-12 text-muted-foreground">Carregando…</div>;
@@ -57,20 +65,37 @@ export default function AdminClientDetail() {
       {/* Contratos */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-primary">Contratos</h2>
-        <Link to={`/admin/cliente/${cliente.id}/contrato/novo`}>
-          <Button size="sm" className="gap-2" type="button">
-            <Plus className="h-4 w-4" /> Novo contrato
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <div className="w-56">
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filtrar status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                {CONTRACT_STATUS_VALUES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {CONTRACT_STATUS_LABELS[s]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Link to={`/admin/cliente/${cliente.id}/contrato/novo`}>
+            <Button size="sm" className="gap-2" type="button">
+              <Plus className="h-4 w-4" /> Novo contrato
+            </Button>
+          </Link>
+        </div>
       </div>
 
-      {cliente.contratos.length === 0 ? (
+      {contratosFiltrados.length === 0 ? (
         <div className="bg-card rounded-lg border p-8 text-center text-muted-foreground">
           Nenhum contrato cadastrado.
         </div>
       ) : (
         <div className="grid gap-4">
-          {cliente.contratos.map((contrato) => (
+          {contratosFiltrados.map((contrato) => (
             <div key={contrato.id} className="bg-card rounded-lg border p-5 hover:shadow-md transition-shadow">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
@@ -83,8 +108,8 @@ export default function AdminClientDetail() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`text-xs font-medium px-3 py-1 rounded-full ${contrato.status === "ativo" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
-                    {contrato.status === "ativo" ? "Ativo" : "Finalizado"}
+                  <span className={`text-xs font-medium px-3 py-1 rounded-full ${CONTRACT_STATUS_BADGE_CLASS[contrato.status]}`}>
+                    {CONTRACT_STATUS_LABELS[contrato.status]}
                   </span>
                   <Link to={`/admin/cliente/${cliente.id}/contrato/${contrato.id}`}>
                     <Button size="sm">Gerenciar</Button>

@@ -33,7 +33,18 @@ create table if not exists public.contracts (
   valor_total numeric(14, 2) not null,
   parcelas_count int not null,
   valor_parcela numeric(14, 2) not null,
-  status text not null check (status in ('ativo', 'finalizado')),
+  status text not null check (
+    status in (
+      'ativo',
+      'inativo',
+      'aguardando_aprovacao',
+      'enviado',
+      'aprovado',
+      'cancelado',
+      'finalizado',
+      'parcelas_pendentes'
+    )
+  ),
   created_at timestamptz not null default now()
 );
 
