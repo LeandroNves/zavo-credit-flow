@@ -19,6 +19,8 @@ import ClientPersonalData from "./pages/client/ClientPersonalData";
 import ClientProducts from "./pages/client/ClientProducts";
 
 import AdminLayout from "./pages/admin/AdminLayout";
+import AdminAuthGuard from "./pages/admin/AdminAuthGuard";
+import AdminLogin from "./pages/admin/AdminLogin";
 import AdminClients from "./pages/admin/AdminClients";
 import AdminCreateCliente from "./pages/admin/AdminCreateCliente";
 import AdminClientDetail from "./pages/admin/AdminClientDetail";
@@ -54,21 +56,20 @@ const App = () => (
             <Route path="dados" element={<ClientPersonalData />} />
           </Route>
 
-          {/* Admin area — protegido por Basic Auth (middleware) */}
-          <Route
-            path="/admin"
-            element={<AdminLayout />}
-          >
-            <Route index element={<AdminClients />} />
-            <Route path="cliente/novo" element={<AdminCreateCliente />} />
-            <Route path="cliente/:id" element={<AdminClientDetail />} />
-            <Route path="cliente/:id/dados" element={<AdminClientData />} />
-            <Route path="cliente/:id/contrato/novo" element={<AdminCreateContract />} />
-            <Route path="cliente/:id/contrato/:contratoId" element={<AdminManageContract />} />
-            <Route path="pendentes" element={<AdminPendingRegistrations />} />
-            <Route path="produtos" element={<AdminProducts />} />
-            <Route path="produtos-pendentes" element={<AdminPendingProductRequests />} />
-            <Route path="relatorios" element={<AdminReports />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin" element={<AdminAuthGuard />}>
+            <Route element={<AdminLayout />}>
+              <Route index element={<AdminClients />} />
+              <Route path="cliente/novo" element={<AdminCreateCliente />} />
+              <Route path="cliente/:id" element={<AdminClientDetail />} />
+              <Route path="cliente/:id/dados" element={<AdminClientData />} />
+              <Route path="cliente/:id/contrato/novo" element={<AdminCreateContract />} />
+              <Route path="cliente/:id/contrato/:contratoId" element={<AdminManageContract />} />
+              <Route path="pendentes" element={<AdminPendingRegistrations />} />
+              <Route path="produtos" element={<AdminProducts />} />
+              <Route path="produtos-pendentes" element={<AdminPendingProductRequests />} />
+              <Route path="relatorios" element={<AdminReports />} />
+            </Route>
           </Route>
 
           <Route path="*" element={<NotFound />} />

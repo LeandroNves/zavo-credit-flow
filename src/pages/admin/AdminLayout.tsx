@@ -43,8 +43,16 @@ export default function AdminLayout() {
         <button
           type="button"
           onClick={() => {
-            // Basic Auth "logout": força 401 para o navegador limpar/re-pedir credenciais
-            window.location.href = "/admin/logout";
+            void (async () => {
+              try {
+                await fetch("/api/admin/logout", {
+                  method: "POST",
+                  credentials: "include",
+                });
+              } finally {
+                navigate("/admin/login");
+              }
+            })();
           }}
           className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium hover:bg-sidebar-accent/50 w-full text-sidebar-foreground"
         >
