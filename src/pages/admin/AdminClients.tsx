@@ -13,23 +13,20 @@ import {
 import { useContractsData } from "@/contexts/ContractsDataContext";
 
 const statusLabels: Record<string, { label: string; color: string }> = {
-  ativo: { label: "Ativo", color: "bg-success/10 text-success" },
-  em_andamento: { label: "Em andamento", color: "bg-warning/10 text-warning" },
-  sem_contrato: { label: "Sem contrato", color: "bg-destructive/10 text-destructive" },
-  finalizado: { label: "Finalizado", color: "bg-muted text-muted-foreground" },
+  regular: { label: "Regular", color: "bg-success/10 text-success" },
+  irregular: { label: "Irregular", color: "bg-destructive/10 text-destructive" },
 };
 
 export default function AdminClients() {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"todos" | "ativo" | "sem_contrato" | "finalizado">("todos");
+  const [statusFilter, setStatusFilter] = useState<"todos" | "regular" | "irregular">("todos");
   const { clientes, ready, loading } = useContractsData();
   const filtered = clientes.filter((c) => {
     const matchesSearch = c.nome.toLowerCase().includes(search.toLowerCase());
     if (!matchesSearch) return false;
 
     if (statusFilter === "todos") return true;
-    if (statusFilter === "ativo") return c.statusContrato === "ativo" || c.statusContrato === "em_andamento";
-    return c.statusContrato === statusFilter;
+    return c.situacao === statusFilter;
   });
 
   if (!ready || loading) {
@@ -61,13 +58,12 @@ export default function AdminClients() {
         <div className="max-w-xs">
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
             <SelectTrigger>
-              <SelectValue placeholder="Filtrar por status" />
+              <SelectValue placeholder="Filtrar por situação" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos</SelectItem>
-              <SelectItem value="ativo">Ativo</SelectItem>
-              <SelectItem value="sem_contrato">Sem contrato</SelectItem>
-              <SelectItem value="finalizado">Finalizado</SelectItem>
+              <SelectItem value="regular">Regular</SelectItem>
+              <SelectItem value="irregular">Irregular</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -80,13 +76,13 @@ export default function AdminClients() {
               <tr className="border-b text-left text-sm text-muted-foreground">
                 <th className="px-4 py-3 font-medium">Nome</th>
                 <th className="px-4 py-3 font-medium">CPF</th>
-                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Situação</th>
                 <th className="px-4 py-3 font-medium text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((c) => {
-                const st = statusLabels[c.statusContrato];
+                const st = statusLabels[c.situacao];
                 return (
                   <tr key={c.id} className="border-b last:border-0 hover:bg-muted/20">
                     <td className="px-4 py-4 font-medium text-primary">{c.nome}</td>

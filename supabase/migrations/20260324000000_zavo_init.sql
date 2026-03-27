@@ -22,7 +22,8 @@ create table if not exists public.clients (
   dependentes text,
   tipo_moradia text,
   outras_rendas text,
-  status_contrato text not null default 'sem_contrato'
+  status_contrato text not null default 'sem_contrato',
+  status_manual text not null default 'regular'
 );
 
 create table if not exists public.contracts (

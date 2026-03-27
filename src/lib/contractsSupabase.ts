@@ -21,6 +21,7 @@ type ClientRow = {
   tipo_moradia: string | null;
   outras_rendas: string | null;
   status_contrato: string | null;
+  status_manual?: string | null;
 };
 
 type ContractRow = {
@@ -60,10 +61,13 @@ function clientToRow(c: Cliente): Record<string, unknown> {
     tipo_moradia: c.tipoMoradia,
     outras_rendas: c.outrasRendas,
     status_contrato: c.statusContrato,
+    status_manual: c.situacao,
   };
 }
 
 function rowToCliente(row: ClientRow, contratos: Contrato[]): Cliente {
+  const rawManual = (row.status_manual ?? "regular").toString().toLowerCase();
+  const situacao = rawManual === "irregular" ? "irregular" : "regular";
   return {
     id: row.id,
     nome: row.nome,
@@ -80,6 +84,7 @@ function rowToCliente(row: ClientRow, contratos: Contrato[]): Cliente {
     dependentes: row.dependentes ?? "",
     tipoMoradia: row.tipo_moradia ?? "",
     outrasRendas: row.outras_rendas ?? "",
+    situacao,
     statusContrato: deriveClienteStatus(contratos),
     contratos,
   };
@@ -156,6 +161,7 @@ export function buildClienteFromManualFields(
     dependentes: (fields.dependentes ?? "").trim(),
     tipoMoradia: tm ?? "",
     outrasRendas: (fields.outrasRendas ?? "").trim(),
+    situacao: "regular",
     statusContrato: "sem_contrato",
     contratos: [],
   };
@@ -186,11 +192,24 @@ export async function supabaseCreateClientManual(
     tipo_moradia: resolvedTipoMoradiaKey(fields.tipoMoradia),
     outras_rendas: emptyToNull(fields.outrasRendas),
     status_contrato: "sem_contrato",
+    status_manual: "regular",
   };
 
   const { error } = await sb.from("clients").insert(row);
   if (error) throw new Error(error.message);
   return id;
+}
+
+export async function supabaseUpdateClientManualStatus(
+  sb: SupabaseClient,
+  clientId: string,
+  status: "regular" | "irregular",
+) {
+  const { error } = await sb
+    .from("clients")
+    .update({ status_manual: status })
+    .eq("id", clientId);
+  if (error) throw error;
 }
 
 function profileRowFromManualForAdminPortal(

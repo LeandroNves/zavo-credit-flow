@@ -27,6 +27,7 @@ import {
   supabaseDeleteContract,
   supabaseFinalizeContract,
   supabaseUpdateContractNumero,
+  supabaseUpdateClientManualStatus,
   supabaseUpdateInstallmentStatus,
   supabaseUploadInstallmentBoleto,
 } from "@/lib/contractsSupabase";
@@ -103,6 +104,7 @@ type ContractsContextValue = {
   ) => Promise<string | null>;
   deleteCliente: (clientId: string) => Promise<boolean>;
   getClienteById: (id: string) => Cliente | undefined;
+  setClienteSituacao: (clientId: string, situacao: Cliente["situacao"]) => Promise<void>;
 };
 
 const ContractsDataContext = createContext<ContractsContextValue | null>(null);
@@ -582,6 +584,30 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
     [clientes, dataSource, persistLocal, reload],
   );
 
+  const setClienteSituacao = useCallback(
+    async (clientId: string, situacao: Cliente["situacao"]) => {
+      try {
+        if (dataSource === "supabase" && supabase) {
+          await supabaseUpdateClientManualStatus(supabase, clientId, situacao);
+          await reload();
+        } else {
+          const next = clientes.map((c) => (c.id === clientId ? { ...c, situacao } : c));
+          setClientes(next);
+          persistLocal(next);
+        }
+        toast.success("Situação do cliente atualizada.");
+      } catch (e) {
+        console.error(e);
+        const msg =
+          e instanceof Error
+            ? e.message
+            : "Não foi possível atualizar a situação do cliente.";
+        toast.error(msg);
+      }
+    },
+    [clientes, dataSource, persistLocal, reload],
+  );
+
   const value = useMemo(
     () => ({
       clientes,
@@ -598,6 +624,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       deleteCliente,
       createClienteManual,
       getClienteById,
+      setClienteSituacao,
     }),
     [
       clientes,
@@ -614,6 +641,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       deleteCliente,
       createClienteManual,
       getClienteById,
+      setClienteSituacao,
     ],
   );
 

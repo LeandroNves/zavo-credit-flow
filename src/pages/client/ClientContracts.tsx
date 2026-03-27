@@ -26,10 +26,20 @@ export default function ClientContracts() {
   const atrasadas = cliente.contratos.reduce((a, c) => a + c.listaParcelas.filter(p => p.status === "atrasado").length, 0);
   const proxima = cliente.contratos.flatMap(c => c.listaParcelas).find(p => p.status === "pendente");
   const progressPct = totalParcelas > 0 ? Math.round((pagas / totalParcelas) * 100) : 0;
+  const situacaoLabel = cliente.situacao === "irregular" ? "Irregular" : "Regular";
+  const situacaoClass =
+    cliente.situacao === "irregular"
+      ? "bg-destructive/10 text-destructive"
+      : "bg-success/10 text-success";
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-primary">Olá, {cliente.nome.split(" ")[0]}!</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <h1 className="text-2xl font-bold text-primary">Olá, {cliente.nome.split(" ")[0]}!</h1>
+        <span className={`text-xs font-medium px-3 py-1 rounded-full w-fit ${situacaoClass}`}>
+          Situação: {situacaoLabel}
+        </span>
+      </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

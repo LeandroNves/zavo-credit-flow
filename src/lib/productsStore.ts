@@ -119,15 +119,18 @@ export function formatBRLFromCents(cents: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
 
-/**
- * Regra "preço charme":
- * - arredonda o valor da parcela para o próximo múltiplo de R$10,00
- * - e finaliza com R$X...9,99 (ex.: 1866,66 -> 1869,99)
- */
 export function charmRoundToTenMinusOneCent(perInstallmentCents: number): number {
-  const tenReaisInCents = 1000;
-  const ceilToTen = Math.ceil(perInstallmentCents / tenReaisInCents) * tenReaisInCents;
-  return Math.max(0, ceilToTen - 1);
+  // Nova regra de arredondamento:
+  // - arredonda para cima até o próximo valor inteiro de reais
+  // - ajusta para o próximo valor cuja parte inteira termina em 9
+  // - centavos sempre ficam em ,00
+  const rawReais = perInstallmentCents / 100;
+  if (rawReais <= 0) return 0;
+  let reais = Math.ceil(rawReais);
+  const mod = reais % 10;
+  const delta = (9 - mod + 10) % 10;
+  reais += delta;
+  return Math.max(0, reais * 100);
 }
 
 export function calculateInstallmentCents(priceCents: number, months: InstallmentMonths): number {

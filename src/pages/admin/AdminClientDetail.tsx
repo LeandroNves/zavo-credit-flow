@@ -1,11 +1,18 @@
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, User, FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useContractsData } from "@/contexts/ContractsDataContext";
 
 export default function AdminClientDetail() {
   const { id } = useParams();
-  const { getClienteById, ready, loading } = useContractsData();
+  const { getClienteById, setClienteSituacao, ready, loading } = useContractsData();
   const cliente = id ? getClienteById(id) : undefined;
 
   if (!ready || loading) {
@@ -19,6 +26,17 @@ export default function AdminClientDetail() {
       <div className="flex items-center gap-3">
         <Link to="/admin"><Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button></Link>
         <h1 className="text-2xl font-bold text-primary">{cliente.nome}</h1>
+        <div className="ml-auto w-44">
+          <Select value={cliente.situacao} onValueChange={(v) => void setClienteSituacao(cliente.id, v as any)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="regular">Regular</SelectItem>
+              <SelectItem value="irregular">Irregular</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Card: Dados */}

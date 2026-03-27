@@ -36,6 +36,7 @@ export interface Cliente {
   dependentes: string;
   tipoMoradia: string;
   outrasRendas: string;
+  situacao: "regular" | "irregular";
   statusContrato: "ativo" | "em_andamento" | "sem_contrato" | "finalizado";
   contratos: Contrato[];
 }
@@ -91,6 +92,7 @@ export const mockClientes: Cliente[] = [
     dependentes: "1",
     tipoMoradia: "Aluguel",
     outrasRendas: "R$ 500,00 (freelancer)",
+    situacao: "regular",
     statusContrato: "ativo",
     contratos: [
       {
@@ -120,6 +122,7 @@ export const mockClientes: Cliente[] = [
     dependentes: "2",
     tipoMoradia: "Própria",
     outrasRendas: "",
+    situacao: "regular",
     statusContrato: "ativo",
     contratos: [
       {
@@ -149,6 +152,7 @@ export const mockClientes: Cliente[] = [
     dependentes: "0",
     tipoMoradia: "Aluguel",
     outrasRendas: "R$ 1.000,00 (Uber)",
+    situacao: "regular",
     statusContrato: "sem_contrato",
     contratos: [],
   },
@@ -168,6 +172,7 @@ export const mockClientes: Cliente[] = [
     dependentes: "3",
     tipoMoradia: "Financiada",
     outrasRendas: "",
+    situacao: "regular",
     statusContrato: "finalizado",
     contratos: [
       {
