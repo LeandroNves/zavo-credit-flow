@@ -267,7 +267,7 @@ export default function Register() {
     setSubmitting(true);
     const res = await submitRegistration(supabase, form);
     setSubmitting(false);
-    if (!res.ok) {
+    if (res.ok === false) {
       toast.error(res.message);
       return;
     }
@@ -523,7 +523,7 @@ export default function Register() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="end-res">
-                    Endereço residencial <span className="text-destructive">*</span>
+                    Endereço residencial completo e com CEP<span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="end-res"
@@ -536,7 +536,7 @@ export default function Register() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="end-trab">
-                    Endereço de trabalho <span className="text-destructive">*</span>
+                    Endereço de trabalho completo e com CEP<span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="end-trab"
@@ -548,7 +548,7 @@ export default function Register() {
                   />
                 </div>
                 <FileUpload
-                  label="Comprovante de endereço"
+                  label="Comprovante residencial"
                   required
                   id="comprovante"
                   file={form.comprovante}

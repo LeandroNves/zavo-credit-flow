@@ -76,6 +76,12 @@ import {
 import { RotatingProductImage } from "@/components/product/RotatingProductImage";
 import { toast } from "sonner";
 
+import pixIcon from "@/assets/icon-pix-96.png"
+
+const PixIcon = ({ className }: { className?: string }) => (
+  <img src={pixIcon} alt="Pix" className={className} />
+);
+
 /* ─── Intersection Observer fade-in hook ─── */
 function useFadeIn() {
   const ref = useRef<HTMLDivElement>(null);
@@ -205,8 +211,8 @@ const diferenciais = [
 ];
 
 const diferenciaisExtras = [
-  { icon: CreditCard, title: "Pagamentos", desc: "Parcelamento recorrente sem ocupar limite" },
-  { icon: Shield, title: "Proteção", desc: "Cobertura contra danos e imprevistos" },
+  { icon: PixIcon, title: "Pagamentos", desc: "Pagamento por pix ou boleto parcelado" },
+  { icon: Shield, title: "Proteção", desc: "Garantia mínima de 3 meses" },
   { icon: Zap, title: "Frete grátis", desc: "Entregamos para todo o Brasil" },
   { icon: MessageCircle, title: "Suporte", desc: "Atendimento humano via WhatsApp" },
 ];
@@ -858,7 +864,7 @@ export default function LandingPage() {
             Entre em contato agora ou solicite sua análise. Estamos prontos para ajudar!
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="https://wa.me/5511999999999" target="_blank" rel="noreferrer">
+            <a href="https://wa.me/5562994356950" target="_blank" rel="noreferrer">
               <Button size="lg" variant="secondary" className="rounded-full gap-2 px-8 w-full sm:w-auto">
                 <MessageCircle className="h-4 w-4" /> WhatsApp
               </Button>
@@ -888,7 +894,7 @@ export default function LandingPage() {
               </p>
               <div className="flex gap-3 pt-2">
                 <a
-                  href="https://www.instagram.com/"
+                  href="https://www.instagram.com/zavo.oficial"
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Instagram da Zavo"
@@ -919,10 +925,9 @@ export default function LandingPage() {
             <div>
               <h4 className="font-semibold text-primary text-sm mb-4">Contato</h4>
               <div className="space-y-2.5 text-sm text-muted-foreground">
-                <p>contato@zavo.com.br</p>
-                <p>(11) 3000-1234</p>
-                <p>WhatsApp: (11) 99999-9999</p>
-                <p className="pt-2 text-xs">CNPJ: 12.345.678/0001-90</p>
+                <p>zavooficial@gmail.com</p>
+                <p>WhatsApp: (62) 99435-6950</p>
+                <p className="pt-2 text-xs">CNPJ: 54.474.185/0001-03</p>
               </div>
             </div>
           </div>
@@ -937,7 +942,7 @@ export default function LandingPage() {
 
       {/* ─── WhatsApp FAB ─── */}
       <a
-        href="https://wa.me/5511999999999"
+        href="https://wa.me/5562994356950"
         target="_blank"
         rel="noreferrer"
         className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center shadow-lg transition-colors"
