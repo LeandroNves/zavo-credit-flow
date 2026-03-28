@@ -64,7 +64,8 @@ BEGIN
     RAISE EXCEPTION 'replace_landing_products: no máximo 200 itens';
   END IF;
 
-  DELETE FROM public.landing_products;
+  -- pg_safeupdate (comum no Supabase) exige WHERE em DELETE.
+  DELETE FROM public.landing_products WHERE true;
 
   INSERT INTO public.landing_products (
     id, name, color, price_cents, image_src, image_srcs, enabled_months, created_at, updated_at
