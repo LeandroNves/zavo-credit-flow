@@ -1,4 +1,7 @@
-import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
+import {
+  catalogSupabase,
+  isCatalogSupabaseConfigured,
+} from "@/lib/supabaseCatalogClient";
 import {
   ALL_INSTALLMENTS,
   type InstallmentMonths,
@@ -31,19 +34,30 @@ function normalizeEnabledMonths(raw: unknown): InstallmentMonths[] {
   return out.length ? out : ALL_INSTALLMENTS;
 }
 
+function parseImageSrcs(raw: unknown): string[] {
+  let arr: unknown[] = [];
+  if (Array.isArray(raw)) arr = raw;
+  else if (typeof raw === "string" && raw.trim()) {
+    try {
+      const p = JSON.parse(raw) as unknown;
+      if (Array.isArray(p)) arr = p;
+    } catch {
+      return [];
+    }
+  }
+  return arr
+    .map((x) => (typeof x === "string" ? x.trim() : ""))
+    .filter(Boolean)
+    .filter((v, i, a) => a.indexOf(v) === i);
+}
+
 function mapRow(r: LandingProductRow): LandingProduct | null {
   const id = String(r.id ?? "").trim();
   const name = String(r.name ?? "").trim();
   const color = String(r.color ?? "").trim();
   const priceCents = Math.max(0, Math.round(Number(r.price_cents) || 0));
   let imageSrc = String(r.image_src ?? "").trim();
-  let imageSrcs: string[] = [];
-  if (Array.isArray(r.image_srcs)) {
-    imageSrcs = r.image_srcs
-      .map((x) => (typeof x === "string" ? x.trim() : ""))
-      .filter(Boolean)
-      .filter((v, i, a) => a.indexOf(v) === i);
-  }
+  let imageSrcs = parseImageSrcs(r.image_srcs);
   const primary = imageSrcs[0] || imageSrc;
   if (!id || !name || !primary) return null;
   if (!imageSrc) imageSrc = primary;
@@ -65,8 +79,8 @@ function mapRow(r: LandingProductRow): LandingProduct | null {
 }
 
 export async function fetchLandingProductsFromSupabase(): Promise<LandingProduct[]> {
-  if (!isSupabaseConfigured || !supabase) return [];
-  const { data, error } = await supabase
+  if (!isCatalogSupabaseConfigured || !catalogSupabase) return [];
+  const { data, error } = await catalogSupabase
     .from("landing_products")
     .select("*")
     .order("updated_at", { ascending: false });
@@ -77,8 +91,8 @@ export async function fetchLandingProductsFromSupabase(): Promise<LandingProduct
 
 /** Atualiza o catálogo quando o admin grava ou há mudança via Realtime. */
 export function subscribeLandingProductsChanges(onChange: () => void): () => void {
-  if (!isSupabaseConfigured || !supabase) return () => undefined;
-  const channel = supabase
+  if (!isCatalogSupabaseConfigured || !catalogSupabase) return () => undefined;
+  const channel = catalogSupabase
     .channel("landing_products_public")
     .on(
       "postgres_changes",
@@ -87,6 +101,6 @@ export function subscribeLandingProductsChanges(onChange: () => void): () => voi
     )
     .subscribe();
   return () => {
-    void supabase.removeChannel(channel);
+    void catalogSupabase.removeChannel(channel);
   };
 }

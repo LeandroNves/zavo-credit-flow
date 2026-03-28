@@ -5,7 +5,8 @@ import {
   loadLandingProducts,
   type LandingProduct,
 } from "@/lib/productsStore";
-import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
+import { isSupabaseConfigured } from "@/lib/supabaseClient";
+import { isCatalogSupabaseConfigured } from "@/lib/supabaseCatalogClient";
 import {
   fetchLandingProductsFromSupabase,
   subscribeLandingProductsChanges,
@@ -24,7 +25,7 @@ export function useGlobalLandingProducts(): LandingProduct[] {
     let cancelled = false;
 
     const reload = async () => {
-      if (!isSupabaseConfigured || !supabase) {
+      if (!isSupabaseConfigured || !isCatalogSupabaseConfigured) {
         if (!cancelled) {
           setProducts(loadLandingProducts(landingProductSeed));
         }
@@ -33,7 +34,8 @@ export function useGlobalLandingProducts(): LandingProduct[] {
       try {
         const list = await fetchLandingProductsFromSupabase();
         if (!cancelled) setProducts(list);
-      } catch {
+      } catch (e) {
+        console.warn("[landing products] falha ao carregar do Supabase:", e);
         if (!cancelled) setProducts([]);
       }
     };

@@ -17,7 +17,8 @@ import {
   makeProductId,
   saveLandingProducts,
 } from "@/lib/productsStore";
-import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
+import { isSupabaseConfigured } from "@/lib/supabaseClient";
+import { isCatalogSupabaseConfigured } from "@/lib/supabaseCatalogClient";
 import {
   fetchLandingProductsFromSupabase,
   subscribeLandingProductsChanges,
@@ -81,11 +82,12 @@ export default function AdminProducts() {
     let cancelled = false;
 
     async function load() {
-      if (isSupabaseConfigured && supabase) {
+      if (isSupabaseConfigured && isCatalogSupabaseConfigured) {
         try {
           const list = await fetchLandingProductsFromSupabase();
           if (!cancelled) setProducts(list);
-        } catch {
+        } catch (e) {
+          console.warn("[admin produtos] falha ao carregar:", e);
           if (!cancelled) setProducts([]);
         }
       } else if (!cancelled) {
@@ -267,7 +269,7 @@ export default function AdminProducts() {
   }
 
   function seedIfEmpty() {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && isCatalogSupabaseConfigured) {
       void fetchLandingProductsFromSupabase()
         .then(setProducts)
         .catch(() => setProducts([]));
