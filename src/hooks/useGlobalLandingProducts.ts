@@ -6,7 +6,7 @@ import {
   type LandingProduct,
 } from "@/lib/productsStore";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
-import { isCatalogSupabaseConfigured } from "@/lib/supabaseCatalogClient";
+import { isCatalogSupabaseConfigured } from "@/lib/productsSupabase";
 import {
   fetchLandingProductsFromSupabase,
   subscribeLandingProductsChanges,

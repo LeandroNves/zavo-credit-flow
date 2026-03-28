@@ -18,7 +18,7 @@ import {
   saveLandingProducts,
 } from "@/lib/productsStore";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
-import { isCatalogSupabaseConfigured } from "@/lib/supabaseCatalogClient";
+import { isCatalogSupabaseConfigured } from "@/lib/productsSupabase";
 import {
   fetchLandingProductsFromSupabase,
   subscribeLandingProductsChanges,
@@ -156,7 +156,10 @@ export default function AdminProducts() {
               ? "Configure SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no servidor (ex.: Vercel)."
               : data.error === "unauthorized"
                 ? "Sessão admin expirada. Faça login novamente."
-                : data.message || data.error || "Não foi possível salvar o catálogo.",
+                : data.error === "invalid_service_role_key"
+                  ? data.message ||
+                    "Use a chave service_role (secreta) em SUPABASE_SERVICE_ROLE_KEY, não a chave anon."
+                  : data.message || data.error || "Não foi possível salvar o catálogo.",
           );
           return;
         }

@@ -8,12 +8,20 @@ import {
   getSupabaseUrl,
 } from "./adminEnv.js";
 import { parseSessionCookie } from "./sessionCookie.js";
+import { getSupabaseJwtRole } from "./jwtRole.js";
 
 const MAX_PRODUCTS = 200;
 
 async function readJsonBody(
   req: IncomingMessage & { body?: unknown },
 ): Promise<Record<string, unknown>> {
+  if (req.body != null && typeof req.body === "string") {
+    try {
+      return JSON.parse(req.body) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
   if (req.body && typeof req.body === "object" && !Buffer.isBuffer(req.body)) {
     return req.body as Record<string, unknown>;
   }
@@ -114,6 +122,24 @@ export async function handleAdminProductsPost(
     return;
   }
 
+  const keyRole = getSupabaseJwtRole(serviceKey);
+  if (keyRole != null && keyRole !== "service_role") {
+    res.statusCode = 503;
+    res.setHeader("Content-Type", "application/json");
+    res.end(
+      JSON.stringify({
+        ok: false,
+        error: "invalid_service_role_key",
+        message:
+          keyRole === "anon"
+            ? "SUPABASE_SERVICE_ROLE_KEY está com a chave anon/publicável. Na Vercel use a chave secreta service_role (Project Settings → API → service_role), não a anon."
+            : "SUPABASE_SERVICE_ROLE_KEY não é service_role. Use apenas a chave secreta service_role do painel do Supabase.",
+        role: keyRole,
+      }),
+    );
+    return;
+  }
+
   const body = await readJsonBody(req);
   const products = body.products;
   if (!Array.isArray(products)) {
@@ -152,14 +178,23 @@ export async function handleAdminProductsPost(
   });
   const { error } = await sb.rpc("replace_landing_products", { items });
   if (error) {
-    console.error("[admin products] rpc replace_landing_products:", error.message);
+    console.error("[admin products] rpc replace_landing_products:", error.message, error);
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
+    const err = error as {
+      message?: string;
+      code?: string;
+      details?: string;
+      hint?: string;
+    };
     res.end(
       JSON.stringify({
         ok: false,
         error: "replace_failed",
-        message: error.message,
+        message: err.message,
+        code: err.code,
+        details: err.details,
+        hint: err.hint,
       }),
     );
     return;
