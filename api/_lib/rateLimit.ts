@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { hashIpForRateLimit } from "./cryptoUtil";
+import { hashIpForRateLimit } from "./cryptoUtil.js";
 
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_FAILS = 8;

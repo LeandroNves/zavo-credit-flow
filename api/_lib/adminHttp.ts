@@ -5,21 +5,21 @@ import {
   getSessionSecret,
   getSupabaseServiceRole,
   getSupabaseUrl,
-} from "./adminEnv";
+} from "./adminEnv.js";
 import {
   checkLoginRate,
   clearRateOnSuccess,
   createRateLimitClient,
   makeIpHash,
   recordFailedAttempt,
-} from "./rateLimit";
-import { timingSafeEqualStr } from "./cryptoUtil";
+} from "./rateLimit.js";
+import { timingSafeEqualStr } from "./cryptoUtil.js";
 import {
   buildSessionCookieValue,
   parseSessionCookie,
   serializeSessionClearCookie,
   serializeSessionSetCookie,
-} from "./sessionCookie";
+} from "./sessionCookie.js";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -152,7 +152,7 @@ export async function handleAdminLogin(
   const ipHash = makeIpHash(ip, secret);
 
   const rate = await checkLoginRate(supabase, ipHash);
-  if (!rate.ok) {
+  if (rate.ok === false) {
     res.statusCode = 429;
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Retry-After", String(rate.retryAfterSec));

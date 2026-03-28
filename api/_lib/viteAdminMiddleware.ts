@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Connect } from "vite";
-import { handleAdminLogin, handleAdminLogout, handleAdminSession } from "./adminHttp";
+import { handleAdminLogin, handleAdminLogout, handleAdminSession } from "./adminHttp.js";
 
 /**
  * Dev server only: expõe /api/admin/* com a mesma lógica das funções na Vercel.

@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { handleAdminSession } from "../_lib/adminHttp";
+import { handleAdminSession } from "../_lib/adminHttp.js";
 
 export default async function handler(
   req: VercelRequest,
