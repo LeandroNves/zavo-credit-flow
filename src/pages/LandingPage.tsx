@@ -48,19 +48,14 @@ import {
 import logo from "@/assets/logo.png";
 import mascote from "@/assets/mascote.png";
 import heroIphone from "@/assets/iphone17azul.png";
-import iphone17Digital from "@/assets/iPhone-17-Digital-PNG.png";
-import iphone17Enhanced from "@/assets/iPhone-17-Enhanced-Audio-Quality-PNG.png";
-import iphone17Branco from "@/assets/iphone17branco.png";
 import {
   ALL_INSTALLMENTS,
   type LandingProduct,
-  PRODUCTS_UPDATED_EVENT,
   calculateInstallmentCents,
   formatBRLFromCents,
-  loadLandingProducts,
-  makeProductId,
   parseProductColors,
 } from "@/lib/productsStore";
+import { useGlobalLandingProducts } from "@/hooks/useGlobalLandingProducts";
 import {
   CART_UPDATED_EVENT,
   type CartItem,
@@ -105,54 +100,6 @@ function useFadeIn() {
     return () => obs.disconnect();
   }, []);
   return ref;
-}
-
-const seedProducts: LandingProduct[] = [
-  {
-    id: makeProductId(),
-    name: "iPhone 17 Pro max",
-    color: "Laranja",
-    imageSrc: iphone17Digital,
-    imageSrcs: [iphone17Digital, iphone17Enhanced, iphone17Branco],
-    priceCents: 0,
-    enabledMonths: [...ALL_INSTALLMENTS],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: makeProductId(),
-    name: "iPhone 17",
-    color: "Titânio Azul",
-    imageSrc: iphone17Enhanced,
-    imageSrcs: [iphone17Enhanced, iphone17Digital],
-    priceCents: 0,
-    enabledMonths: [...ALL_INSTALLMENTS],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: makeProductId(),
-    name: "iPhone 17 Pro Max",
-    color: "Titânio Branco",
-    imageSrc: iphone17Branco,
-    imageSrcs: [iphone17Branco, iphone17Digital],
-    priceCents: 0,
-    enabledMonths: [...ALL_INSTALLMENTS],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-function useLandingProducts() {
-  const [products, setProducts] = useState<LandingProduct[]>(() => loadLandingProducts(seedProducts));
-
-  useEffect(() => {
-    const onUpdate = () => setProducts(loadLandingProducts(seedProducts));
-    window.addEventListener(PRODUCTS_UPDATED_EVENT, onUpdate);
-    return () => window.removeEventListener(PRODUCTS_UPDATED_EVENT, onUpdate);
-  }, []);
-
-  return products;
 }
 
 function useCart() {
@@ -220,7 +167,7 @@ const diferenciaisExtras = [
 export default function LandingPage() {
   const location = useLocation();
   const [mobileMenu, setMobileMenu] = useState(false);
-  const products = useLandingProducts();
+  const products = useGlobalLandingProducts();
   const { items: cartItems, persist: persistCart } = useCart();
   const [cartOpen, setCartOpen] = useState(false);
   const navigate = useNavigate();

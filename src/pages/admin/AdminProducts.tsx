@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Pencil, Upload, RefreshCcw } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { landingProductSeed } from "@/data/landingProductSeed";
 import {
   ALL_INSTALLMENTS,
   type InstallmentMonths,
@@ -15,6 +17,11 @@ import {
   makeProductId,
   saveLandingProducts,
 } from "@/lib/productsStore";
+import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
+import {
+  fetchLandingProductsFromSupabase,
+  subscribeLandingProductsChanges,
+} from "@/lib/productsSupabase";
 
 function toCentsFromBRL(input: string): number {
   const normalized = input.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
@@ -64,14 +71,43 @@ function makeEmptyDraft(): Draft {
 }
 
 export default function AdminProducts() {
-  const [products, setProducts] = useState<LandingProduct[]>(() => loadLandingProducts());
+  const [products, setProducts] = useState<LandingProduct[]>(() =>
+    isSupabaseConfigured ? [] : loadLandingProducts(),
+  );
   const [draft, setDraft] = useState<Draft>(() => makeEmptyDraft());
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
-    const onUpdate = () => setProducts(loadLandingProducts());
+    let cancelled = false;
+
+    async function load() {
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const list = await fetchLandingProductsFromSupabase();
+          if (!cancelled) setProducts(list);
+        } catch {
+          if (!cancelled) setProducts([]);
+        }
+      } else if (!cancelled) {
+        setProducts(loadLandingProducts());
+      }
+    }
+
+    void load();
+
+    const unsubRealtime = subscribeLandingProductsChanges(() => {
+      void load();
+    });
+
+    const onUpdate = () => {
+      void load();
+    };
     window.addEventListener(PRODUCTS_UPDATED_EVENT, onUpdate);
-    return () => window.removeEventListener(PRODUCTS_UPDATED_EVENT, onUpdate);
+    return () => {
+      cancelled = true;
+      unsubRealtime();
+      window.removeEventListener(PRODUCTS_UPDATED_EVENT, onUpdate);
+    };
   }, []);
 
   const sorted = useMemo(
@@ -95,9 +131,46 @@ export default function AdminProducts() {
     setEditingId(null);
   }
 
-  function persist(next: LandingProduct[]) {
+  async function persist(next: LandingProduct[]) {
+    const prev = products;
     setProducts(next);
-    saveLandingProducts(next);
+    if (isSupabaseConfigured) {
+      try {
+        const r = await fetch("/api/admin/products", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ products: next }),
+        });
+        const data = (await r.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          message?: string;
+        };
+        if (!r.ok || !data.ok) {
+          setProducts(prev);
+          toast.error(
+            data.error === "supabase_not_configured"
+              ? "Configure SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no servidor (ex.: Vercel)."
+              : data.error === "unauthorized"
+                ? "Sessão admin expirada. Faça login novamente."
+                : data.message || data.error || "Não foi possível salvar o catálogo.",
+          );
+          return;
+        }
+        try {
+          window.dispatchEvent(new Event(PRODUCTS_UPDATED_EVENT));
+        } catch {
+          /* ignore */
+        }
+        toast.success("Catálogo publicado para todos os visitantes.");
+      } catch {
+        setProducts(prev);
+        toast.error("Erro de rede ao salvar o catálogo.");
+      }
+    } else {
+      saveLandingProducts(next);
+    }
   }
 
   function startEdit(p: LandingProduct) {
@@ -113,7 +186,7 @@ export default function AdminProducts() {
   }
 
   function remove(id: string) {
-    persist(products.filter((p) => p.id !== id));
+    void persist(products.filter((p) => p.id !== id));
     if (editingId === id) resetDraft();
   }
 
@@ -141,7 +214,7 @@ export default function AdminProducts() {
     setDraft((d) => ({ ...d, imageSrcs: d.imageSrcs.filter((_, i) => i !== idx) }));
   }
 
-  function save() {
+  async function save() {
     const name = draft.name.trim();
     const color = draft.color.trim();
     const imageSrcs = draft.imageSrcs
@@ -173,7 +246,7 @@ export default function AdminProducts() {
             }
           : p,
       );
-      persist(next);
+      await persist(next);
       resetDraft();
       return;
     }
@@ -189,18 +262,18 @@ export default function AdminProducts() {
       createdAt: nowIso,
       updatedAt: nowIso,
     };
-    persist([newProduct, ...products]);
+    await persist([newProduct, ...products]);
     resetDraft();
   }
 
   function seedIfEmpty() {
-    const current = loadLandingProducts();
-    if (current.length) {
-      setProducts(current);
+    if (isSupabaseConfigured && supabase) {
+      void fetchLandingProductsFromSupabase()
+        .then(setProducts)
+        .catch(() => setProducts([]));
       return;
     }
-    // Não força seed aqui; a Landing pode injetar seed. Admin só recarrega.
-    setProducts([]);
+    setProducts(loadLandingProducts(landingProductSeed));
   }
 
   return (
@@ -330,7 +403,7 @@ export default function AdminProducts() {
           </div>
 
           <div className="flex gap-2">
-            <Button className="flex-1" onClick={save}>
+            <Button className="flex-1" onClick={() => void save()}>
               {editingId ? "Salvar alterações" : "Adicionar produto"}
             </Button>
             {editingId && (

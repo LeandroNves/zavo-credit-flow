@@ -4,13 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { getClienteAtualId } from "@/lib/clienteSession";
+import { useGlobalLandingProducts } from "@/hooks/useGlobalLandingProducts";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import {
   ALL_INSTALLMENTS,
-  PRODUCTS_UPDATED_EVENT,
   calculateInstallmentCents,
   formatBRLFromCents,
-  loadLandingProducts,
   parseProductColors,
   type InstallmentMonths,
   type LandingProduct,
@@ -27,17 +26,14 @@ import { createProductRequest } from "@/lib/productRequestsSupabase";
 import { RotatingProductImage } from "@/components/product/RotatingProductImage";
 
 export default function ClientProducts() {
-  const [products, setProducts] = useState<LandingProduct[]>(() => loadLandingProducts());
+  const products = useGlobalLandingProducts();
   const [items, setItems] = useState<ClientProductCartItem[]>(() => loadClientProductCart());
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    const onProductsUpdate = () => setProducts(loadLandingProducts());
     const onCartUpdate = () => setItems(loadClientProductCart());
-    window.addEventListener(PRODUCTS_UPDATED_EVENT, onProductsUpdate);
     window.addEventListener(CLIENT_PRODUCT_CART_UPDATED_EVENT, onCartUpdate);
     return () => {
-      window.removeEventListener(PRODUCTS_UPDATED_EVENT, onProductsUpdate);
       window.removeEventListener(CLIENT_PRODUCT_CART_UPDATED_EVENT, onCartUpdate);
     };
   }, []);

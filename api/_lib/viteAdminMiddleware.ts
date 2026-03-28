@@ -1,6 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Connect } from "vite";
-import { handleAdminLogin, handleAdminLogout, handleAdminSession } from "./adminHttp.js";
+import {
+  handleAdminLogin,
+  handleAdminLogout,
+  handleAdminSession,
+} from "./adminHttp.js";
+import { handleAdminProductsPost } from "./adminProductsHttp.js";
 
 /**
  * Dev server only: expõe /api/admin/* com a mesma lógica das funções na Vercel.
@@ -44,6 +49,10 @@ export function createAdminApiMiddleware(
         }),
       );
       void handleAdminLogin(merged, ireq, ires);
+      return;
+    }
+    if (url === "/api/admin/products" && method === "POST") {
+      void handleAdminProductsPost(merged, ireq, ires);
       return;
     }
 
