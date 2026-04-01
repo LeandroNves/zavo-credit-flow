@@ -168,6 +168,20 @@ export function buildClienteFromManualFields(
   };
 }
 
+/** Atualiza só os campos editáveis do cadastro; preserva contratos, situação e status derivados. */
+export function mergeManualFieldsIntoCliente(
+  base: Cliente,
+  fields: ManualClienteFields,
+): Cliente {
+  const next = buildClienteFromManualFields(base.id, fields);
+  return {
+    ...next,
+    situacao: base.situacao,
+    statusContrato: base.statusContrato,
+    contratos: base.contratos,
+  };
+}
+
 export async function supabaseCreateClientManual(
   sb: SupabaseClient,
   fields: ManualClienteFields,
@@ -211,6 +225,65 @@ export async function supabaseUpdateClientManualStatus(
     .update({ status_manual: status })
     .eq("id", clientId);
   if (error) throw error;
+}
+
+/** Atualiza ficha em `clients` e espelha em `profiles` quando existir vínculo (área do cliente). */
+export async function supabaseUpdateClientManualFields(
+  sb: SupabaseClient,
+  clientId: string,
+  fields: ManualClienteFields,
+): Promise<void> {
+  const nome = fields.nome.trim();
+  if (!nome) throw new Error("Nome é obrigatório.");
+
+  const emailLower = (fields.email ?? "").trim().toLowerCase();
+  const row = {
+    nome,
+    cpf: emptyToNull(fields.cpf),
+    email: emptyToNull(emailLower),
+    telefone: emptyToNull(fields.telefone),
+    estado_civil: resolvedEstadoCivilKey(fields.estadoCivil),
+    instagram: emptyToNull(fields.instagram),
+    contato1: emptyToNull(fields.contato1),
+    contato2: emptyToNull(fields.contato2),
+    endereco_residencial: emptyToNull(fields.enderecoResidencial),
+    endereco_trabalho: emptyToNull(fields.enderecoTrabalho),
+    salario: emptyToNull(fields.salario),
+    dependentes: emptyToNull(fields.dependentes),
+    tipo_moradia: resolvedTipoMoradiaKey(fields.tipoMoradia),
+    outras_rendas: emptyToNull(fields.outrasRendas),
+  };
+
+  const { error } = await sb.from("clients").update(row).eq("id", clientId);
+  if (error) throw error;
+
+  const t = (s: string | undefined) => (s ?? "").trim();
+  const fb = (s: string | undefined, fallback: string) => {
+    const x = t(s);
+    return x.length ? x : fallback;
+  };
+  const profilePayload = {
+    nome_completo: nome,
+    cpf: fb(fields.cpf, "—"),
+    email: emailLower || "—",
+    telefone: fb(fields.telefone, "—"),
+    estado_civil: fb(fields.estadoCivil, "nao_informado"),
+    instagram: t(fields.instagram),
+    contato1: fb(fields.contato1, "—"),
+    contato2: fb(fields.contato2, "—"),
+    endereco_residencial: fb(fields.enderecoResidencial, "—"),
+    endereco_trabalho: fb(fields.enderecoTrabalho, "—"),
+    salario: fb(fields.salario, "—"),
+    dependentes: fb(fields.dependentes, "—"),
+    tipo_moradia: fb(fields.tipoMoradia, "nao_informado"),
+    outras_rendas: t(fields.outrasRendas),
+  };
+
+  const { error: pErr } = await sb
+    .from("profiles")
+    .update(profilePayload)
+    .eq("linked_client_id", clientId);
+  if (pErr) throw pErr;
 }
 
 export async function supabaseUpdateContractStatus(

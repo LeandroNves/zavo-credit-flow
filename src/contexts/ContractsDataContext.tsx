@@ -19,6 +19,7 @@ import {
   buildClienteFromManualFields,
   ensureSupabaseSeed,
   fetchClientesFromSupabase,
+  mergeManualFieldsIntoCliente,
   type ManualClienteFields,
   supabaseCreateClientManual,
   supabaseCreateClienteWithPortalAuth,
@@ -29,6 +30,7 @@ import {
   supabaseSendClientPasswordReset,
   supabaseUpdateContractStatus,
   supabaseUpdateContractNumero,
+  supabaseUpdateClientManualFields,
   supabaseUpdateClientManualStatus,
   supabaseUpdateInstallmentStatus,
   supabaseUploadInstallmentBoleto,
@@ -113,6 +115,11 @@ type ContractsContextValue = {
   ) => Promise<string | null>;
   deleteCliente: (clientId: string) => Promise<boolean>;
   getClienteById: (id: string) => Cliente | undefined;
+  /** Atualiza campos da ficha (admin); preserva contratos e situação. */
+  updateClienteManualFields: (
+    clientId: string,
+    fields: ManualClienteFields,
+  ) => Promise<boolean>;
   setClienteSituacao: (clientId: string, situacao: Cliente["situacao"]) => Promise<void>;
   sendClientePasswordReset: (clientId: string) => Promise<void>;
 };
@@ -624,6 +631,44 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
     [clientes, dataSource, persistLocal, reload],
   );
 
+  const updateClienteManualFields = useCallback(
+    async (clientId: string, fields: ManualClienteFields) => {
+      const client = clientes.find((c) => c.id === clientId);
+      if (!client) {
+        toast.error("Cliente não encontrado.");
+        return false;
+      }
+      const nome = (fields.nome ?? "").trim();
+      if (!nome) {
+        toast.error("Informe o nome do cliente.");
+        return false;
+      }
+      try {
+        if (dataSource === "supabase" && supabase) {
+          await supabaseUpdateClientManualFields(supabase, clientId, fields);
+          await reload();
+        } else {
+          const next = clientes.map((c) =>
+            c.id === clientId ? mergeManualFieldsIntoCliente(c, fields) : c,
+          );
+          setClientes(next);
+          persistLocal(next);
+        }
+        toast.success("Dados do cliente salvos.");
+        return true;
+      } catch (e) {
+        console.error(e);
+        const msg =
+          e instanceof Error
+            ? e.message
+            : "Não foi possível salvar os dados do cliente.";
+        toast.error(msg);
+        return false;
+      }
+    },
+    [clientes, dataSource, persistLocal, reload],
+  );
+
   const setClienteSituacao = useCallback(
     async (clientId: string, situacao: Cliente["situacao"]) => {
       try {
@@ -694,6 +739,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       deleteCliente,
       createClienteManual,
       getClienteById,
+      updateClienteManualFields,
       setClienteSituacao,
       sendClientePasswordReset,
     }),
@@ -713,6 +759,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       deleteCliente,
       createClienteManual,
       getClienteById,
+      updateClienteManualFields,
       setClienteSituacao,
       sendClientePasswordReset,
     ],
