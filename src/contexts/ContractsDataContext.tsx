@@ -33,12 +33,14 @@ import {
   supabaseUpdateClientManualFields,
   supabaseUpdateClientManualStatus,
   supabaseUpdateInstallmentStatus,
+  supabaseUpdateInstallmentValorVencimento,
   supabaseUploadInstallmentBoleto,
 } from "@/lib/contractsSupabase";
 import { validatePortalPassword } from "@/lib/clientPasswordPolicy";
 import { deriveClienteStatus } from "@/lib/deriveClienteStatus";
 import {
   buildParcelaDueDates,
+  contractTotalsFromParcelas,
   formatVencimentoBR,
   formatIsoToBR,
   splitTotalAcrossInstallments,
@@ -87,6 +89,13 @@ type ContractsContextValue = {
     parcelaNumero: number,
     status: Parcela["status"],
   ) => Promise<void>;
+  /** Admin: altera valor e vencimento de uma parcela; total do contrato = soma das parcelas. */
+  updateParcelaValorVencimento: (
+    clientId: string,
+    contractId: string,
+    parcelaNumero: number,
+    input: { valor: number; dueDateIso: string },
+  ) => Promise<boolean>;
   uploadParcelaBoleto: (
     clientId: string,
     contractId: string,
@@ -327,6 +336,79 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         console.error(e);
         toast.error("Não foi possível atualizar a parcela.");
+      }
+    },
+    [clientes, dataSource, persistLocal, reload],
+  );
+
+  const updateParcelaValorVencimento = useCallback(
+    async (
+      clientId: string,
+      contractId: string,
+      parcelaNumero: number,
+      input: { valor: number; dueDateIso: string },
+    ): Promise<boolean> => {
+      const v = Math.round(input.valor * 100) / 100;
+      if (!Number.isFinite(v) || v <= 0) {
+        toast.error("Informe um valor de parcela maior que zero.");
+        return false;
+      }
+      const due = (input.dueDateIso || "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) {
+        toast.error("Data de vencimento inválida.");
+        return false;
+      }
+      try {
+        if (dataSource === "supabase" && supabase) {
+          await supabaseUpdateInstallmentValorVencimento(
+            supabase,
+            clientId,
+            contractId,
+            parcelaNumero,
+            v,
+            due,
+          );
+          await reload();
+        } else {
+          const next = clientes.map((c) => {
+            if (c.id !== clientId) return c;
+            return {
+              ...c,
+              contratos: c.contratos.map((k) => {
+                if (k.id !== contractId) return k;
+                const listaParcelas = k.listaParcelas.map((p) =>
+                  p.numero === parcelaNumero
+                    ? {
+                        ...p,
+                        valor: v,
+                        vencimento: formatIsoToBR(due),
+                      }
+                    : p,
+                );
+                const { valor: valorContrato, valorParcela } =
+                  contractTotalsFromParcelas(listaParcelas);
+                return {
+                  ...k,
+                  listaParcelas,
+                  valor: valorContrato,
+                  valorParcela,
+                };
+              }),
+            };
+          });
+          setClientes(next);
+          persistLocal(next);
+        }
+        toast.success("Parcela atualizada. Valor total do contrato recalculado.");
+        return true;
+      } catch (e) {
+        console.error(e);
+        const msg =
+          e instanceof Error
+            ? e.message
+            : "Não foi possível atualizar a parcela.";
+        toast.error(msg);
+        return false;
       }
     },
     [clientes, dataSource, persistLocal, reload],
@@ -731,6 +813,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       reload,
       createContractForCliente,
       updateParcelaStatus,
+      updateParcelaValorVencimento,
       uploadParcelaBoleto,
       finalizeContract,
       updateContractStatus,
@@ -751,6 +834,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       reload,
       createContractForCliente,
       updateParcelaStatus,
+      updateParcelaValorVencimento,
       uploadParcelaBoleto,
       finalizeContract,
       updateContractStatus,

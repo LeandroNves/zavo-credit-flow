@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check, Pencil, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +35,7 @@ import { contractNumeroForInput } from "@/lib/contractNumero";
 import type { Parcela } from "@/data/mockData";
 import { toast } from "sonner";
 import { CONTRACT_STATUS_BADGE_CLASS, CONTRACT_STATUS_LABELS, CONTRACT_STATUS_VALUES, type ContractStatus } from "@/lib/contractStatus";
+import { brVencimentoToDateInputValue } from "@/lib/parcelSchedule";
 
 export default function AdminManageContract() {
   const navigate = useNavigate();
@@ -43,10 +44,15 @@ export default function AdminManageContract() {
   const [uploadParcelaNum, setUploadParcelaNum] = useState<number | null>(null);
   const [renameOpen, setRenameOpen] = useState(false);
   const [numeroEdit, setNumeroEdit] = useState("");
+  const [parcelaEdit, setParcelaEdit] = useState<Parcela | null>(null);
+  const [parcelaValorStr, setParcelaValorStr] = useState("");
+  const [parcelaDueIso, setParcelaDueIso] = useState("");
+  const [parcelaSaving, setParcelaSaving] = useState(false);
 
   const {
     getClienteById,
     updateParcelaStatus,
+    updateParcelaValorVencimento,
     uploadParcelaBoleto,
     updateContractStatus,
     renameContractNumero,
@@ -58,6 +64,12 @@ export default function AdminManageContract() {
   const cliente = id ? getClienteById(id) : undefined;
   const contrato = cliente?.contratos.find((c) => c.id === contratoId);
   const parcelas = contrato?.listaParcelas ?? [];
+
+  useEffect(() => {
+    if (!parcelaEdit) return;
+    setParcelaValorStr(String(parcelaEdit.valor));
+    setParcelaDueIso(brVencimentoToDateInputValue(parcelaEdit.vencimento));
+  }, [parcelaEdit]);
 
   const openFilePicker = (parcelaNumero: number) => {
     setUploadParcelaNum(parcelaNumero);
@@ -106,6 +118,35 @@ export default function AdminManageContract() {
     if (ok) navigate(`/admin/cliente/${id}`);
   };
 
+  const contractLocked =
+    contrato?.status === "finalizado" || contrato?.status === "cancelado";
+
+  const handleSaveParcelaEdit = async () => {
+    if (!id || !contratoId || !parcelaEdit || parcelaSaving) return;
+    const normalized = parcelaValorStr.replace(",", ".").trim();
+    const valor = Math.round(parseFloat(normalized) * 100) / 100;
+    if (!Number.isFinite(valor) || valor <= 0) {
+      toast.error("Informe um valor válido maior que zero.");
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(parcelaDueIso)) {
+      toast.error("Selecione uma data de vencimento válida.");
+      return;
+    }
+    setParcelaSaving(true);
+    try {
+      const ok = await updateParcelaValorVencimento(
+        id,
+        contratoId,
+        parcelaEdit.numero,
+        { valor, dueDateIso: parcelaDueIso },
+      );
+      if (ok) setParcelaEdit(null);
+    } finally {
+      setParcelaSaving(false);
+    }
+  };
+
   if (!ready || loading) {
     return (
       <div className="text-center py-12 text-muted-foreground">
@@ -131,6 +172,67 @@ export default function AdminManageContract() {
         accept=".pdf,image/*"
         onChange={onFileChange}
       />
+
+      <Dialog
+        open={parcelaEdit != null}
+        onOpenChange={(open) => {
+          if (!open) setParcelaEdit(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Editar parcela {parcelaEdit ? `${parcelaEdit.numero}/${parcelaEdit.total}` : ""}
+            </DialogTitle>
+            <DialogDescription>
+              Altere o valor (ex.: juros/multa) e a data de vencimento. O valor total do
+              contrato passa a ser a soma de todas as parcelas; as demais parcelas não
+              mudam até você editá-las.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="parc-valor">Valor da parcela (R$)</Label>
+              <Input
+                id="parc-valor"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0.01"
+                value={parcelaValorStr}
+                onChange={(e) => setParcelaValorStr(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="parc-due">Vencimento</Label>
+              <Input
+                id="parc-due"
+                type="date"
+                value={parcelaDueIso}
+                onChange={(e) => setParcelaDueIso(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={parcelaSaving}
+              onClick={() => setParcelaEdit(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={parcelaSaving}
+              onClick={() => void handleSaveParcelaEdit()}
+            >
+              {parcelaSaving ? "Salvando…" : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
         <DialogContent className="sm:max-w-md">
@@ -184,8 +286,8 @@ export default function AdminManageContract() {
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            {cliente.nome} • R$ {contrato.valor.toFixed(2).replace(".", ",")} •{" "}
-            {contrato.parcelas} parcelas
+            {cliente.nome} • Total R$ {contrato.valor.toFixed(2).replace(".", ",")} •{" "}
+            {contrato.parcelas} parcelas (soma das parcelas)
           </p>
         </div>
         <span className={`text-xs font-medium px-3 py-1 rounded-full shrink-0 ${CONTRACT_STATUS_BADGE_CLASS[contrato.status]}`}>
@@ -288,7 +390,7 @@ export default function AdminManageContract() {
                       onValueChange={(v) =>
                         handleStatusChange(p.numero, v as Parcela["status"])
                       }
-                      disabled={contrato.status === "finalizado" || contrato.status === "cancelado"}
+                      disabled={contractLocked}
                     >
                       <SelectTrigger className="w-32 h-8 text-xs">
                         <SelectValue />
@@ -313,11 +415,22 @@ export default function AdminManageContract() {
                       size="sm"
                       variant="outline"
                       className="gap-1"
-                      disabled={contrato.status === "finalizado" || contrato.status === "cancelado"}
+                      disabled={contractLocked}
                       onClick={() => openFilePicker(p.numero)}
                     >
                       <Upload className="h-3 w-3" />
                       Enviar boleto
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="gap-1 ml-2"
+                      disabled={contractLocked}
+                      onClick={() => setParcelaEdit(p)}
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Editar
                     </Button>
                   </td>
                 </tr>

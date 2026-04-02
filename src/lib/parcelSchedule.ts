@@ -67,6 +67,32 @@ export function parseBRDateToIso(vencimento: string): string {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+/** Retorna `yyyy-MM-dd` ou `null` se o texto não for dd/MM/yyyy válido. */
+export function tryParseBRDateToIso(vencimento: string): string | null {
+  const p = vencimento.trim().split("/").map((x) => parseInt(x, 10));
+  if (p.length !== 3 || p.some((n) => Number.isNaN(n))) return null;
+  const [day, month, year] = p;
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > 2100)
+    return null;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+export function brVencimentoToDateInputValue(vencimento: string): string {
+  return tryParseBRDateToIso(vencimento) ?? format(new Date(), "yyyy-MM-dd");
+}
+
+/** Soma os valores das parcelas e calcula média para exibição do contrato. */
+export function contractTotalsFromParcelas(
+  lista: { valor: number }[],
+): { valor: number; valorParcela: number } {
+  const n = lista.length;
+  const sumRaw = lista.reduce((a, p) => a + (Number(p.valor) || 0), 0);
+  const valor = Math.round(sumRaw * 100) / 100;
+  const valorParcela =
+    n > 0 ? Math.round((sumRaw / n) * 100) / 100 : 0;
+  return { valor, valorParcela };
+}
+
 export function formatIsoToBR(iso: string): string {
   const d = iso.split("T")[0];
   const [y, m, day] = d.split("-");

@@ -2,7 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Cliente, Contrato, Parcela } from "@/data/mockData";
 import { mockClientes } from "@/data/mockData";
 import { deriveClienteStatus } from "@/lib/deriveClienteStatus";
-import { formatIsoToBR, parseBRDateToIso } from "@/lib/parcelSchedule";
+import {
+  contractTotalsFromParcelas,
+  formatIsoToBR,
+  parseBRDateToIso,
+} from "@/lib/parcelSchedule";
 import { type ContractStatus, isContractStatus } from "@/lib/contractStatus";
 
 type ClientRow = {
@@ -616,6 +620,41 @@ export async function supabaseUpdateInstallmentStatus(
     .eq("contract_id", contractId)
     .eq("numero", parcelaNumero);
   if (error) throw error;
+}
+
+/**
+ * Atualiza valor e vencimento de uma parcela e recalcula `valor_total` / `valor_parcela`
+ * do contrato como soma das parcelas e média (para exibição).
+ */
+export async function supabaseUpdateInstallmentValorVencimento(
+  sb: SupabaseClient,
+  clientId: string,
+  contractId: string,
+  parcelaNumero: number,
+  valor: number,
+  dueDateIso: string,
+): Promise<void> {
+  const { error: e1 } = await sb
+    .from("installments")
+    .update({ valor, due_date: dueDateIso })
+    .eq("contract_id", contractId)
+    .eq("numero", parcelaNumero);
+  if (e1) throw e1;
+
+  const { data: rows, error: e2 } = await sb
+    .from("installments")
+    .select("valor")
+    .eq("contract_id", contractId);
+  if (e2) throw e2;
+  const { valor: valor_total, valorParcela: valor_parcela } =
+    contractTotalsFromParcelas(rows || []);
+
+  const { error: e3 } = await sb
+    .from("contracts")
+    .update({ valor_total, valor_parcela })
+    .eq("id", contractId)
+    .eq("client_id", clientId);
+  if (e3) throw e3;
 }
 
 export async function supabaseUploadInstallmentBoleto(
