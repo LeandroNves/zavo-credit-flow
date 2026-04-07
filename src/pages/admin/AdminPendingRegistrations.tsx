@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import type { ProfileRow } from "@/lib/profileTypes";
 import { approveProfile, rejectProfile } from "@/lib/approveRegistration";
-import { getRegistrationDocPublicUrl } from "@/lib/registrationDocs";
+import { getRegistrationDocPublicUrls } from "@/lib/registrationDocs";
 import { useContractsData } from "@/contexts/ContractsDataContext";
 
 function formatDataCadastro(iso: string) {
@@ -25,12 +25,12 @@ type DocKey =
   | "doc_extrato_path";
 
 const DOC_LABELS: { key: DocKey; label: string }[] = [
-  { key: "doc_rg_path", label: "RG/CNH" },
-  { key: "doc_selfie_path", label: "Selfie com documento" },
-  { key: "doc_comprovante_path", label: "Comprovante de endereço" },
-  { key: "doc_holerite_path", label: "Holerite" },
-  { key: "doc_ctps_path", label: "Carteira de trabalho" },
-  { key: "doc_extrato_path", label: "Extrato bancário" },
+  { key: "doc_rg_path", label: "RG/CNH (frente e verso)" },
+  { key: "doc_selfie_path", label: "Selfie com documento (frente e verso)" },
+  { key: "doc_comprovante_path", label: "Comprovante de endereço (frente e verso)" },
+  { key: "doc_holerite_path", label: "Holerite (frente e verso se necessário)" },
+  { key: "doc_ctps_path", label: "Carteira de trabalho (frente e verso)" },
+  { key: "doc_extrato_path", label: "Extrato bancário (frente e verso se necessário)" },
 ];
 
 type InterestCartItem = {
@@ -243,20 +243,27 @@ export default function AdminPendingRegistrations() {
           <h2 className="font-semibold text-primary">Documentos enviados</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {DOC_LABELS.map(({ key, label }) => {
-              const path = selected[key];
-              const url = getRegistrationDocPublicUrl(supabase, path);
+              const raw = selected[key];
+              const urls = getRegistrationDocPublicUrls(supabase, raw);
               return (
-                <div key={key} className="border rounded-lg p-4 text-center">
+                <div key={key} className="border rounded-lg p-4 text-center space-y-2">
                   <p className="text-xs text-muted-foreground">{label}</p>
-                  {url ? (
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-secondary font-medium mt-2 inline-block hover:underline"
-                    >
-                      Abrir ↗
-                    </a>
+                  {urls.length > 0 ? (
+                    <div className="flex flex-col gap-1 items-center">
+                      {urls.map((url, i) => (
+                        <a
+                          key={`${key}-${i}`}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-secondary font-medium hover:underline"
+                        >
+                          {urls.length > 1
+                            ? `Abrir arquivo ${i + 1}/${urls.length} ↗`
+                            : "Abrir ↗"}
+                        </a>
+                      ))}
+                    </div>
                   ) : (
                     <p className="text-xs text-muted-foreground mt-2">Não enviado</p>
                   )}

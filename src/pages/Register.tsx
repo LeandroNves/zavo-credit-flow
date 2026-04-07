@@ -35,18 +35,18 @@ export type RegisterFormState = {
   instagram: string;
   contato1: string;
   contato2: string;
-  rg: File | null;
-  selfie: File | null;
+  rg: File[];
+  selfie: File[];
   enderecoResidencial: string;
   enderecoTrabalho: string;
-  comprovante: File | null;
+  comprovante: File[];
   salario: string;
   dependentes: string;
   tipoMoradia: string;
   outrasRendas: string;
-  holerite: File | null;
-  ctps: File | null;
-  extrato: File | null;
+  holerite: File[];
+  ctps: File[];
+  extrato: File[];
   senha: string;
   confirmar: string;
 };
@@ -62,18 +62,18 @@ const emptyForm: RegisterFormState = {
   instagram: "",
   contato1: "",
   contato2: "",
-  rg: null,
-  selfie: null,
+  rg: [],
+  selfie: [],
   enderecoResidencial: "",
   enderecoTrabalho: "",
-  comprovante: null,
+  comprovante: [],
   salario: "",
   dependentes: "",
   tipoMoradia: "",
   outrasRendas: "",
-  holerite: null,
-  ctps: null,
-  extrato: null,
+  holerite: [],
+  ctps: [],
+  extrato: [],
   senha: "",
   confirmar: "",
 };
@@ -101,8 +101,9 @@ function validateStepPersonal(f: RegisterFormState): string | null {
   if (!isValidEmail(f.email)) return "E-mail inválido.";
   if (!isNonEmpty(f.telefone)) return "Informe o telefone.";
   if (!isNonEmpty(f.estadoCivil)) return "Selecione o estado civil.";
-  if (!f.rg) return "Envie o RG ou CNH.";
-  if (!f.selfie) return "Envie a selfie com documento.";
+  if (f.rg.length < 1) return "Envie o RG ou CNH (frente e verso; um arquivo por imagem).";
+  if (f.selfie.length < 1)
+    return "Envie a selfie com documento (inclua frente e verso do documento, se necessário em mais de um arquivo).";
   if (!isNonEmpty(f.contato1)) return "Informe o contato de confiança 1.";
   if (!isNonEmpty(f.contato2)) return "Informe o contato de confiança 2.";
   return null;
@@ -111,7 +112,8 @@ function validateStepPersonal(f: RegisterFormState): string | null {
 function validateStepAddress(f: RegisterFormState): string | null {
   if (!isNonEmpty(f.enderecoResidencial)) return "Informe o endereço residencial.";
   if (!isNonEmpty(f.enderecoTrabalho)) return "Informe o endereço de trabalho.";
-  if (!f.comprovante) return "Envie o comprovante de endereço.";
+  if (f.comprovante.length < 1)
+    return "Envie o comprovante de endereço (frente e verso, se couber em mais de um arquivo).";
   return null;
 }
 
@@ -119,7 +121,8 @@ function validateStepFinancial(f: RegisterFormState): string | null {
   if (!isNonEmpty(f.salario)) return "Informe o salário.";
   if (!isNonEmpty(f.dependentes)) return "Informe a quantidade de dependentes.";
   if (!isNonEmpty(f.tipoMoradia)) return "Selecione o tipo de moradia.";
-  if (!f.holerite) return "Envie o holerite.";
+  if (f.holerite.length < 1)
+    return "Envie o holerite (mais de um arquivo se precisar mostrar frente e verso).";
   return null;
 }
 
@@ -134,37 +137,52 @@ function validateStepPassword(f: RegisterFormState): string | null {
   return null;
 }
 
-function FileUpload({
+function MultiFileUpload({
   label,
+  hint,
   required,
   id,
-  file,
+  files,
   onChange,
   disabled,
 }: {
   label: string;
+  hint?: string;
   required?: boolean;
   id: string;
-  file: File | null;
-  onChange: (f: File | null) => void;
+  files: File[];
+  onChange: (next: File[]) => void;
   disabled?: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
+  const addFromList = (list: FileList | null) => {
+    if (!list?.length) return;
+    onChange([...files, ...Array.from(list)]);
+  };
+  const removeAt = (index: number) => {
+    onChange(files.filter((_, i) => i !== index));
+  };
+  const hasFiles = files.length > 0;
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       <Label htmlFor={id}>
         {label}{" "}
         {required && <span className="text-destructive">*</span>}
       </Label>
+      {hint ? (
+        <p className="text-xs text-muted-foreground leading-snug">{hint}</p>
+      ) : null}
       <input
         ref={ref}
         id={id}
         type="file"
         className="hidden"
         disabled={disabled}
+        multiple
+        accept="image/*,.pdf,application/pdf"
         onChange={(e) => {
-          const next = e.target.files?.[0] ?? null;
-          onChange(next);
+          addFromList(e.target.files);
+          e.target.value = "";
         }}
       />
       <div
@@ -172,7 +190,7 @@ function FileUpload({
           disabled
             ? "opacity-50 cursor-not-allowed border-muted"
             : "cursor-pointer"
-        } ${file ? "border-success bg-success/5" : "border-input hover:border-secondary"}`}
+        } ${hasFiles ? "border-success bg-success/5" : "border-input hover:border-secondary"}`}
         onClick={() => !disabled && ref.current?.click()}
         onKeyDown={(e) => {
           if (!disabled && (e.key === "Enter" || e.key === " ")) {
@@ -183,17 +201,39 @@ function FileUpload({
         role="button"
         tabIndex={disabled ? -1 : 0}
       >
-        {file ? (
-          <div className="flex items-center justify-center gap-2 text-success text-sm font-medium">
-            <Check className="h-4 w-4" /> {file.name}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-1 text-muted-foreground text-sm">
-            <Upload className="h-5 w-5" />
-            <span>Clique para enviar</span>
-          </div>
-        )}
+        <div className="flex flex-col items-center gap-1 text-muted-foreground text-sm">
+          <Upload className="h-5 w-5" />
+          <span>Clique para adicionar arquivos (vários permitidos)</span>
+        </div>
       </div>
+      {hasFiles && (
+        <ul className="space-y-1.5 rounded-md border bg-background p-2 text-sm">
+          {files.map((f, i) => (
+            <li
+              key={`${f.name}-${i}-${f.lastModified}`}
+              className="flex items-center justify-between gap-2 text-foreground"
+            >
+              <span className="flex items-center gap-1.5 min-w-0">
+                <Check className="h-3.5 w-3.5 text-success shrink-0" />
+                <span className="truncate">{f.name}</span>
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="shrink-0 h-7 text-xs"
+                disabled={disabled}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  removeAt(i);
+                }}
+              >
+                Remover
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -462,18 +502,20 @@ export default function Register() {
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FileUpload
-                  label="RG ou CNH"
+                <MultiFileUpload
+                  label="RG ou CNH — frente e verso"
+                  hint="Envie uma foto ou PDF da frente e outra do verso (pode selecionar vários arquivos de uma vez ou adicionar em cliques separados)."
                   required
                   id="rg"
-                  file={form.rg}
+                  files={form.rg}
                   onChange={(f) => patch({ rg: f })}
                 />
-                <FileUpload
-                  label="Selfie com documento"
+                <MultiFileUpload
+                  label="Selfie com documento — frente e verso"
+                  hint="Inclua imagens nítidas; se o verso do documento for obrigatório, envie também (vários arquivos permitidos)."
                   required
                   id="selfie"
-                  file={form.selfie}
+                  files={form.selfie}
                   onChange={(f) => patch({ selfie: f })}
                 />
               </div>
@@ -547,11 +589,12 @@ export default function Register() {
                     }
                   />
                 </div>
-                <FileUpload
-                  label="Comprovante residencial"
+                <MultiFileUpload
+                  label="Comprovante de endereço — frente e verso"
+                  hint="Conta, fatura ou contrato: frente e verso quando aplicável (vários arquivos)."
                   required
                   id="comprovante"
-                  file={form.comprovante}
+                  files={form.comprovante}
                   onChange={(f) => patch({ comprovante: f })}
                 />
               </div>
@@ -633,23 +676,26 @@ export default function Register() {
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FileUpload
-                  label="Holerite"
+                <MultiFileUpload
+                  label="Holerite — frente e verso se necessário"
+                  hint="Um ou mais arquivos (ex.: duas páginas ou frente/verso)."
                   required
                   id="holerite"
-                  file={form.holerite}
+                  files={form.holerite}
                   onChange={(f) => patch({ holerite: f })}
                 />
-                <FileUpload
-                  label="Carteira de trabalho"
+                <MultiFileUpload
+                  label="Carteira de trabalho — frente e verso"
+                  hint="Opcional. Vários arquivos permitidos."
                   id="ctps"
-                  file={form.ctps}
+                  files={form.ctps}
                   onChange={(f) => patch({ ctps: f })}
                 />
-                <FileUpload
-                  label="Extrato bancário"
+                <MultiFileUpload
+                  label="Extrato bancário — frente e verso se necessário"
+                  hint="Opcional. Vários arquivos permitidos."
                   id="extrato"
-                  file={form.extrato}
+                  files={form.extrato}
                   onChange={(f) => patch({ extrato: f })}
                 />
               </div>

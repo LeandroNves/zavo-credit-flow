@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RegisterFormState } from "@/pages/Register";
+import { storeDocPathsForProfile } from "@/lib/registrationDocs";
 
 const BUCKET = "registration-docs";
 
@@ -9,19 +10,23 @@ function extFromFile(f: File): string {
   return i >= 0 ? n.slice(i) : "";
 }
 
-async function uploadDoc(
+async function uploadDocGroup(
   client: SupabaseClient,
   userId: string,
-  key: string,
-  file: File | null,
-): Promise<string | null> {
-  if (!file) return null;
-  const path = `${userId}/${key}${extFromFile(file)}`;
-  const { error } = await client.storage
-    .from(BUCKET)
-    .upload(path, file, { upsert: true, contentType: file.type || undefined });
-  if (error) throw error;
-  return path;
+  keyPrefix: string,
+  files: File[],
+): Promise<string[]> {
+  const out: string[] = [];
+  let seq = 0;
+  for (const file of files) {
+    const path = `${userId}/${keyPrefix}_${seq++}_${crypto.randomUUID().slice(0, 8)}${extFromFile(file)}`;
+    const { error } = await client.storage
+      .from(BUCKET)
+      .upload(path, file, { upsert: true, contentType: file.type || undefined });
+    if (error) throw error;
+    out.push(path);
+  }
+  return out;
 }
 
 export type RegisterSubmitResult =
@@ -76,14 +81,14 @@ export async function submitRegistration(
   }
 
   try {
-    const [rgPath, selfiePath, compPath, holPath, ctpsPath, extratoPath] =
+    const [rgPaths, selfiePaths, compPaths, holPaths, ctpsPaths, extratoPaths] =
       await Promise.all([
-        uploadDoc(client, userId, "rg", form.rg),
-        uploadDoc(client, userId, "selfie", form.selfie),
-        uploadDoc(client, userId, "comprovante", form.comprovante),
-        uploadDoc(client, userId, "holerite", form.holerite),
-        uploadDoc(client, userId, "ctps", form.ctps),
-        uploadDoc(client, userId, "extrato", form.extrato),
+        uploadDocGroup(client, userId, "rg", form.rg),
+        uploadDocGroup(client, userId, "selfie", form.selfie),
+        uploadDocGroup(client, userId, "comprovante", form.comprovante),
+        uploadDocGroup(client, userId, "holerite", form.holerite),
+        uploadDocGroup(client, userId, "ctps", form.ctps),
+        uploadDocGroup(client, userId, "extrato", form.extrato),
       ]);
 
     const { error: insErr } = await client.from("profiles").insert({
@@ -104,12 +109,12 @@ export async function submitRegistration(
       outras_rendas: form.outrasRendas.trim(),
       interest_type: form.interesseTipo || "emprestimo",
       interest_cart: form.interesseCarrinho,
-      doc_rg_path: rgPath,
-      doc_selfie_path: selfiePath,
-      doc_comprovante_path: compPath,
-      doc_holerite_path: holPath,
-      doc_ctps_path: ctpsPath,
-      doc_extrato_path: extratoPath,
+      doc_rg_path: storeDocPathsForProfile(rgPaths),
+      doc_selfie_path: storeDocPathsForProfile(selfiePaths),
+      doc_comprovante_path: storeDocPathsForProfile(compPaths),
+      doc_holerite_path: storeDocPathsForProfile(holPaths),
+      doc_ctps_path: storeDocPathsForProfile(ctpsPaths),
+      doc_extrato_path: storeDocPathsForProfile(extratoPaths),
       registration_status: "pending",
     });
 
