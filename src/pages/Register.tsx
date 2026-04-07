@@ -103,7 +103,7 @@ function validateStepPersonal(f: RegisterFormState): string | null {
   if (!isNonEmpty(f.estadoCivil)) return "Selecione o estado civil.";
   if (f.rg.length < 1) return "Envie o RG ou CNH (frente e verso; um arquivo por imagem).";
   if (f.selfie.length < 1)
-    return "Envie a selfie com documento (inclua frente e verso do documento, se necessário em mais de um arquivo).";
+    return "Envie a selfie com documento.";
   if (!isNonEmpty(f.contato1)) return "Informe o contato de confiança 1.";
   if (!isNonEmpty(f.contato2)) return "Informe o contato de confiança 2.";
   return null;
@@ -512,7 +512,7 @@ export default function Register() {
                 />
                 <MultiFileUpload
                   label="Selfie com documento — frente e verso"
-                  hint="Inclua imagens nítidas; se o verso do documento for obrigatório, envie também (vários arquivos permitidos)."
+                  hint="Inclua imagem nítida com a foto do documento ao lado do rosto."
                   required
                   id="selfie"
                   files={form.selfie}
@@ -523,6 +523,9 @@ export default function Register() {
                 Contatos de confiança{" "}
                 <span className="text-destructive">*</span>
               </h3>
+              <h4 className="text-sm text-muted-foreground">
+              Os contatos devem ser de pessoas próximas de você!
+              </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="contato1">
