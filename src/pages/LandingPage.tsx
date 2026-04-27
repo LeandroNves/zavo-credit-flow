@@ -283,14 +283,6 @@ export default function LandingPage() {
     navigate("/cadastro");
   };
 
-  const goCadastroEmprestimo = () => {
-    saveRegistrationInterest({
-      interestType: "emprestimo",
-      cart: null,
-    });
-    navigate("/cadastro");
-  };
-
   return (
     <div className="min-h-screen bg-white scroll-smooth">
       {/* ─── NAVBAR ─── */}
@@ -547,17 +539,16 @@ export default function LandingPage() {
                   Ver modelos <ArrowRight className="h-4 w-4" />
                 </Button>
               </a>
-              <Link to="/cadastro">
+              <a href="#produtos">
                 <Button
                   type="button"
                   size="lg"
                   variant="outline"
                   className="rounded-full px-8 w-full sm:w-auto"
-                  onClick={goCadastroEmprestimo}
                 >
-                  Solicitar empréstimo 
+                  Escolher produtos
                 </Button>
-              </Link>
+              </a>
             </div>
           </div>
           <div className="flex-1 flex justify-center relative">

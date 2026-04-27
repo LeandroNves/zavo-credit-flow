@@ -150,7 +150,6 @@ export default function AdminPendingRegistrations() {
               ["E-mail", selected.email],
               ["Telefone", selected.telefone],
               ["Estado civil", selected.estado_civil],
-              ["Instagram", selected.instagram || "—"],
               ["Contato 1", selected.contato1],
               ["Contato 2", selected.contato2],
             ].map(([l, v]) => (
@@ -168,17 +167,12 @@ export default function AdminPendingRegistrations() {
             <div>
               <p className="text-xs text-muted-foreground">Tipo</p>
               <p className="text-sm font-medium">
-                {selected.interest_type === "emprestimo"
-                  ? "Empréstimo"
-                  : selected.interest_type === "produto"
-                    ? "Produto"
-                    : "Ambos"}
+                Produto
               </p>
             </div>
           </div>
 
-          {selectedInterestItems.length > 0 &&
-          (selected.interest_type === "produto" || selected.interest_type === "ambos") ? (
+          {selectedInterestItems.length > 0 ? (
             <div className="rounded-lg border bg-background p-4 space-y-2">
               <p className="text-sm font-medium text-primary">Produtos selecionados</p>
               {selectedInterestItems.map((it, idx) => (
@@ -195,11 +189,9 @@ export default function AdminPendingRegistrations() {
               ))}
             </div>
           ) : (
-            (selected.interest_type === "produto" || selected.interest_type === "ambos") && (
-              <p className="text-sm text-muted-foreground">
-                Nenhum produto anexado ao cadastro.
-              </p>
-            )
+            <p className="text-sm text-muted-foreground">
+              Nenhum produto anexado ao cadastro.
+            </p>
           )}
         </div>
 
@@ -223,18 +215,6 @@ export default function AdminPendingRegistrations() {
             <div>
               <p className="text-xs text-muted-foreground">Salário</p>
               <p className="text-sm font-medium">{selected.salario}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Dependentes</p>
-              <p className="text-sm font-medium">{selected.dependentes}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Moradia</p>
-              <p className="text-sm font-medium">{selected.tipo_moradia}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Outras rendas</p>
-              <p className="text-sm font-medium">{selected.outras_rendas || "—"}</p>
             </div>
           </div>
         </div>

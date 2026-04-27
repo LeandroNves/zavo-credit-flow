@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useContractsData } from "@/contexts/ContractsDataContext";
 import type { Cliente } from "@/data/mockData";
+import { formatCPF, formatTelefoneBR } from "@/lib/brFormat";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +35,6 @@ function emptyFormState() {
     email: "",
     telefone: "",
     estadoCivil: "",
-    instagram: "",
     contato1: "",
     contato2: "",
     enderecoResidencial: "",
@@ -53,7 +53,6 @@ function formStateFromCliente(c: Cliente) {
     email: c.email,
     telefone: c.telefone,
     estadoCivil: c.estadoCivil,
-    instagram: c.instagram,
     contato1: c.contato1,
     contato2: c.contato2,
     enderecoResidencial: c.enderecoResidencial,
@@ -108,7 +107,7 @@ export default function AdminClientData() {
         email: form.email,
         telefone: form.telefone,
         estadoCivil: form.estadoCivil || undefined,
-        instagram: form.instagram,
+        instagram: "",
         contato1: form.contato1,
         contato2: form.contato2,
         enderecoResidencial: form.enderecoResidencial,
@@ -243,7 +242,7 @@ export default function AdminClientData() {
               <Input
                 id="acd-cpf"
                 value={form.cpf}
-                onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, cpf: formatCPF(e.target.value) }))}
                 autoComplete="off"
               />
             </div>
@@ -262,7 +261,7 @@ export default function AdminClientData() {
               <Input
                 id="acd-tel"
                 value={form.telefone}
-                onChange={(e) => setForm((f) => ({ ...f, telefone: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, telefone: formatTelefoneBR(e.target.value) }))}
               />
             </div>
             <div className="space-y-2">
@@ -272,14 +271,6 @@ export default function AdminClientData() {
                 value={form.estadoCivil}
                 onChange={(e) => setForm((f) => ({ ...f, estadoCivil: e.target.value }))}
                 placeholder="Ex.: Solteiro(a) ou solteiro"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="acd-insta">Instagram</Label>
-              <Input
-                id="acd-insta"
-                value={form.instagram}
-                onChange={(e) => setForm((f) => ({ ...f, instagram: e.target.value }))}
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
@@ -306,7 +297,6 @@ export default function AdminClientData() {
             <Field label="Email" value={cliente.email} />
             <Field label="Telefone" value={cliente.telefone} />
             <Field label="Estado Civil" value={cliente.estadoCivil} />
-            <Field label="Instagram" value={cliente.instagram} />
             <Field label="Contato 1" value={cliente.contato1} />
             <Field label="Contato 2" value={cliente.contato2} />
           </div>

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { useContractsData } from "@/contexts/ContractsDataContext";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
+import { formatCPF, formatTelefoneBR } from "@/lib/brFormat";
 
 export default function AdminCreateCliente() {
   const navigate = useNavigate();
@@ -28,15 +29,11 @@ export default function AdminCreateCliente() {
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
   const [estadoCivil, setEstadoCivil] = useState("");
-  const [instagram, setInstagram] = useState("");
   const [contato1, setContato1] = useState("");
   const [contato2, setContato2] = useState("");
   const [enderecoResidencial, setEnderecoResidencial] = useState("");
   const [enderecoTrabalho, setEnderecoTrabalho] = useState("");
   const [salario, setSalario] = useState("");
-  const [dependentes, setDependentes] = useState("");
-  const [tipoMoradia, setTipoMoradia] = useState("");
-  const [outrasRendas, setOutrasRendas] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleCreate(goToContract: boolean) {
@@ -62,15 +59,15 @@ export default function AdminCreateCliente() {
           email,
           telefone,
           estadoCivil: estadoCivil || undefined,
-          instagram,
+          instagram: "",
           contato1,
           contato2,
           enderecoResidencial,
           enderecoTrabalho,
           salario,
-          dependentes,
-          tipoMoradia: tipoMoradia || undefined,
-          outrasRendas,
+          dependentes: "",
+          tipoMoradia: undefined,
+          outrasRendas: "",
         },
         isSupabaseConfigured && criarAcesso
           ? { portalPassword: senha }
@@ -163,7 +160,7 @@ export default function AdminCreateCliente() {
             <Input
               id="ac-cpf"
               value={cpf}
-              onChange={(e) => setCpf(e.target.value)}
+              onChange={(e) => setCpf(formatCPF(e.target.value))}
               placeholder="Opcional"
               autoComplete="off"
             />
@@ -217,7 +214,7 @@ export default function AdminCreateCliente() {
             <Input
               id="ac-tel"
               value={telefone}
-              onChange={(e) => setTelefone(e.target.value)}
+              onChange={(e) => setTelefone(formatTelefoneBR(e.target.value))}
               placeholder="Opcional"
             />
           </div>
@@ -240,15 +237,6 @@ export default function AdminCreateCliente() {
                 <SelectItem value="viuvo">Viúvo(a)</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="ac-insta">Instagram</Label>
-            <Input
-              id="ac-insta"
-              value={instagram}
-              onChange={(e) => setInstagram(e.target.value)}
-              placeholder="Opcional"
-            />
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="ac-c1">Contato de confiança 1</Label>
@@ -300,44 +288,6 @@ export default function AdminCreateCliente() {
               id="ac-sal"
               value={salario}
               onChange={(e) => setSalario(e.target.value)}
-              placeholder="Opcional"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="ac-dep">Dependentes</Label>
-            <Input
-              id="ac-dep"
-              value={dependentes}
-              onChange={(e) => setDependentes(e.target.value)}
-              placeholder="Opcional"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Tipo de moradia</Label>
-            <Select
-              value={tipoMoradia || "__none__"}
-              onValueChange={(v) =>
-                setTipoMoradia(v === "__none__" ? "" : v)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Opcional" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">Não informado</SelectItem>
-                <SelectItem value="propria">Própria</SelectItem>
-                <SelectItem value="aluguel">Aluguel</SelectItem>
-                <SelectItem value="financiada">Financiada</SelectItem>
-                <SelectItem value="familiar">Familiar</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="ac-or">Outras rendas</Label>
-            <Input
-              id="ac-or"
-              value={outrasRendas}
-              onChange={(e) => setOutrasRendas(e.target.value)}
               placeholder="Opcional"
             />
           </div>

@@ -42,6 +42,8 @@ export async function submitRegistration(
   form: RegisterFormState,
 ): Promise<RegisterSubmitResult> {
   const email = form.email.trim().toLowerCase();
+  const telefone = form.telefone.trim();
+  const cpf = form.cpf.trim();
 
   const { data: signData, error: signError } = await client.auth.signUp({
     email,
@@ -94,20 +96,20 @@ export async function submitRegistration(
     const { error: insErr } = await client.from("profiles").insert({
       id: userId,
       nome_completo: form.nome.trim(),
-      cpf: form.cpf.trim(),
+      cpf,
       email,
-      telefone: form.telefone.trim(),
+      telefone,
       estado_civil: form.estadoCivil,
-      instagram: form.instagram.trim(),
+      instagram: "",
       contato1: form.contato1.trim(),
       contato2: form.contato2.trim(),
       endereco_residencial: form.enderecoResidencial.trim(),
       endereco_trabalho: form.enderecoTrabalho.trim(),
       salario: form.salario.trim(),
-      dependentes: form.dependentes.trim(),
-      tipo_moradia: form.tipoMoradia,
-      outras_rendas: form.outrasRendas.trim(),
-      interest_type: form.interesseTipo || "emprestimo",
+      dependentes: "",
+      tipo_moradia: "",
+      outras_rendas: "",
+      interest_type: "produto",
       interest_cart: form.interesseCarrinho,
       doc_rg_path: storeDocPathsForProfile(rgPaths),
       doc_selfie_path: storeDocPathsForProfile(selfiePaths),

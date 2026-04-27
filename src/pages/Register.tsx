@@ -14,25 +14,23 @@ import { Check, Upload, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import { submitRegistration } from "@/lib/registerSubmit";
+import { formatCPF, formatTelefoneBR } from "@/lib/brFormat";
 import {
   clearRegistrationInterest,
   loadRegistrationInterest,
-  saveRegistrationInterest,
   type RegistrationCartSnapshot,
-  type RegistrationInterestType,
 } from "@/lib/registrationInterest";
 
-const steps = ["Objetivo", "Dados Pessoais", "Endereço", "Financeiro", "Criar Senha"];
+const steps = ["Produtos", "Dados Pessoais", "Endereço", "Financeiro", "Criar Senha"];
 
 export type RegisterFormState = {
-  interesseTipo: RegistrationInterestType | "";
+  interesseTipo: "produto";
   interesseCarrinho: RegistrationCartSnapshot | null;
   nome: string;
   cpf: string;
   email: string;
   telefone: string;
   estadoCivil: string;
-  instagram: string;
   contato1: string;
   contato2: string;
   rg: File[];
@@ -41,9 +39,6 @@ export type RegisterFormState = {
   enderecoTrabalho: string;
   comprovante: File[];
   salario: string;
-  dependentes: string;
-  tipoMoradia: string;
-  outrasRendas: string;
   holerite: File[];
   ctps: File[];
   extrato: File[];
@@ -52,14 +47,13 @@ export type RegisterFormState = {
 };
 
 const emptyForm: RegisterFormState = {
-  interesseTipo: "",
+  interesseTipo: "produto",
   interesseCarrinho: null,
   nome: "",
   cpf: "",
   email: "",
   telefone: "",
   estadoCivil: "",
-  instagram: "",
   contato1: "",
   contato2: "",
   rg: [],
@@ -68,9 +62,6 @@ const emptyForm: RegisterFormState = {
   enderecoTrabalho: "",
   comprovante: [],
   salario: "",
-  dependentes: "",
-  tipoMoradia: "",
-  outrasRendas: "",
   holerite: [],
   ctps: [],
   extrato: [],
@@ -87,9 +78,8 @@ function isValidEmail(s: string) {
 }
 
 function validateStepObjective(f: RegisterFormState): string | null {
-  if (!f.interesseTipo) return "Selecione o que você deseja (Empréstimo, Produto ou Ambos).";
-  if ((f.interesseTipo === "produto" || f.interesseTipo === "ambos") && (!f.interesseCarrinho || f.interesseCarrinho.items.length === 0)) {
-    return "Você selecionou Produto, mas não escolheu nenhum item. Volte e selecione os produtos antes de continuar.";
+  if (!f.interesseCarrinho || f.interesseCarrinho.items.length === 0) {
+    return "Escolha um ou mais produtos antes de continuar com o cadastro.";
   }
   return null;
 }
@@ -103,7 +93,7 @@ function validateStepPersonal(f: RegisterFormState): string | null {
   if (!isNonEmpty(f.estadoCivil)) return "Selecione o estado civil.";
   if (f.rg.length < 1) return "Envie o RG ou CNH (frente e verso; um arquivo por imagem).";
   if (f.selfie.length < 1)
-    return "Envie a selfie com documento.";
+    return "Envie a selfie com documento (frente/lado da foto).";
   if (!isNonEmpty(f.contato1)) return "Informe o contato de confiança 1.";
   if (!isNonEmpty(f.contato2)) return "Informe o contato de confiança 2.";
   return null;
@@ -113,16 +103,14 @@ function validateStepAddress(f: RegisterFormState): string | null {
   if (!isNonEmpty(f.enderecoResidencial)) return "Informe o endereço residencial.";
   if (!isNonEmpty(f.enderecoTrabalho)) return "Informe o endereço de trabalho.";
   if (f.comprovante.length < 1)
-    return "Envie o comprovante de endereço (frente e verso, se couber em mais de um arquivo).";
+    return "Envie o comprovante de endereço.";
   return null;
 }
 
 function validateStepFinancial(f: RegisterFormState): string | null {
   if (!isNonEmpty(f.salario)) return "Informe o salário.";
-  if (!isNonEmpty(f.dependentes)) return "Informe a quantidade de dependentes.";
-  if (!isNonEmpty(f.tipoMoradia)) return "Selecione o tipo de moradia.";
   if (f.holerite.length < 1)
-    return "Envie o holerite (mais de um arquivo se precisar mostrar frente e verso).";
+    return "Envie o holerite mais atual (frente).";
   return null;
 }
 
@@ -270,14 +258,14 @@ export default function Register() {
 
   useEffect(() => {
     const { interestType, cart } = loadRegistrationInterest();
-    if (interestType && !form.interesseTipo) {
+    if (cart && !form.interesseCarrinho) {
       setForm((prev) => ({
         ...prev,
-        interesseTipo: interestType,
+        interesseTipo: "produto",
         interesseCarrinho: cart ?? null,
       }));
     }
-  }, [form.interesseTipo]);
+  }, [form.interesseCarrinho]);
 
   function goNext(fromStep: number) {
     let err: string | null = null;
@@ -351,71 +339,43 @@ export default function Register() {
         <div className="bg-card rounded-lg border shadow-sm p-6 md:p-8">
           {step === 0 && (
             <div className="space-y-5">
-              <h2 className="text-xl font-bold text-primary">O que você deseja?</h2>
+              <h2 className="text-xl font-bold text-primary">Escolha seus produtos</h2>
               <p className="text-sm text-muted-foreground">
-                Escolha a opção abaixo para a equipe entender sua necessidade.
+                Selecione um ou mais produtos para continuar com o cadastro.
               </p>
 
-              <div className="space-y-2">
-                <Label>
-                  Objetivo <span className="text-destructive">*</span>
-                </Label>
-                <Select
-                  value={form.interesseTipo || undefined}
-                  onValueChange={(v) => {
-                    const next = v as RegistrationInterestType;
-                    patch({ interesseTipo: next });
-                    saveRegistrationInterest({
-                      interestType: next,
-                      cart: form.interesseCarrinho,
-                    });
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="emprestimo">Empréstimo</SelectItem>
-                    <SelectItem value="produto">Produto</SelectItem>
-                    <SelectItem value="ambos">Ambos</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {(form.interesseTipo === "produto" || form.interesseTipo === "ambos") && (
-                <div className="rounded-lg border bg-background p-4 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-semibold text-primary">Produtos selecionados</p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate({ pathname: "/", hash: "#produtos" })}
-                    >
-                      Escolher produtos
-                    </Button>
-                  </div>
-
-                  {form.interesseCarrinho?.items?.length ? (
-                    <div className="space-y-2">
-                      {form.interesseCarrinho.items.map((it, idx) => (
-                        <div key={idx} className="text-sm text-muted-foreground">
-                          <span className="font-medium text-primary">{it.qty}x</span>{" "}
-                          {it.name}
-                          {it.color ? ` (${it.color})` : ""} —{" "}
-                          <span className="font-medium text-primary">{it.months}x</span>{" "}
-                          de{" "}
-                          <span className="font-medium text-primary">{it.perInstallmentBRL}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Você ainda não selecionou produtos. Clique em “Escolher produtos”.
-                    </p>
-                  )}
+              <div className="rounded-lg border bg-background p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-semibold text-primary">Produtos selecionados</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate({ pathname: "/", hash: "#produtos" })}
+                  >
+                    Escolher produtos
+                  </Button>
                 </div>
-              )}
+
+                {form.interesseCarrinho?.items?.length ? (
+                  <div className="space-y-2">
+                    {form.interesseCarrinho.items.map((it, idx) => (
+                      <div key={idx} className="text-sm text-muted-foreground">
+                        <span className="font-medium text-primary">{it.qty}x</span>{" "}
+                        {it.name}
+                        {it.color ? ` (${it.color})` : ""} —{" "}
+                        <span className="font-medium text-primary">{it.months}x</span>{" "}
+                        de{" "}
+                        <span className="font-medium text-primary">{it.perInstallmentBRL}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Você ainda não selecionou produtos. Clique em “Escolher produtos”.
+                  </p>
+                )}
+              </div>
 
               <Button type="button" className="w-full" onClick={() => goNext(0)}>
                 Próximo
@@ -446,7 +406,7 @@ export default function Register() {
                     id="cpf"
                     placeholder="000.000.000-00"
                     value={form.cpf}
-                    onChange={(e) => patch({ cpf: e.target.value })}
+                    onChange={(e) => patch({ cpf: formatCPF(e.target.value) })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -467,9 +427,9 @@ export default function Register() {
                   </Label>
                   <Input
                     id="telefone"
-                    placeholder="(00) 00000-0000"
+                    placeholder="(00) 0 0000-0000"
                     value={form.telefone}
-                    onChange={(e) => patch({ telefone: e.target.value })}
+                    onChange={(e) => patch({ telefone: formatTelefoneBR(e.target.value) })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -491,15 +451,6 @@ export default function Register() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="instagram">Instagram (opcional)</Label>
-                  <Input
-                    id="instagram"
-                    placeholder="@seuinstagram"
-                    value={form.instagram}
-                    onChange={(e) => patch({ instagram: e.target.value })}
-                  />
-                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <MultiFileUpload
@@ -511,8 +462,8 @@ export default function Register() {
                   onChange={(f) => patch({ rg: f })}
                 />
                 <MultiFileUpload
-                  label="Selfie com documento — frente e verso"
-                  hint="Inclua imagem nítida com a foto do documento ao lado do rosto."
+                  label="Selfie com documento — Frente ao lado da foto"
+                  hint="Inclua imagem nítida com a foto do documento ao lado do rosto (apenas um lado)."
                   required
                   id="selfie"
                   files={form.selfie}
@@ -593,8 +544,8 @@ export default function Register() {
                   />
                 </div>
                 <MultiFileUpload
-                  label="Comprovante de endereço — frente e verso"
-                  hint="Conta, fatura ou contrato: frente e verso quando aplicável (vários arquivos)."
+                  label="Comprovante de endereço"
+                  hint="Conta, fatura ou contrato (apenas frente quando aplicável)."
                   required
                   id="comprovante"
                   files={form.comprovante}
@@ -636,67 +587,26 @@ export default function Register() {
                     onChange={(e) => patch({ salario: e.target.value })}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="dependentes">
-                    Dependentes <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="dependentes"
-                    type="number"
-                    min={0}
-                    placeholder="0"
-                    value={form.dependentes}
-                    onChange={(e) => patch({ dependentes: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>
-                    Tipo de moradia <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    value={form.tipoMoradia || undefined}
-                    onValueChange={(v) => patch({ tipoMoradia: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="propria">Própria</SelectItem>
-                      <SelectItem value="aluguel">Aluguel</SelectItem>
-                      <SelectItem value="financiada">Financiada</SelectItem>
-                      <SelectItem value="familiar">Familiar</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="outras">Outras rendas (opcional)</Label>
-                  <Input
-                    id="outras"
-                    placeholder="R$ 0,00 — descrição"
-                    value={form.outrasRendas}
-                    onChange={(e) => patch({ outrasRendas: e.target.value })}
-                  />
-                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <MultiFileUpload
-                  label="Holerite — frente e verso se necessário"
-                  hint="Um ou mais arquivos (ex.: duas páginas ou frente/verso)."
+                  label="Holerite (mais atual) — frente"
+                  hint="Envie apenas o holerite mais atual."
                   required
                   id="holerite"
                   files={form.holerite}
                   onChange={(f) => patch({ holerite: f })}
                 />
                 <MultiFileUpload
-                  label="Carteira de trabalho — frente e verso"
+                  label="Carteira de trabalho"
                   hint="Opcional. Vários arquivos permitidos."
                   id="ctps"
                   files={form.ctps}
                   onChange={(f) => patch({ ctps: f })}
                 />
                 <MultiFileUpload
-                  label="Extrato bancário — frente e verso se necessário"
-                  hint="Opcional. Vários arquivos permitidos."
+                  label="Extrato bancário"
+                  hint="Extrato bancário dos 3 últimos meses APENAS EM CASO DE NÃO TER HOLERITE. Se tiver holerite não enviar extrato."
                   id="extrato"
                   files={form.extrato}
                   onChange={(f) => patch({ extrato: f })}

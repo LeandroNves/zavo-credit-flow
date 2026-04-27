@@ -8,6 +8,7 @@ import {
   parseBRDateToIso,
 } from "@/lib/parcelSchedule";
 import { type ContractStatus, isContractStatus } from "@/lib/contractStatus";
+import { formatCPF, formatTelefoneBR } from "@/lib/brFormat";
 
 type ClientRow = {
   id: string;
@@ -52,9 +53,9 @@ function clientToRow(c: Cliente): Record<string, unknown> {
   return {
     id: c.id,
     nome: c.nome,
-    cpf: c.cpf,
+    cpf: formatCPF(c.cpf),
     email: c.email,
-    telefone: c.telefone,
+    telefone: formatTelefoneBR(c.telefone),
     estado_civil: c.estadoCivil,
     instagram: c.instagram,
     contato1: c.contato1,
@@ -76,9 +77,9 @@ function rowToCliente(row: ClientRow, contratos: Contrato[]): Cliente {
   return {
     id: row.id,
     nome: row.nome,
-    cpf: row.cpf ?? "",
+    cpf: formatCPF(row.cpf ?? ""),
     email: row.email ?? "",
-    telefone: row.telefone ?? "",
+    telefone: formatTelefoneBR(row.telefone ?? ""),
     estadoCivil: row.estado_civil ?? "",
     instagram: row.instagram ?? "",
     contato1: row.contato1 ?? "",
@@ -241,13 +242,15 @@ export async function supabaseUpdateClientManualFields(
   if (!nome) throw new Error("Nome é obrigatório.");
 
   const emailLower = (fields.email ?? "").trim().toLowerCase();
+  const cpfFmt = formatCPF(fields.cpf ?? "");
+  const telFmt = formatTelefoneBR(fields.telefone ?? "");
   const row = {
     nome,
-    cpf: emptyToNull(fields.cpf),
+    cpf: emptyToNull(cpfFmt),
     email: emptyToNull(emailLower),
-    telefone: emptyToNull(fields.telefone),
+    telefone: emptyToNull(telFmt),
     estado_civil: resolvedEstadoCivilKey(fields.estadoCivil),
-    instagram: emptyToNull(fields.instagram),
+    instagram: null,
     contato1: emptyToNull(fields.contato1),
     contato2: emptyToNull(fields.contato2),
     endereco_residencial: emptyToNull(fields.enderecoResidencial),
@@ -268,11 +271,11 @@ export async function supabaseUpdateClientManualFields(
   };
   const profilePayload = {
     nome_completo: nome,
-    cpf: fb(fields.cpf, "—"),
+    cpf: fb(cpfFmt, "—"),
     email: emailLower || "—",
-    telefone: fb(fields.telefone, "—"),
+    telefone: fb(telFmt, "—"),
     estado_civil: fb(fields.estadoCivil, "nao_informado"),
-    instagram: t(fields.instagram),
+    instagram: "",
     contato1: fb(fields.contato1, "—"),
     contato2: fb(fields.contato2, "—"),
     endereco_residencial: fb(fields.enderecoResidencial, "—"),
