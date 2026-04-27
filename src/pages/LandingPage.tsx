@@ -72,10 +72,28 @@ import { RotatingProductImage } from "@/components/product/RotatingProductImage"
 import { toast } from "sonner";
 
 import pixIcon from "@/assets/icon-pix-96.png"
+const sacolaZavo = new URL("../assets/Sacola Zavo .PNG", import.meta.url).href;
 
 const PixIcon = ({ className }: { className?: string }) => (
   <img src={pixIcon} alt="Pix" className={className} />
 );
+
+function StatItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center text-center gap-1 px-2">
+      <div className="text-xl sm:text-2xl font-bold text-primary-foreground">
+        {value}
+      </div>
+      <div className="text-xs sm:text-sm text-primary-foreground/75">{label}</div>
+    </div>
+  );
+}
 
 /* ─── Intersection Observer fade-in hook ─── */
 function useFadeIn() {
@@ -144,10 +162,26 @@ function buildWhatsAppMessage(args: {
 }
 
 const services = [
-  { icon: CreditCard, title: "Crédito Facilitado", desc: "Soluções de crédito para quem precisa, sem burocracia desnecessária." },
-  { icon: Smartphone, title: "Compra sem Cartão", desc: "Não precisa de cartão de crédito nem limite alto. A gente resolve." },
-  { icon: CalendarCheck, title: "Parcelamento Acessível", desc: "Parcelas que cabem no seu bolso, com condições reais." },
-  { icon: UserCheck, title: "Análise Personalizada", desc: "Cada cliente é analisado de forma individual e humanizada." },
+  {
+    icon: CreditCard,
+    title: "Compra facilitada, sem complicação",
+    desc: "Soluções pensadas pra quem quer comprar com praticidade, sem processos desnecessários.",
+  },
+  {
+    icon: Smartphone,
+    title: "Compra sem cartão",
+    desc: "Não depende de limite alto ou aprovação de terceiros. Aqui você tem mais liberdade pra comprar.",
+  },
+  {
+    icon: CalendarCheck,
+    title: "Pagamento acessível",
+    desc: "Valores ajustados pra caber no seu bolso, com condições claras e previsíveis.",
+  },
+  {
+    icon: UserCheck,
+    title: "Condições personalizadas",
+    desc: "Cada cliente passa por uma avaliação individual, buscando a melhor forma de viabilizar a compra.",
+  },
 ];
 
 const diferenciais = [
@@ -317,9 +351,6 @@ export default function LandingPage() {
             <Link to="/login">
               <Button variant="ghost" size="sm" className="text-foreground/70 hover:text-foreground">Entrar</Button>
             </Link>
-            <Link to="/cadastro">
-              <Button size="sm" className="rounded-full px-6">Solicitar Análise</Button>
-            </Link>
           </div>
 
           {/* Mobile actions */}
@@ -353,7 +384,6 @@ export default function LandingPage() {
             <a href="#diferenciais" className="block text-sm font-medium text-foreground/70" onClick={() => setMobileMenu(false)}>Diferenciais</a>
             <div className="flex flex-col gap-2 pt-2">
               <Link to="/login"><Button variant="outline" className="w-full">Entrar</Button></Link>
-              <Link to="/cadastro"><Button className="w-full">Solicitar Análise</Button></Link>
             </div>
           </div>
         )}
@@ -571,13 +601,13 @@ export default function LandingPage() {
             <div className="space-y-6">
               <span className="text-secondary font-semibold text-sm uppercase tracking-wider">Sobre a Zavo</span>
               <h2 className="text-3xl lg:text-4xl font-bold text-primary leading-tight">
-                Crédito alternativo para quem realmente precisa
+                Acesso facilitado para quem quer comprar de verdade
               </h2>
               <p className="text-muted-foreground leading-relaxed">
-                A Zavo é uma empresa que acredita no potencial de cada pessoa. Sabemos que muitos brasileiros enfrentam dificuldades para obter crédito em bancos tradicionais — seja por restrição no nome, falta de comprovação de renda ou critérios rígidos do mercado.
+                A Zavo acredita no potencial de cada pessoa. Sabemos que nem todo mundo se encaixa nos modelos tradicionais de compra — seja pela forma de renda, histórico ou exigências que acabam dificultando o acesso. Por isso, criamos um formato mais simples e direto: analisamos cada caso de forma individual, com atendimento próximo e opções de pagamento que se adaptam à realidade de cada cliente.
               </p>
               <p className="text-muted-foreground leading-relaxed">
-                Por isso, criamos um modelo baseado em análise individual, com atendimento humanizado e condições flexíveis que realmente funcionam.
+                Aqui, o foco não é burocracia. É viabilizar sua compra de forma justa, clara e possível.
               </p>
               <Link to="/cadastro">
                 <Button variant="outline" className="rounded-full gap-2 mt-2">
@@ -684,23 +714,23 @@ export default function LandingPage() {
       <section className="py-20 lg:py-28 bg-white">
         <div ref={compareRef} className="max-w-4xl mx-auto px-4 lg:px-8">
           <div className="text-center mb-14">
-            <span className="text-secondary font-semibold text-sm uppercase tracking-wider">Por que financiar?</span>
+            <span className="text-secondary font-semibold text-sm uppercase tracking-wider">Por que parcelar?</span>
             <h2 className="text-3xl lg:text-4xl font-bold text-primary mt-3">
-              <span className="text-secondary">Financiar</span> é a solução para não{" "}
+              Comprar do seu jeito é melhor do que se limitar as
               <br className="hidden sm:block" />
-              alugar e não comprar à vista
+              opções tradicionais
             </h2>
           </div>
 
           <div className="space-y-4">
             {/* Comprar na loja */}
             <div className="rounded-2xl border border-border/60 bg-white p-6 lg:p-8">
-              <h3 className="font-bold text-primary text-lg mb-4">Comprar na Loja</h3>
+              <h3 className="font-bold text-primary text-lg mb-4">Comprar na loja tradicional</h3>
               <div className="space-y-2.5">
                 {[
-                  "Precisa de limite alto no cartão (perderá ele)",
-                  "Precisa do valor total à vista (descapitalização)",
-                  "Economia mínima comparado às parcelas financiadas",
+                  "Depende de limite disponível no cartão",
+                  "Exige pagamento alto de uma vez",
+                  "Pouca flexibilidade na forma de pagamento",
                 ].map((t) => (
                   <div key={t} className="flex items-start gap-3">
                     <X className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
@@ -715,9 +745,9 @@ export default function LandingPage() {
               <h3 className="font-bold text-primary text-lg mb-4">Alugar mensalmente</h3>
               <div className="space-y-2.5">
                 {[
-                  "Paga por um bem que não será seu",
-                  "Limite de uso, regras e multa por cancelamento",
-                  "Ao trocar por modelo novo, não abate nada",
+                  "Você paga por algo que não será seu",
+                  "Regras, limites e taxas ao cancelar",
+                  "Trocas não geram aproveitamento do valor",
                 ].map((t) => (
                   <div key={t} className="flex items-start gap-3">
                     <X className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
@@ -729,14 +759,14 @@ export default function LandingPage() {
 
             {/* Zavo */}
             <div className="rounded-2xl bg-gradient-to-br from-primary via-primary to-secondary p-6 lg:p-8 text-primary-foreground shadow-lg">
-              <h3 className="font-bold text-lg mb-4">Financiar na Zavo</h3>
+              <h3 className="font-bold text-lg mb-4">Comprar com a Zavo</h3>
               <div className="space-y-2.5">
                 {[
-                  "Parcela acessível e previsível",
-                  "Você paga um bem que será seu",
-                  "Preserva seu caixa sem descapitalizar",
-                  "Possibilidade de antecipar parcelas",
-                  "Ao finalizar e decidir trocar, seu bem tem valor na troca",
+                  "Parcelas que cabem no seu bolso",
+                  "O produto é seu ao finalizar o pagamento",
+                  "Você mantém seu dinheiro organizado",
+                  "Condições adaptadas ao seu perfil",
+                  "Possibilidade de troca com aproveitamento",
                 ].map((t) => (
                   <div key={t} className="flex items-start gap-3">
                     <CheckCircle2 className="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
@@ -796,10 +826,10 @@ export default function LandingPage() {
         <div ref={ctaRef} className="max-w-3xl mx-auto px-4 lg:px-8 text-center space-y-8">
           <img src={mascote} alt="Mascote Zavo" className="w-20 mx-auto drop-shadow-lg" loading="lazy" width={1024} height={1024} />
           <h2 className="text-3xl lg:text-4xl font-bold text-primary-foreground leading-tight">
-            Pronto para ter seu iPhone?
+            Pronto para adquirir seu produto com a Zavo?
           </h2>
           <p className="text-primary-foreground/80 max-w-md mx-auto text-lg">
-            Entre em contato agora ou solicite sua análise. Estamos prontos para ajudar!
+            Entre em contato agora e tire suas dúvidas. Estamos prontos para ajudar!
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a href="https://wa.me/5562994356950" target="_blank" rel="noreferrer">
@@ -813,9 +843,73 @@ export default function LandingPage() {
                 variant="outline"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11 rounded-full px-8 w-full sm:w-auto"
               >
-                Solicitar Análise
+                Fazer cadastro
               </Button>
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── MÉTRICAS ─── */}
+      <section className="py-12 lg:py-14 bg-white">
+        <div className="max-w-6xl mx-auto px-4 lg:px-8">
+          <div className="rounded-2xl bg-gradient-to-r from-primary via-primary to-secondary text-primary-foreground border border-border/20 shadow-lg px-6 py-8 sm:px-8 sm:py-10">
+            <div className="flex flex-col gap-7 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-primary-foreground/10 flex items-center justify-center">
+                  <Shield className="h-6 w-6 text-primary-foreground" />
+                </div>
+                <div>
+                  <p className="font-semibold leading-tight">A Zavo é confiável</p>
+                  <p className="text-sm text-primary-foreground/75">
+                    Processo seguro e foco em viabilizar sua compra.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 sm:gap-6">
+                <StatItem value="+ 2 mil" label="Vendas realizadas" />
+                <StatItem value="4.9/5" label="Avaliação das compras" />
+                <StatItem value="100%" label="Seguro e transparente" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── CTA SECUNDÁRIO ─── */}
+      <section className="pb-12 lg:pb-14 bg-white">
+        <div className="max-w-6xl mx-auto px-4 lg:px-8">
+          <div className="rounded-2xl bg-accent/70 border border-border/30 shadow-sm px-6 py-6 sm:px-8 sm:py-8">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+              <div className="space-y-2 max-w-xl">
+                <h3 className="text-2xl lg:text-3xl font-bold text-primary leading-tight">
+                  Pronto para ter o seu?
+                </h3>
+                <p className="text-muted-foreground">
+                  Simule agora e descubra como e facil comprar do seu jeito com a Zavo.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-4 sm:gap-6">
+                <a href="#produtos">
+                  <Button
+                    size="lg"
+                    className="rounded-full px-8 gap-2 whitespace-nowrap"
+                  >
+                    Simule agora <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </a>
+                <img
+                  src={sacolaZavo}
+                  alt="Sacola Zavo"
+                  className="w-20 h-20 sm:w-24 sm:h-24 object-contain drop-shadow-md"
+                  loading="lazy"
+                  width={1024}
+                  height={1024}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -828,7 +922,7 @@ export default function LandingPage() {
             <div className="md:col-span-2 space-y-4">
               <img src={logo} alt="Zavo" className="h-32" />
               <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-                Crédito alternativo para quem precisa. Acesso a tecnologia com parcelamento acessível e análise humanizada.
+                Seu eletrônico, do seu jeito de pagar
               </p>
               <div className="flex gap-3 pt-2">
                 <a
