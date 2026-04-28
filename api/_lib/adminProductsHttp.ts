@@ -58,6 +58,12 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
   const id = typeof o.id === "string" ? o.id.trim() : "";
   const name = typeof o.name === "string" ? o.name.trim() : "";
   const color = typeof o.color === "string" ? o.color.trim() : "";
+  const description = typeof o.description === "string" ? o.description.trim() : "";
+  const specsRaw = Array.isArray(o.specifications) ? o.specifications : [];
+  const specifications = specsRaw
+    .map((x) => (typeof x === "string" ? x.trim() : ""))
+    .filter(Boolean)
+    .filter((v, i, a) => a.indexOf(v) === i);
   const priceRaw = o.priceCents;
   const priceCents =
     typeof priceRaw === "number" && Number.isFinite(priceRaw)
@@ -83,6 +89,8 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
     id,
     name,
     color: color || "",
+    description,
+    specifications,
     price_cents: priceCents,
     image_src: primary,
     image_srcs: imageSrcs.length ? imageSrcs : [primary],

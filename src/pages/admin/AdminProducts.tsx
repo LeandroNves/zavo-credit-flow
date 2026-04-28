@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { landingProductSeed } from "@/data/landingProductSeed";
 import {
   ALL_INSTALLMENTS,
@@ -56,6 +57,8 @@ type Draft = {
   id?: string;
   name: string;
   color: string;
+  description: string;
+  specificationsInput: string;
   price: string;
   imageSrcs: string[];
   enabledMonths: InstallmentMonths[];
@@ -65,6 +68,8 @@ function makeEmptyDraft(): Draft {
   return {
     name: "",
     color: "",
+    description: "",
+    specificationsInput: "",
     price: "",
     imageSrcs: [],
     enabledMonths: [...ALL_INSTALLMENTS],
@@ -184,6 +189,8 @@ export default function AdminProducts() {
       id: p.id,
       name: p.name,
       color: p.color,
+      description: p.description ?? "",
+      specificationsInput: (p.specifications ?? []).join(", "),
       price: fromCentsToBRLInput(p.priceCents),
       imageSrcs: [...(p.imageSrcs?.length ? p.imageSrcs : [p.imageSrc])],
       enabledMonths: [...p.enabledMonths],
@@ -222,6 +229,12 @@ export default function AdminProducts() {
   async function save() {
     const name = draft.name.trim();
     const color = draft.color.trim();
+    const description = draft.description.trim();
+    const specifications = draft.specificationsInput
+      .split(/[,\n]/g)
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .filter((x, i, arr) => arr.indexOf(x) === i);
     const imageSrcs = draft.imageSrcs
       .map((x) => x.trim())
       .filter(Boolean)
@@ -243,6 +256,8 @@ export default function AdminProducts() {
               ...p,
               name,
               color,
+              description,
+              specifications,
               imageSrc,
               imageSrcs,
               priceCents,
@@ -260,6 +275,8 @@ export default function AdminProducts() {
       id: makeProductId(),
       name,
       color,
+      description,
+      specifications,
       imageSrc,
       imageSrcs,
       priceCents,
@@ -307,7 +324,7 @@ export default function AdminProducts() {
             <h2 className="font-semibold text-primary">
               {editingId ? "Editar produto" : "Adicionar produto"}
             </h2>
-            {(editingId || draft.name || draft.imageSrcs.length > 0 || draft.price || draft.color) && (
+            {(editingId || draft.name || draft.imageSrcs.length > 0 || draft.price || draft.color || draft.description || draft.specificationsInput) && (
               <Button variant="ghost" size="sm" onClick={resetDraft}>
                 Limpar
               </Button>
@@ -328,7 +345,32 @@ export default function AdminProducts() {
             <Input
               value={draft.color}
               onChange={(e) => setDraft((d) => ({ ...d, color: e.target.value }))}
-              placeholder='Ex.: Titânio Azul'
+              placeholder='Ex.: Preto, Branco, Laranja'
+            />
+            <p className="text-xs text-muted-foreground">
+              A ordem das cores deve seguir a ordem das imagens para seleção na página do produto.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Especificações (opções)</Label>
+            <Input
+              value={draft.specificationsInput}
+              onChange={(e) => setDraft((d) => ({ ...d, specificationsInput: e.target.value }))}
+              placeholder="Ex.: 256GB, 512GB"
+            />
+            <p className="text-xs text-muted-foreground">
+              Separe por vírgula. O cliente escolherá uma opção no detalhe do produto.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Descrição</Label>
+            <Textarea
+              value={draft.description}
+              onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
+              placeholder="Detalhes do produto para exibir na página de produto."
+              rows={4}
             />
           </div>
 
@@ -450,6 +492,18 @@ export default function AdminProducts() {
                   <div className="mt-2 text-sm text-muted-foreground">
                     Preço base: <span className="font-medium text-primary">{formatBRLFromCents(p.priceCents)}</span>
                   </div>
+
+                  {!!p.specifications?.length && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {p.specifications.map((spec) => (
+                        <span key={`${p.id}-${spec}`} className="text-xs px-2.5 py-1 rounded-full bg-secondary/10 text-secondary">
+                          {spec}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {!!p.description && <p className="mt-2 text-sm text-muted-foreground">{p.description}</p>}
 
                   <div className="mt-2 flex flex-wrap gap-2">
                     {p.enabledMonths

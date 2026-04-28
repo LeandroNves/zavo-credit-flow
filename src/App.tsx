@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { ContractsDataProvider } from "./contexts/ContractsDataContext";
 import LandingPage from "./pages/LandingPage";
+import ProductsPage from "./pages/ProductsPage";
+import ProductDetailPage from "./pages/ProductDetailPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import RegisterSuccess from "./pages/RegisterSuccess";
@@ -43,6 +45,8 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/produtos" element={<ProductsPage />} />
+          <Route path="/produtos/:id" element={<ProductDetailPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<Register />} />
           <Route path="/cadastro/sucesso" element={<RegisterSuccess />} />

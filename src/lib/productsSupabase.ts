@@ -15,6 +15,8 @@ type LandingProductRow = {
   id: string;
   name: string;
   color: string;
+  description?: string | null;
+  specifications?: unknown;
   price_cents: number;
   image_src: string;
   image_srcs: unknown;
@@ -68,10 +70,29 @@ function parseImageSrcs(raw: unknown): string[] {
     .filter((v, i, a) => a.indexOf(v) === i);
 }
 
+function parseStringArray(raw: unknown): string[] {
+  let arr: unknown[] = [];
+  if (Array.isArray(raw)) arr = raw;
+  else if (typeof raw === "string" && raw.trim()) {
+    try {
+      const p = JSON.parse(raw) as unknown;
+      if (Array.isArray(p)) arr = p;
+    } catch {
+      return [];
+    }
+  }
+  return arr
+    .map((x) => (typeof x === "string" ? x.trim() : ""))
+    .filter(Boolean)
+    .filter((v, i, a) => a.indexOf(v) === i);
+}
+
 function mapRow(r: LandingProductRow): LandingProduct | null {
   const id = String(r.id ?? "").trim();
   const name = String(r.name ?? "").trim();
   const color = String(r.color ?? "").trim();
+  const description = String(r.description ?? "").trim();
+  const specifications = parseStringArray(r.specifications);
   const priceCents = Math.max(0, Math.round(Number(r.price_cents) || 0));
   let imageSrc = String(r.image_src ?? "").trim();
   let imageSrcs = parseImageSrcs(r.image_srcs);
@@ -86,6 +107,8 @@ function mapRow(r: LandingProductRow): LandingProduct | null {
     id,
     name,
     color,
+    description,
+    specifications,
     priceCents,
     imageSrc: primary,
     imageSrcs,

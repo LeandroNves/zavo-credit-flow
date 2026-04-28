@@ -330,6 +330,7 @@ export default function LandingPage() {
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-foreground/70">
             <a href="#sobre" className="hover:text-secondary transition-colors">Sobre</a>
             <a href="#produtos" className="hover:text-secondary transition-colors">Produtos</a>
+            <Link to="/produtos" className="hover:text-secondary transition-colors">Ver todos</Link>
             <a href="#servicos" className="hover:text-secondary transition-colors">Serviços</a>
             <a href="#diferenciais" className="hover:text-secondary transition-colors">Diferenciais</a>
           </div>
@@ -380,6 +381,7 @@ export default function LandingPage() {
           <div className="md:hidden bg-white border-t px-4 py-4 space-y-3 animate-fade-in">
             <a href="#sobre" className="block text-sm font-medium text-foreground/70" onClick={() => setMobileMenu(false)}>Sobre</a>
             <a href="#produtos" className="block text-sm font-medium text-foreground/70" onClick={() => setMobileMenu(false)}>Produtos</a>
+            <Link to="/produtos" className="block text-sm font-medium text-foreground/70" onClick={() => setMobileMenu(false)}>Ver todos</Link>
             <a href="#servicos" className="block text-sm font-medium text-foreground/70" onClick={() => setMobileMenu(false)}>Serviços</a>
             <a href="#diferenciais" className="block text-sm font-medium text-foreground/70" onClick={() => setMobileMenu(false)}>Diferenciais</a>
             <div className="flex flex-col gap-2 pt-2">
@@ -706,6 +708,11 @@ export default function LandingPage() {
           </Carousel>
 
           <div className="text-center mt-12">
+            <Link to="/produtos">
+              <Button size="lg" variant="outline" className="rounded-full px-8">
+                Mostrar todos os produtos
+              </Button>
+            </Link>
           </div>
         </div>
       </section>

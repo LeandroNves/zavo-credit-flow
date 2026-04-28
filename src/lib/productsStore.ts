@@ -4,6 +4,8 @@ export type LandingProduct = {
   id: string;
   name: string;
   color: string;
+  description: string;
+  specifications: string[];
   priceCents: number;
   imageSrc: string;
   imageSrcs: string[];
@@ -36,6 +38,14 @@ function safeNumber(v: unknown): number {
   return typeof v === "number" && Number.isFinite(v) ? v : 0;
 }
 
+function normalizeStringArray(v: unknown): string[] {
+  const raw = Array.isArray(v) ? v : [];
+  return raw
+    .map((x) => safeString(x).trim())
+    .filter(Boolean)
+    .filter((x, i, a) => a.indexOf(x) === i);
+}
+
 function normalizeEnabledMonths(v: unknown): InstallmentMonths[] {
   const raw = Array.isArray(v) ? v : [];
   const out = raw
@@ -53,6 +63,8 @@ function normalizeProduct(p: unknown): LandingProduct | null {
   const id = safeString(obj.id).trim();
   const name = safeString(obj.name).trim();
   const color = safeString(obj.color).trim();
+  const description = safeString(obj.description).trim();
+  const specifications = normalizeStringArray(obj.specifications);
   const imageSrc = safeString(obj.imageSrc).trim();
   const imageSrcsRaw = Array.isArray(obj.imageSrcs) ? obj.imageSrcs : [];
   const imageSrcs = imageSrcsRaw
@@ -72,6 +84,8 @@ function normalizeProduct(p: unknown): LandingProduct | null {
     id,
     name,
     color,
+    description,
+    specifications,
     imageSrc: primaryImageSrc,
     imageSrcs: imageSrcs.length ? imageSrcs : [primaryImageSrc],
     priceCents,

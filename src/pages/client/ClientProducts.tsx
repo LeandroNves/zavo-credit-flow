@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -171,29 +172,44 @@ export default function ClientProducts() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2 grid sm:grid-cols-2 gap-4">
           {products.map((p) => {
-            const months = (p.enabledMonths?.length ? p.enabledMonths : ALL_INSTALLMENTS).slice().sort((a, b) => a - b);
-            const firstMonths = months[0] as InstallmentMonths;
-            const firstPer = calculateInstallmentCents(p.priceCents, firstMonths);
+            const per6 = p.priceCents ? calculateInstallmentCents(p.priceCents, 6) : 0;
+            const per12 = p.priceCents ? calculateInstallmentCents(p.priceCents, 12) : 0;
+            const total12 = per12 * 12;
             return (
-              <div key={p.id} className="rounded-xl border bg-card p-4 space-y-3">
-                <div className="h-40 rounded-lg border bg-background flex items-center justify-center overflow-hidden">
+              <div key={p.id} className="group bg-white rounded-2xl p-6 border border-border/50 hover:shadow-xl hover:border-secondary/30 transition-all duration-300 space-y-4">
+                <div className="h-48 rounded-lg bg-background flex items-center justify-center overflow-hidden">
                   <RotatingProductImage
                     images={p.imageSrcs?.length ? p.imageSrcs : [p.imageSrc]}
                     alt={p.name}
-                    containerClassName="h-32 w-full"
-                    intervalMs={2500}
+                    containerClassName="h-40 w-full"
+                    intervalMs={3000}
                   />
                 </div>
                 <div>
-                  <p className="font-semibold text-primary">{p.name}</p>
-                  <p className="text-sm text-muted-foreground">{p.color}</p>
+                  <p className="text-lg font-bold text-primary">{p.name}</p>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  A partir de <span className="font-semibold text-primary">{firstMonths}x de {formatBRLFromCents(firstPer)}</span>
-                </p>
-                <Button className="w-full rounded-full" onClick={() => addToCart(p.id)}>
-                  <ShoppingCart className="h-4 w-4" /> Adicionar ao carrinho
-                </Button>
+                {p.priceCents > 0 ? (
+                  <div className="space-y-1">
+                    <p className="text-base text-muted-foreground">
+                      <span className="font-bold text-primary">A partir de 6x de {formatBRLFromCents(per6)}</span>
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      12x de <span className="font-semibold text-primary">{formatBRLFromCents(per12)}</span> pagando até vencimento
+                    </p>
+                    <p className="text-xs text-muted-foreground">Total em 12x: {formatBRLFromCents(total12)}</p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Consulte condições com nosso time.</p>
+                )}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button className="w-full rounded-full" onClick={() => addToCart(p.id)}>
+                    <ShoppingCart className="h-4 w-4" /> Adicionar
+                  </Button>
+                  <Button asChild variant="outline" className="w-full rounded-full">
+                    <Link to={`/produtos/${p.id}`}>Ver produto</Link>
+                  </Button>
+                </div>
               </div>
             );
           })}
