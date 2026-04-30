@@ -58,6 +58,7 @@ type Draft = {
   name: string;
   color: string;
   description: string;
+  deliveryTime: string;
   specificationsInput: string;
   price: string;
   imageSrcs: string[];
@@ -69,6 +70,7 @@ function makeEmptyDraft(): Draft {
     name: "",
     color: "",
     description: "",
+    deliveryTime: "",
     specificationsInput: "",
     price: "",
     imageSrcs: [],
@@ -190,6 +192,7 @@ export default function AdminProducts() {
       name: p.name,
       color: p.color,
       description: p.description ?? "",
+      deliveryTime: p.deliveryTime ?? "",
       specificationsInput: (p.specifications ?? []).join(", "),
       price: fromCentsToBRLInput(p.priceCents),
       imageSrcs: [...(p.imageSrcs?.length ? p.imageSrcs : [p.imageSrc])],
@@ -230,6 +233,7 @@ export default function AdminProducts() {
     const name = draft.name.trim();
     const color = draft.color.trim();
     const description = draft.description.trim();
+    const deliveryTime = draft.deliveryTime.trim();
     const specifications = draft.specificationsInput
       .split(/[,\n]/g)
       .map((x) => x.trim())
@@ -257,6 +261,7 @@ export default function AdminProducts() {
               name,
               color,
               description,
+              deliveryTime,
               specifications,
               imageSrc,
               imageSrcs,
@@ -276,6 +281,7 @@ export default function AdminProducts() {
       name,
       color,
       description,
+      deliveryTime,
       specifications,
       imageSrc,
       imageSrcs,
@@ -324,7 +330,7 @@ export default function AdminProducts() {
             <h2 className="font-semibold text-primary">
               {editingId ? "Editar produto" : "Adicionar produto"}
             </h2>
-            {(editingId || draft.name || draft.imageSrcs.length > 0 || draft.price || draft.color || draft.description || draft.specificationsInput) && (
+            {(editingId || draft.name || draft.imageSrcs.length > 0 || draft.price || draft.color || draft.description || draft.deliveryTime || draft.specificationsInput) && (
               <Button variant="ghost" size="sm" onClick={resetDraft}>
                 Limpar
               </Button>
@@ -371,6 +377,16 @@ export default function AdminProducts() {
               onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
               placeholder="Detalhes do produto para exibir na página de produto."
               rows={4}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Prazo de entrega</Label>
+            <Textarea
+              value={draft.deliveryTime}
+              onChange={(e) => setDraft((d) => ({ ...d, deliveryTime: e.target.value }))}
+              placeholder="Ex.: Envio em até 2 dias úteis e entrega entre 5 e 10 dias úteis."
+              rows={3}
             />
           </div>
 
@@ -504,6 +520,7 @@ export default function AdminProducts() {
                   )}
 
                   {!!p.description && <p className="mt-2 text-sm text-muted-foreground">{p.description}</p>}
+                  {!!p.deliveryTime && <p className="mt-1 text-xs text-muted-foreground">Prazo: {p.deliveryTime}</p>}
 
                   <div className="mt-2 flex flex-wrap gap-2">
                     {p.enabledMonths

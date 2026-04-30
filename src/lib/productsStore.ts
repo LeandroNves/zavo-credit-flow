@@ -5,6 +5,7 @@ export type LandingProduct = {
   name: string;
   color: string;
   description: string;
+  deliveryTime: string;
   specifications: string[];
   priceCents: number;
   imageSrc: string;
@@ -64,6 +65,7 @@ function normalizeProduct(p: unknown): LandingProduct | null {
   const name = safeString(obj.name).trim();
   const color = safeString(obj.color).trim();
   const description = safeString(obj.description).trim();
+  const deliveryTime = safeString(obj.deliveryTime).trim();
   const specifications = normalizeStringArray(obj.specifications);
   const imageSrc = safeString(obj.imageSrc).trim();
   const imageSrcsRaw = Array.isArray(obj.imageSrcs) ? obj.imageSrcs : [];
@@ -85,6 +87,7 @@ function normalizeProduct(p: unknown): LandingProduct | null {
     name,
     color,
     description,
+    deliveryTime,
     specifications,
     imageSrc: primaryImageSrc,
     imageSrcs: imageSrcs.length ? imageSrcs : [primaryImageSrc],

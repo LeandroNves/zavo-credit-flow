@@ -59,6 +59,8 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
   const name = typeof o.name === "string" ? o.name.trim() : "";
   const color = typeof o.color === "string" ? o.color.trim() : "";
   const description = typeof o.description === "string" ? o.description.trim() : "";
+  const deliveryTime =
+    typeof o.deliveryTime === "string" ? o.deliveryTime.trim() : "";
   const specsRaw = Array.isArray(o.specifications) ? o.specifications : [];
   const specifications = specsRaw
     .map((x) => (typeof x === "string" ? x.trim() : ""))
@@ -90,6 +92,7 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
     name,
     color: color || "",
     description,
+    delivery_time: deliveryTime,
     specifications,
     price_cents: priceCents,
     image_src: primary,

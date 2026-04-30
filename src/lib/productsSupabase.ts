@@ -16,6 +16,7 @@ type LandingProductRow = {
   name: string;
   color: string;
   description?: string | null;
+  delivery_time?: string | null;
   specifications?: unknown;
   price_cents: number;
   image_src: string;
@@ -92,6 +93,7 @@ function mapRow(r: LandingProductRow): LandingProduct | null {
   const name = String(r.name ?? "").trim();
   const color = String(r.color ?? "").trim();
   const description = String(r.description ?? "").trim();
+  const deliveryTime = String(r.delivery_time ?? "").trim();
   const specifications = parseStringArray(r.specifications);
   const priceCents = Math.max(0, Math.round(Number(r.price_cents) || 0));
   let imageSrc = String(r.image_src ?? "").trim();
@@ -108,6 +110,7 @@ function mapRow(r: LandingProductRow): LandingProduct | null {
     name,
     color,
     description,
+    deliveryTime,
     specifications,
     priceCents,
     imageSrc: primary,
