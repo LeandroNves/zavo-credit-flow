@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowRight, Filter, Menu, Search, ShoppingCart, Trash2, X as XIcon } from "lucide-react";
+import { ArrowRight, Filter, Loader2, Menu, Search, ShoppingCart, Trash2, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RotatingProductImage } from "@/components/product/RotatingProductImage";
-import { useGlobalLandingProducts } from "@/hooks/useGlobalLandingProducts";
+import { useGlobalLandingProductsState } from "@/hooks/useGlobalLandingProducts";
 import {
   calculateInstallmentCents,
   formatBRLFromCents,
@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 type SortMode = "mais-vendidos" | "menor-preco" | "maior-preco" | "promocoes";
 
 export default function ProductsPage() {
-  const products = useGlobalLandingProducts();
+  const { products, isLoading } = useGlobalLandingProductsState();
   const [searchParams] = useSearchParams();
   const [cartOpen, setCartOpen] = useState(false);
   const [cartItems, setCartItems] = useState(() => loadCart());
@@ -486,7 +486,16 @@ export default function ProductsPage() {
           })}
             </div>
 
-            {filteredProducts.length === 0 && (
+            {isLoading && (
+              <div className="rounded-xl border bg-card py-12 text-center text-muted-foreground mt-6">
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Carregando produtos...
+                </div>
+              </div>
+            )}
+
+            {!isLoading && filteredProducts.length === 0 && (
               <div className="rounded-xl border bg-card py-12 text-center text-muted-foreground mt-6">
                 Nenhum produto encontrado com os filtros atuais.
               </div>

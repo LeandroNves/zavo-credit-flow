@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { Loader2, Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { getClienteAtualId } from "@/lib/clienteSession";
-import { useGlobalLandingProducts } from "@/hooks/useGlobalLandingProducts";
+import { useGlobalLandingProductsState } from "@/hooks/useGlobalLandingProducts";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import {
   ALL_INSTALLMENTS,
@@ -27,7 +27,7 @@ import { createProductRequest } from "@/lib/productRequestsSupabase";
 import { RotatingProductImage } from "@/components/product/RotatingProductImage";
 
 export default function ClientProducts() {
-  const products = useGlobalLandingProducts();
+  const { products, isLoading } = useGlobalLandingProductsState();
   const [items, setItems] = useState<ClientProductCartItem[]>(() => loadClientProductCart());
   const [submitting, setSubmitting] = useState(false);
 
@@ -213,7 +213,15 @@ export default function ClientProducts() {
               </div>
             );
           })}
-          {products.length === 0 && (
+          {isLoading && (
+            <div className="col-span-full text-center py-12 text-muted-foreground rounded-xl border bg-card">
+              <div className="flex items-center justify-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Carregando produtos...
+              </div>
+            </div>
+          )}
+          {!isLoading && products.length === 0 && (
             <div className="col-span-full text-center py-12 text-muted-foreground rounded-xl border bg-card">
               Nenhum produto disponível no momento.
             </div>

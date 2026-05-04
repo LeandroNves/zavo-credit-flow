@@ -16,10 +16,14 @@ import {
  * Catálogo da landing / loja: Supabase quando configurado (global + Realtime);
  * senão localStorage com seed padrão (comportamento anterior).
  */
-export function useGlobalLandingProducts(): LandingProduct[] {
+export function useGlobalLandingProductsState(): {
+  products: LandingProduct[];
+  isLoading: boolean;
+} {
   const [products, setProducts] = useState<LandingProduct[]>(() =>
     isSupabaseConfigured ? [] : loadLandingProducts(landingProductSeed),
   );
+  const [isLoading, setIsLoading] = useState<boolean>(isSupabaseConfigured);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,15 +32,23 @@ export function useGlobalLandingProducts(): LandingProduct[] {
       if (!isSupabaseConfigured || !isCatalogSupabaseConfigured) {
         if (!cancelled) {
           setProducts(loadLandingProducts(landingProductSeed));
+          setIsLoading(false);
         }
         return;
       }
       try {
+        if (!cancelled) setIsLoading(true);
         const list = await fetchLandingProductsFromSupabase();
-        if (!cancelled) setProducts(list);
+        if (!cancelled) {
+          setProducts(list);
+          setIsLoading(false);
+        }
       } catch (e) {
         console.warn("[landing products] falha ao carregar do Supabase:", e);
-        if (!cancelled) setProducts([]);
+        if (!cancelled) {
+          setProducts([]);
+          setIsLoading(false);
+        }
       }
     };
 
@@ -58,5 +70,9 @@ export function useGlobalLandingProducts(): LandingProduct[] {
     };
   }, []);
 
-  return products;
+  return { products, isLoading };
+}
+
+export function useGlobalLandingProducts(): LandingProduct[] {
+  return useGlobalLandingProductsState().products;
 }

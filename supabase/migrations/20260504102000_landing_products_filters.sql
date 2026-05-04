@@ -1,3 +1,15 @@
+-- Colunas de migrações anteriores: necessárias para o INSERT abaixo.
+-- Se o banco só recebeu esta migração, sem 20260428100000 / 20260428143000, o ALTER evita o erro
+-- "column delivery_time of relation landing_products does not exist".
+ALTER TABLE public.landing_products
+  ADD COLUMN IF NOT EXISTS description text NOT NULL DEFAULT '';
+
+ALTER TABLE public.landing_products
+  ADD COLUMN IF NOT EXISTS specifications jsonb NOT NULL DEFAULT '[]'::jsonb;
+
+ALTER TABLE public.landing_products
+  ADD COLUMN IF NOT EXISTS delivery_time text NOT NULL DEFAULT '';
+
 ALTER TABLE public.landing_products
   ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'Celular',
   ADD COLUMN IF NOT EXISTS brand text NOT NULL DEFAULT 'Apple',

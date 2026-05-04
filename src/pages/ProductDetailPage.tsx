@@ -8,6 +8,7 @@ import {
   Search,
   ShieldCheck,
   ShoppingCart,
+  Loader2,
   Minus,
   Plus,
   Sparkles,
@@ -16,7 +17,7 @@ import {
   X as XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useGlobalLandingProducts } from "@/hooks/useGlobalLandingProducts";
+import { useGlobalLandingProductsState } from "@/hooks/useGlobalLandingProducts";
 import {
   ALL_INSTALLMENTS,
   PRODUCT_CATEGORIES,
@@ -52,7 +53,7 @@ const PAYMENT_LABELS: Record<number, string> = {
 export default function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const products = useGlobalLandingProducts();
+  const { products, isLoading } = useGlobalLandingProductsState();
   const product = useMemo(() => products.find((p) => p.id === id), [products, id]);
 
   const images = product?.imageSrcs?.length ? product.imageSrcs : product ? [product.imageSrc] : [];
@@ -171,7 +172,18 @@ export default function ProductDetailPage() {
 
   if (!id) return <Navigate to="/produtos" replace />;
   if (!product && products.length > 0) return <Navigate to="/produtos" replace />;
-  if (!product) return null;
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-[#eaf3ff] flex items-center justify-center">
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Carregando produto...
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   const mainImage = images[mainImageIndex] ?? images[0];
   const otherProducts = products.filter((p) => p.id !== product.id).slice(0, 8);
