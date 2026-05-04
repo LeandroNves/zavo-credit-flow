@@ -11,6 +11,10 @@ import {
   ALL_INSTALLMENTS,
   type InstallmentMonths,
   type LandingProduct,
+  PRODUCT_BRANDS,
+  PRODUCT_CATEGORIES,
+  type ProductBrand,
+  type ProductCategory,
   PRODUCTS_UPDATED_EVENT,
   calculateInstallmentCents,
   formatBRLFromCents,
@@ -24,6 +28,7 @@ import {
   fetchLandingProductsFromSupabase,
   subscribeLandingProductsChanges,
 } from "@/lib/productsSupabase";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function toCentsFromBRL(input: string): number {
   const normalized = input.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
@@ -47,6 +52,7 @@ async function readFileAsDataUrl(file: File): Promise<string> {
 }
 
 const MONTH_LABEL: Record<InstallmentMonths, string> = {
+  1: "À vista (1x)",
   6: "6 meses",
   12: "12 meses",
   18: "18 meses",
@@ -56,6 +62,9 @@ const MONTH_LABEL: Record<InstallmentMonths, string> = {
 type Draft = {
   id?: string;
   name: string;
+  category: ProductCategory;
+  brand: ProductBrand;
+  isOnSale: boolean;
   color: string;
   description: string;
   deliveryTime: string;
@@ -68,6 +77,9 @@ type Draft = {
 function makeEmptyDraft(): Draft {
   return {
     name: "",
+    category: "Celular",
+    brand: "Apple",
+    isOnSale: false,
     color: "",
     description: "",
     deliveryTime: "",
@@ -190,6 +202,9 @@ export default function AdminProducts() {
     setDraft({
       id: p.id,
       name: p.name,
+      category: p.category,
+      brand: p.brand,
+      isOnSale: p.isOnSale,
       color: p.color,
       description: p.description ?? "",
       deliveryTime: p.deliveryTime ?? "",
@@ -232,6 +247,9 @@ export default function AdminProducts() {
   async function save() {
     const name = draft.name.trim();
     const color = draft.color.trim();
+    const category = draft.category;
+    const brand = draft.brand;
+    const isOnSale = draft.isOnSale;
     const description = draft.description.trim();
     const deliveryTime = draft.deliveryTime.trim();
     const specifications = draft.specificationsInput
@@ -259,6 +277,9 @@ export default function AdminProducts() {
           ? {
               ...p,
               name,
+              category,
+              brand,
+              isOnSale,
               color,
               description,
               deliveryTime,
@@ -279,6 +300,9 @@ export default function AdminProducts() {
     const newProduct: LandingProduct = {
       id: makeProductId(),
       name,
+      category,
+      brand,
+      isOnSale,
       color,
       description,
       deliveryTime,
@@ -310,7 +334,7 @@ export default function AdminProducts() {
         <div>
           <h1 className="text-2xl font-bold text-primary">Produtos da Landing</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Gerencie os itens de “Produtos mais procurados” (imagem, nome, cor, preço e parcelas).
+            Gerencie os itens da loja com categoria, marca, promoção, imagens, preço e parcelas.
           </p>
         </div>
         <div className="flex gap-2">
@@ -345,6 +369,53 @@ export default function AdminProducts() {
               placeholder='Ex.: iPhone 17 Pro Max'
             />
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Categoria</Label>
+              <Select
+                value={draft.category}
+                onValueChange={(value) => setDraft((d) => ({ ...d, category: value as ProductCategory }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRODUCT_CATEGORIES.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Marca</Label>
+              <Select
+                value={draft.brand}
+                onValueChange={(value) => setDraft((d) => ({ ...d, brand: value as ProductBrand }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a marca" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRODUCT_BRANDS.map((brand) => (
+                    <SelectItem key={brand} value={brand}>
+                      {brand}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={draft.isOnSale}
+              onCheckedChange={(value) => setDraft((d) => ({ ...d, isOnSale: Boolean(value) }))}
+            />
+            Produto em promoção
+          </label>
 
           <div className="space-y-2">
             <Label>Cor</Label>
@@ -493,7 +564,8 @@ export default function AdminProducts() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-semibold text-primary truncate">{p.name}</p>
-                      <p className="text-sm text-muted-foreground truncate">{p.color}</p>
+                      <p className="text-sm text-muted-foreground truncate">{p.brand} • {p.category}</p>
+                      <p className="text-xs text-muted-foreground truncate">{p.color}</p>
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" className="gap-2" onClick={() => startEdit(p)}>
@@ -508,6 +580,9 @@ export default function AdminProducts() {
                   <div className="mt-2 text-sm text-muted-foreground">
                     Preço base: <span className="font-medium text-primary">{formatBRLFromCents(p.priceCents)}</span>
                   </div>
+                  {p.isOnSale && (
+                    <div className="mt-1 text-xs font-medium text-emerald-700">Em promoção</div>
+                  )}
 
                   {!!p.specifications?.length && (
                     <div className="mt-2 flex flex-wrap gap-2">

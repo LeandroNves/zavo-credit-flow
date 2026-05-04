@@ -34,7 +34,7 @@ export function loadCart(): CartItem[] {
           : [];
         const addedAt = typeof o.addedAt === "string" ? o.addedAt : new Date().toISOString();
         if (!id || !productId) return null;
-        if (![6, 12, 18, 24].includes(months)) return null;
+        if (![1, 6, 12, 18, 24].includes(months)) return null;
         const safeQty = Number.isFinite(qty) ? Math.max(1, Math.min(99, Math.round(qty))) : 1;
         return {
           id,

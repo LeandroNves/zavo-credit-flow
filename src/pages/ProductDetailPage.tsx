@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
+  ArrowLeft,
   BadgeCheck,
   CalendarCheck2,
   Menu,
+  Search,
   ShieldCheck,
   ShoppingCart,
+  Minus,
+  Plus,
   Sparkles,
   Trash2,
   WalletCards,
@@ -15,12 +19,15 @@ import { Button } from "@/components/ui/button";
 import { useGlobalLandingProducts } from "@/hooks/useGlobalLandingProducts";
 import {
   ALL_INSTALLMENTS,
+  PRODUCT_CATEGORIES,
+  type InstallmentMonths,
   calculateInstallmentCents,
   formatBRLFromCents,
   parseProductColors,
 } from "@/lib/productsStore";
 import {
   CART_UPDATED_EVENT,
+  type CartItem,
   loadCart,
   makeCartItemId,
   pickDefaultMonths,
@@ -31,6 +38,9 @@ import { RotatingProductImage } from "@/components/product/RotatingProductImage"
 import { toast } from "sonner";
 import logo from "@/assets/logo.png";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { buildCartSnapshot, saveRegistrationInterest } from "@/lib/registrationInterest";
 
 const PAYMENT_LABELS: Record<number, string> = {
   6: "Econômico",
@@ -41,6 +51,7 @@ const PAYMENT_LABELS: Record<number, string> = {
 
 export default function ProductDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const products = useGlobalLandingProducts();
   const product = useMemo(() => products.find((p) => p.id === id), [products, id]);
 
@@ -48,19 +59,25 @@ export default function ProductDetailPage() {
   const colors = parseProductColors(product?.color ?? "");
   const [mainImageIndex, setMainImageIndex] = useState(0);
   const [selectedSpec, setSelectedSpec] = useState(product?.specifications?.[0] ?? "");
-  const [selectedMonths, setSelectedMonths] = useState<6 | 12 | 18 | 24>(6);
+  const [selectedMonths, setSelectedMonths] = useState<InstallmentMonths>(6);
   const [cartOpen, setCartOpen] = useState(false);
   const [cartItems, setCartItems] = useState(() => loadCart());
-  const [cartCount, setCartCount] = useState(() =>
-    loadCart().reduce((sum, it) => sum + it.qty, 0),
-  );
+  const [cartCount, setCartCount] = useState(() => loadCart().reduce((sum, it) => sum + it.qty, 0));
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const [catalogCategory, setCatalogCategory] = useState<"Todos" | (typeof PRODUCT_CATEGORIES)[number]>("Todos");
+  const [catalogSort, setCatalogSort] = useState<"mais-vendidos" | "menor-preco" | "maior-preco" | "promocoes">("mais-vendidos");
 
   useEffect(() => {
     setMainImageIndex(0);
     setSelectedSpec(product?.specifications?.[0] ?? "");
     setSelectedMonths(6);
   }, [product?.id, product?.specifications]);
+
+  useEffect(() => {
+    if (!product?.id) return;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [product?.id]);
 
   useEffect(() => {
     const update = () => {
@@ -83,6 +100,75 @@ export default function ProductDetailPage() {
     saveCart([]);
   };
 
+  const setQty = (id: string, qty: number) => {
+    const q = Math.max(1, Math.min(99, Math.round(qty)));
+    const next = cartItems.map((it) => (it.id === id ? { ...it, qty: q } : it));
+    setCartItems(next);
+    saveCart(next);
+  };
+
+  const setMonths = (id: string, months: number) => {
+    if (![1, 6, 12, 18, 24].includes(months)) return;
+    const next = cartItems.map((it) => (it.id === id ? { ...it, months: months as 1 | 6 | 12 | 18 | 24 } : it));
+    setCartItems(next);
+    saveCart(next);
+  };
+
+  const setPreferredColor = (id: string, color: string) => {
+    const next = cartItems.map((it) => {
+      if (it.id !== id) return it;
+      const alt = it.selectedColors[1] ?? "";
+      return { ...it, selectedColors: [color, alt].filter(Boolean) };
+    });
+    setCartItems(next);
+    saveCart(next);
+  };
+
+  const setAlternativeColor = (id: string, color: string) => {
+    const next = cartItems.map((it) => {
+      if (it.id !== id) return it;
+      const pref = it.selectedColors[0] ?? "";
+      return { ...it, selectedColors: [pref, color].filter(Boolean) };
+    });
+    setCartItems(next);
+    saveCart(next);
+  };
+
+  const goCheckoutCadastro = () => {
+    const hasMissingPrice = cartItems.some((it) => {
+      const p = products.find((x) => x.id === it.productId);
+      return !p || !p.priceCents;
+    });
+    if (hasMissingPrice) {
+      setCartOpen(true);
+      return;
+    }
+
+    const hasMissingColors = cartItems.some((it) => {
+      const p = products.find((x) => x.id === it.productId);
+      if (!p) return true;
+      const options = parseProductColors(p.color);
+      const chosen = (it.selectedColors ?? []).filter(Boolean);
+      if (options.length >= 2) return chosen.length < 2 || chosen[0] === chosen[1];
+      return chosen.length < 2;
+    });
+    if (hasMissingColors) {
+      setCartOpen(true);
+      toast.error("Selecione duas cores por produto (preferencial e alternativa).");
+      return;
+    }
+
+    saveRegistrationInterest({
+      interestType: "produto",
+      cart: buildCartSnapshot({
+        cartItems: cartItems as CartItem[],
+        products,
+      }),
+    });
+    setCartOpen(false);
+    navigate("/cadastro");
+  };
+
   if (!id) return <Navigate to="/produtos" replace />;
   if (!product && products.length > 0) return <Navigate to="/produtos" replace />;
   if (!product) return null;
@@ -100,8 +186,8 @@ export default function ProductDetailPage() {
     };
   });
 
-  const addCurrentProductToCart = () => {
-    const months = selectedMonths ?? pickDefaultMonths(product);
+  const addCurrentProductToCart = (forcedMonths?: 1 | 6 | 12 | 18 | 24) => {
+    const months = forcedMonths ?? selectedMonths ?? pickDefaultMonths(product);
     const colorOptions = parseProductColors(product.color);
     const current = loadCart();
     const existingIdx = current.findIndex(
@@ -113,21 +199,26 @@ export default function ProductDetailPage() {
         idx === existingIdx ? { ...it, qty: Math.min(99, it.qty + 1) } : it,
       );
       saveCart(next);
+      setCartItems(next);
+      setCartOpen(true);
       toast.success("Produto adicionado ao carrinho.");
       return;
     }
 
-    saveCart([
+    const next: CartItem[] = [
       {
         id: makeCartItemId(),
         productId: product.id,
-        months: months as 6 | 12 | 18 | 24,
+        months: months as 1 | 6 | 12 | 18 | 24,
         qty: 1,
         selectedColors: colorOptions.slice(0, 2),
         addedAt: new Date().toISOString(),
       },
       ...current,
-    ]);
+    ];
+    saveCart(next);
+    setCartItems(next);
+    setCartOpen(true);
     toast.success("Produto adicionado ao carrinho.");
   };
 
@@ -196,34 +287,158 @@ export default function ProductDetailPage() {
           <SheetHeader>
             <SheetTitle>Carrinho</SheetTitle>
           </SheetHeader>
-          <div className="mt-6 space-y-3">
+          <div className="mt-6 flex flex-col h-[calc(100vh-7rem)]">
             {cartItems.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Seu carrinho está vazio.</p>
+              <div className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground">
+                <ShoppingCart className="h-10 w-10 mb-3 opacity-50" />
+                <p className="font-medium text-foreground">Seu carrinho está vazio</p>
+                <p className="text-sm mt-1">Adicione produtos para continuar.</p>
+              </div>
             ) : (
               <>
-                <div className="space-y-2 max-h-[60vh] overflow-auto pr-1">
+                <div className="flex-1 overflow-auto pr-1 space-y-4">
                   {cartItems.map((it) => {
                     const p = products.find((x) => x.id === it.productId);
                     if (!p) return null;
+                    const allowedMonths = Array.from(
+                      new Set(
+                        [...(p.enabledMonths?.length ? p.enabledMonths : ALL_INSTALLMENTS), it.months].filter(Boolean),
+                      ),
+                    ).sort((a, b) => a - b);
+                    const colorOptions = parseProductColors(p.color);
+                    const preferred = it.selectedColors?.[0] ?? "";
+                    const alternative = it.selectedColors?.[1] ?? "";
+                    const missingColors =
+                      colorOptions.length >= 2
+                        ? !preferred || !alternative || preferred === alternative
+                        : !preferred || !alternative;
+                    const per = calculateInstallmentCents(p.priceCents, it.months);
                     return (
-                      <div key={it.id} className="rounded-xl border p-3 bg-white flex items-center gap-3">
-                        <div className="w-14 h-14 rounded-md bg-background overflow-hidden flex items-center justify-center">
-                          <img src={(p.imageSrcs?.[0] ?? p.imageSrc)} alt={p.name} className="h-12 object-contain" />
+                      <div key={it.id} className="border rounded-xl p-3 bg-background">
+                        <div className="flex gap-3">
+                          <div className="w-16 h-16 rounded-lg border bg-white flex items-center justify-center overflow-hidden">
+                            <img src={(p.imageSrcs?.[0] ?? p.imageSrc)} alt={p.name} className="h-14 object-contain" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="font-semibold text-primary truncate">{p.name}</p>
+                                {p.color && <p className="text-xs text-muted-foreground truncate">{p.color}</p>}
+                              </div>
+                              <button
+                                type="button"
+                                className="text-muted-foreground hover:text-destructive transition-colors"
+                                onClick={() => removeItem(it.id)}
+                                aria-label="Remover item"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+
+                            <div className="mt-3 grid grid-cols-2 gap-2 items-center">
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Parcelas</p>
+                                <Select value={String(it.months)} onValueChange={(v) => setMonths(it.id, Number(v))}>
+                                  <SelectTrigger className="h-9">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {allowedMonths.map((m) => (
+                                      <SelectItem key={m} value={String(m)}>
+                                        {m}x
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Qtd</p>
+                                <div className="flex items-center justify-between border rounded-md h-9 px-2 bg-white">
+                                  <button
+                                    type="button"
+                                    className="p-1 text-muted-foreground hover:text-foreground"
+                                    onClick={() => setQty(it.id, it.qty - 1)}
+                                    aria-label="Diminuir quantidade"
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </button>
+                                  <span className="text-sm font-medium">{it.qty}</span>
+                                  <button
+                                    type="button"
+                                    className="p-1 text-muted-foreground hover:text-foreground"
+                                    onClick={() => setQty(it.id, it.qty + 1)}
+                                    aria-label="Aumentar quantidade"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Cor preferencial</p>
+                                <Select value={preferred} onValueChange={(v) => setPreferredColor(it.id, v)}>
+                                  <SelectTrigger className="h-9">
+                                    <SelectValue placeholder="Escolha" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {colorOptions.map((c) => (
+                                      <SelectItem key={`pref-${it.id}-${c}`} value={c}>
+                                        {c}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Cor alternativa</p>
+                                <Select value={alternative} onValueChange={(v) => setAlternativeColor(it.id, v)}>
+                                  <SelectTrigger className="h-9">
+                                    <SelectValue placeholder="Escolha" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {colorOptions.map((c) => (
+                                      <SelectItem key={`alt-${it.id}-${c}`} value={c}>
+                                        {c}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            {missingColors && (
+                              <p className="mt-2 text-xs text-destructive">
+                                Selecione duas cores para este produto (preferencial e alternativa).
+                              </p>
+                            )}
+
+                            <p className="mt-3 text-sm text-muted-foreground">
+                              <span className="font-semibold text-primary">{it.months}x</span> de{" "}
+                              <span className="font-semibold text-primary">
+                                {p.priceCents ? formatBRLFromCents(per) : "—"}
+                              </span>
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-primary truncate">{p.name}</p>
-                          <p className="text-xs text-muted-foreground">{it.months}x • qtd {it.qty}</p>
-                        </div>
-                        <button type="button" onClick={() => removeItem(it.id)} className="text-muted-foreground hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
                       </div>
                     );
                   })}
                 </div>
-                <Button variant="outline" className="w-full" onClick={clearCart}>
-                  Limpar carrinho
-                </Button>
+
+                <div className="pt-4 border-t mt-4 space-y-2">
+                  <Button
+                    className="w-full rounded-full"
+                    onClick={goCheckoutCadastro}
+                    disabled={cartItems.some((it) => !products.find((p) => p.id === it.productId)?.priceCents)}
+                  >
+                    Finalizar compra
+                  </Button>
+                  <Button variant="outline" className="w-full rounded-full" onClick={clearCart}>
+                    Limpar carrinho
+                  </Button>
+                </div>
               </>
             )}
           </div>
@@ -232,6 +447,91 @@ export default function ProductDetailPage() {
 
       <main className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
         <div className="space-y-6">
+          <div className="flex items-center">
+            <Button asChild variant="ghost" size="sm" className="gap-2">
+              <Link to="/produtos">
+                <ArrowLeft className="h-4 w-4" />
+                Voltar para produtos
+              </Link>
+            </Button>
+          </div>
+
+          <section className="bg-white border rounded-2xl p-4 md:p-5 space-y-4">
+            <div>
+              <h3 className="text-2xl font-bold text-primary">Nossos produtos</h3>
+              <p className="text-sm text-muted-foreground">
+                Navegue para a vitrine completa mantendo o filtro que você escolher.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px_220px] gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-10"
+                  value={catalogSearch}
+                  onChange={(event) => setCatalogSearch(event.target.value)}
+                  placeholder="Buscar produtos, marcas ou modelos..."
+                />
+              </div>
+              <Select
+                value={catalogCategory}
+                onValueChange={(value) => setCatalogCategory(value as "Todos" | (typeof PRODUCT_CATEGORIES)[number])}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas as categorias" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Todos">Todas as categorias</SelectItem>
+                  {PRODUCT_CATEGORIES.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={catalogSort} onValueChange={(value) => setCatalogSort(value as "mais-vendidos" | "menor-preco" | "maior-preco" | "promocoes")}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mais-vendidos">Mais vendidos</SelectItem>
+                  <SelectItem value="menor-preco">Menor preço</SelectItem>
+                  <SelectItem value="maior-preco">Maior preço</SelectItem>
+                  <SelectItem value="promocoes">Promoções</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Button asChild variant="outline" className="rounded-full">
+                <Link
+                  to={`/produtos?search=${encodeURIComponent(catalogSearch)}${catalogCategory !== "Todos" ? `&category=${encodeURIComponent(catalogCategory)}` : ""}&sort=${catalogSort}`}
+                >
+                  Ir para lista filtrada
+                </Link>
+              </Button>
+            </div>
+
+            <div className="flex gap-2 overflow-auto pb-1">
+              <Link
+                to={`/produtos?search=${encodeURIComponent(catalogSearch)}&sort=${catalogSort}`}
+                className="px-4 py-2 rounded-full text-sm border whitespace-nowrap bg-primary text-primary-foreground border-primary"
+              >
+                Todos
+              </Link>
+              {PRODUCT_CATEGORIES.map((category) => (
+                <Link
+                  key={category}
+                  to={`/produtos?search=${encodeURIComponent(catalogSearch)}&category=${encodeURIComponent(category)}&sort=${catalogSort}`}
+                  className="px-4 py-2 rounded-full text-sm border whitespace-nowrap bg-white border-border hover:bg-muted"
+                >
+                  {category}
+                </Link>
+              ))}
+            </div>
+          </section>
+
           <section className="bg-white rounded-2xl p-4 md:p-6">
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] gap-6">
               <div className="space-y-3">
@@ -386,14 +686,14 @@ export default function ProductDetailPage() {
 
                 <div className="mt-8">
                   <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                    <Button className="w-full max-w-sm flex h-14 rounded-2xl gap-2 text-base" onClick={addCurrentProductToCart}>
+                    <Button className="w-full max-w-sm flex h-14 rounded-2xl gap-2 text-base" onClick={() => addCurrentProductToCart()}>
                       <ShoppingCart className="h-4 w-4" />
                       Adicionar ao carrinho ({selectedMonths}x)
                     </Button>
                     <Button
                       className="w-full max-w-sm h-14 rounded-2xl text-base font-bold text-primary"
                       style={{ backgroundColor: "#03EBB1" }}
-                      onClick={addCurrentProductToCart}
+                      onClick={() => addCurrentProductToCart(1)}
                     >
                       Comprar à vista (1x)
                     </Button>
@@ -414,7 +714,19 @@ export default function ProductDetailPage() {
                     const per6 = p.priceCents ? calculateInstallmentCents(p.priceCents, 6) : 0;
                     return (
                       <CarouselItem key={p.id} className="sm:basis-1/2 lg:basis-1/4">
-                        <Link to={`/produtos/${p.id}`} className="block bg-white rounded-xl p-3 h-full hover:shadow-md transition-shadow">
+                        <article
+                          role="link"
+                          tabIndex={0}
+                          onClick={() => navigate(`/produtos/${p.id}`)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              navigate(`/produtos/${p.id}`);
+                            }
+                          }}
+                          className="block bg-white rounded-xl p-3 h-full hover:shadow-md transition-shadow cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          aria-label={`Ver detalhes de ${p.name}`}
+                        >
                           <div className="h-32 flex items-center justify-center mb-2">
                             <RotatingProductImage
                               images={p.imageSrcs?.length ? p.imageSrcs : [p.imageSrc]}
@@ -432,7 +744,7 @@ export default function ProductDetailPage() {
                           ) : (
                             <p className="text-xs text-muted-foreground mt-2">Consulte valores</p>
                           )}
-                        </Link>
+                        </article>
                       </CarouselItem>
                     );
                   })}

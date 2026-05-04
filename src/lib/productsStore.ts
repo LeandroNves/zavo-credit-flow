@@ -1,8 +1,41 @@
-export type InstallmentMonths = 6 | 12 | 18 | 24;
+export type InstallmentMonths = 1 | 6 | 12 | 18 | 24;
+
+export const PRODUCT_CATEGORIES = [
+  "Celular",
+  "Tablet",
+  "Notebook",
+  "Smartwatch",
+  "Fone de ouvido",
+  "Caixa de som",
+  "Acessório",
+  "Assistência técnica",
+] as const;
+
+export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];
+
+export const PRODUCT_BRANDS = [
+  "Apple",
+  "Samsung",
+  "Xiaomi",
+  "Motorola",
+  "Lenovo",
+  "Dell",
+  "HP",
+  "Asus",
+  "JBL",
+  "Sony",
+  "Starlink",
+  "Baseus",
+] as const;
+
+export type ProductBrand = (typeof PRODUCT_BRANDS)[number];
 
 export type LandingProduct = {
   id: string;
   name: string;
+  category: ProductCategory;
+  brand: ProductBrand;
+  isOnSale: boolean;
   color: string;
   description: string;
   deliveryTime: string;
@@ -19,6 +52,7 @@ const STORAGE_KEY = "zavo_landing_products_v1";
 export const PRODUCTS_UPDATED_EVENT = "zavo:products-updated";
 
 export const INSTALLMENT_RATES: Record<InstallmentMonths, number> = {
+  1: 0,
   6: 0.6,
   12: 0.96,
   18: 1.44,
@@ -28,7 +62,7 @@ export const INSTALLMENT_RATES: Record<InstallmentMonths, number> = {
 export const ALL_INSTALLMENTS: InstallmentMonths[] = [6, 12, 18, 24];
 
 function isInstallmentMonths(n: number): n is InstallmentMonths {
-  return n === 6 || n === 12 || n === 18 || n === 24;
+  return n === 1 || n === 6 || n === 12 || n === 18 || n === 24;
 }
 
 function safeString(v: unknown): string {
@@ -37,6 +71,20 @@ function safeString(v: unknown): string {
 
 function safeNumber(v: unknown): number {
   return typeof v === "number" && Number.isFinite(v) ? v : 0;
+}
+
+function normalizeCategory(v: unknown): ProductCategory {
+  const value = typeof v === "string" ? v.trim() : "";
+  return (PRODUCT_CATEGORIES as readonly string[]).includes(value)
+    ? (value as ProductCategory)
+    : "Celular";
+}
+
+function normalizeBrand(v: unknown): ProductBrand {
+  const value = typeof v === "string" ? v.trim() : "";
+  return (PRODUCT_BRANDS as readonly string[]).includes(value)
+    ? (value as ProductBrand)
+    : "Apple";
 }
 
 function normalizeStringArray(v: unknown): string[] {
@@ -63,6 +111,9 @@ function normalizeProduct(p: unknown): LandingProduct | null {
 
   const id = safeString(obj.id).trim();
   const name = safeString(obj.name).trim();
+  const category = normalizeCategory(obj.category);
+  const brand = normalizeBrand(obj.brand);
+  const isOnSale = Boolean(obj.isOnSale);
   const color = safeString(obj.color).trim();
   const description = safeString(obj.description).trim();
   const deliveryTime = safeString(obj.deliveryTime).trim();
@@ -85,6 +136,9 @@ function normalizeProduct(p: unknown): LandingProduct | null {
   return {
     id,
     name,
+    category,
+    brand,
+    isOnSale,
     color,
     description,
     deliveryTime,

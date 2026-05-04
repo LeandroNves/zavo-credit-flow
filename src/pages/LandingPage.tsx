@@ -259,7 +259,7 @@ export default function LandingPage() {
   };
 
   const setMonths = (id: string, months: number) => {
-    if (![6, 12, 18, 24].includes(months)) return;
+    if (![1, 6, 12, 18, 24].includes(months)) return;
     persistCart(cartItems.map((it) => (it.id === id ? { ...it, months: months as any } : it)));
   };
 
@@ -329,8 +329,7 @@ export default function LandingPage() {
           {/* Desktop links */}
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-foreground/70">
             <a href="#sobre" className="hover:text-secondary transition-colors">Sobre</a>
-            <a href="#produtos" className="hover:text-secondary transition-colors">Produtos</a>
-            <Link to="/produtos" className="hover:text-secondary transition-colors">Ver todos</Link>
+            <Link to="/produtos" className="hover:text-secondary transition-colors">Produtos</Link>
             <a href="#servicos" className="hover:text-secondary transition-colors">Serviços</a>
             <a href="#diferenciais" className="hover:text-secondary transition-colors">Diferenciais</a>
           </div>
@@ -411,7 +410,11 @@ export default function LandingPage() {
                   {cartItems.map((it) => {
                     const p = products.find((x) => x.id === it.productId);
                     if (!p) return null;
-                    const allowedMonths = (p.enabledMonths?.length ? p.enabledMonths : ALL_INSTALLMENTS).slice().sort((a, b) => a - b);
+                    const allowedMonths = Array.from(
+                      new Set(
+                        [...(p.enabledMonths?.length ? p.enabledMonths : ALL_INSTALLMENTS), it.months].filter(Boolean),
+                      ),
+                    ).sort((a, b) => a - b);
                     const colorOptions = parseProductColors(p.color);
                     const preferred = it.selectedColors?.[0] ?? "";
                     const alternative = it.selectedColors?.[1] ?? "";

@@ -40,7 +40,7 @@ async function readJsonBody(
 }
 
 function isInstallmentMonths(n: number): boolean {
-  return n === 6 || n === 12 || n === 18 || n === 24;
+  return n === 1 || n === 6 || n === 12 || n === 18 || n === 24;
 }
 
 function normalizeEnabledMonths(raw: unknown): number[] {
@@ -57,6 +57,9 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
   const o = p as Record<string, unknown>;
   const id = typeof o.id === "string" ? o.id.trim() : "";
   const name = typeof o.name === "string" ? o.name.trim() : "";
+  const category = typeof o.category === "string" ? o.category.trim() : "";
+  const brand = typeof o.brand === "string" ? o.brand.trim() : "";
+  const isOnSale = Boolean(o.isOnSale);
   const color = typeof o.color === "string" ? o.color.trim() : "";
   const description = typeof o.description === "string" ? o.description.trim() : "";
   const deliveryTime =
@@ -90,6 +93,9 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
   return {
     id,
     name,
+    category: category || "Celular",
+    brand: brand || "Apple",
+    is_on_sale: isOnSale,
     color: color || "",
     description,
     delivery_time: deliveryTime,

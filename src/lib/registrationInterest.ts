@@ -9,7 +9,7 @@ export type RegistrationCartSnapshotItem = {
   name: string;
   color: string;
   colors: string[];
-  months: 6 | 12 | 18 | 24;
+  months: 1 | 6 | 12 | 18 | 24;
   qty: number;
   perInstallmentBRL: string;
 };

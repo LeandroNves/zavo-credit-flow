@@ -3,6 +3,10 @@ import {
   ALL_INSTALLMENTS,
   type InstallmentMonths,
   type LandingProduct,
+  PRODUCT_BRANDS,
+  PRODUCT_CATEGORIES,
+  type ProductBrand,
+  type ProductCategory,
 } from "@/lib/productsStore";
 
 const catalogUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
@@ -14,6 +18,9 @@ export const isCatalogSupabaseConfigured = Boolean(catalogUrl && catalogAnonKey)
 type LandingProductRow = {
   id: string;
   name: string;
+  category?: string | null;
+  brand?: string | null;
+  is_on_sale?: boolean | null;
   color: string;
   description?: string | null;
   delivery_time?: string | null;
@@ -41,7 +48,7 @@ function getLandingRealtime(): RealtimeClient | null {
 }
 
 function isInstallmentMonths(n: number): n is InstallmentMonths {
-  return n === 6 || n === 12 || n === 18 || n === 24;
+  return n === 1 || n === 6 || n === 12 || n === 18 || n === 24;
 }
 
 function normalizeEnabledMonths(raw: unknown): InstallmentMonths[] {
@@ -88,6 +95,20 @@ function parseStringArray(raw: unknown): string[] {
     .filter((v, i, a) => a.indexOf(v) === i);
 }
 
+function normalizeCategory(value: unknown): ProductCategory {
+  const v = typeof value === "string" ? value.trim() : "";
+  return (PRODUCT_CATEGORIES as readonly string[]).includes(v)
+    ? (v as ProductCategory)
+    : "Celular";
+}
+
+function normalizeBrand(value: unknown): ProductBrand {
+  const v = typeof value === "string" ? value.trim() : "";
+  return (PRODUCT_BRANDS as readonly string[]).includes(v)
+    ? (v as ProductBrand)
+    : "Apple";
+}
+
 function mapRow(r: LandingProductRow): LandingProduct | null {
   const id = String(r.id ?? "").trim();
   const name = String(r.name ?? "").trim();
@@ -108,6 +129,9 @@ function mapRow(r: LandingProductRow): LandingProduct | null {
   return {
     id,
     name,
+    category: normalizeCategory(r.category),
+    brand: normalizeBrand(r.brand),
+    isOnSale: Boolean(r.is_on_sale),
     color,
     description,
     deliveryTime,

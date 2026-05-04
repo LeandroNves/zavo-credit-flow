@@ -12,6 +12,9 @@ export const landingProductSeed: LandingProduct[] = [
   {
     id: makeProductId(),
     name: "iPhone 17 Pro max",
+    category: "Celular",
+    brand: "Apple",
+    isOnSale: false,
     color: "Laranja",
     description: "",
     deliveryTime: "",
@@ -26,6 +29,9 @@ export const landingProductSeed: LandingProduct[] = [
   {
     id: makeProductId(),
     name: "iPhone 17",
+    category: "Celular",
+    brand: "Apple",
+    isOnSale: false,
     color: "Titânio Azul",
     description: "",
     deliveryTime: "",
@@ -40,6 +46,9 @@ export const landingProductSeed: LandingProduct[] = [
   {
     id: makeProductId(),
     name: "iPhone 17 Pro Max",
+    category: "Celular",
+    brand: "Apple",
+    isOnSale: false,
     color: "Titânio Branco",
     description: "",
     deliveryTime: "",
