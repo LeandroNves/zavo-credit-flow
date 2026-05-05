@@ -69,6 +69,21 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
     .map((x) => (typeof x === "string" ? x.trim() : ""))
     .filter(Boolean)
     .filter((v, i, a) => a.indexOf(v) === i);
+  const modelOptionsRaw = Array.isArray(o.modelOptions) ? o.modelOptions : [];
+  const modelOptions = modelOptionsRaw
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const obj = item as Record<string, unknown>;
+      const model = typeof obj.model === "string" ? obj.model.trim() : "";
+      const priceCents = Number(obj.priceCents);
+      if (!model || !Number.isFinite(priceCents) || priceCents <= 0) return null;
+      return { model, priceCents: Math.round(priceCents) };
+    })
+    .filter(Boolean)
+    .filter(
+      (x, i, arr) =>
+        arr.findIndex((y) => y?.model.toLowerCase() === x?.model.toLowerCase()) === i,
+    );
   const priceRaw = o.priceCents;
   const priceCents =
     typeof priceRaw === "number" && Number.isFinite(priceRaw)
@@ -83,6 +98,7 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
   const primary = imageSrcs[0] || imageSrc;
   if (!id || !name || !primary) return null;
   if (!Number.isFinite(priceCents) || priceCents <= 0) return null;
+  if (modelOptions.length === 0) return null;
 
   const nowIso = new Date().toISOString();
   const createdAt =
@@ -100,6 +116,7 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
     description,
     delivery_time: deliveryTime,
     specifications,
+    model_options: modelOptions,
     price_cents: priceCents,
     image_src: primary,
     image_srcs: imageSrcs.length ? imageSrcs : [primary],

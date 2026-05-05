@@ -1,12 +1,17 @@
 import type { CartItem } from "@/lib/cartStore";
 import type { LandingProduct } from "@/lib/productsStore";
-import { calculateInstallmentCents, formatBRLFromCents } from "@/lib/productsStore";
+import {
+  calculateInstallmentCents,
+  formatBRLFromCents,
+  getProductPriceCentsByModel,
+} from "@/lib/productsStore";
 
 export type RegistrationInterestType = "emprestimo" | "produto" | "ambos";
 
 export type RegistrationCartSnapshotItem = {
   productId: string;
   name: string;
+  model: string;
   color: string;
   colors: string[];
   months: 1 | 6 | 12 | 18 | 24;
@@ -70,10 +75,11 @@ export function buildCartSnapshot(args: {
   for (const it of args.cartItems) {
     const p = byId.get(it.productId);
     if (!p) continue;
-    const per = calculateInstallmentCents(p.priceCents, it.months);
+    const per = calculateInstallmentCents(getProductPriceCentsByModel(p, it.selectedModel), it.months);
     items.push({
       productId: p.id,
       name: p.name,
+      model: it.selectedModel,
       color: it.selectedColors.join(" / ") || p.color,
       colors: it.selectedColors,
       months: it.months,

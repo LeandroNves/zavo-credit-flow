@@ -53,6 +53,8 @@ import {
   type LandingProduct,
   calculateInstallmentCents,
   formatBRLFromCents,
+  getDefaultProductModel,
+  getProductPriceCentsByModel,
   parseProductColors,
 } from "@/lib/productsStore";
 import { useGlobalLandingProducts } from "@/hooks/useGlobalLandingProducts";
@@ -150,7 +152,7 @@ function buildWhatsAppMessage(args: {
   for (const it of items) {
     const p = byId.get(it.productId);
     if (!p) continue;
-    const per = calculateInstallmentCents(p.priceCents, it.months);
+    const per = calculateInstallmentCents(getProductPriceCentsByModel(p, it.selectedModel), it.months);
     lines.push(
       `- ${it.qty}x ${p.name}${p.color ? ` (${p.color})` : ""} — ${it.months}x de ${formatBRLFromCents(per)}`,
     );
@@ -227,10 +229,13 @@ export default function LandingPage() {
   const addToCart = (productId: string) => {
     const product = products.find((p) => p.id === productId);
     if (!product) return;
+    const selectedModel = getDefaultProductModel(product);
     const months = pickDefaultMonths(product);
     const colorOptions = parseProductColors(product.color);
 
-    const existingIdx = cartItems.findIndex((it) => it.productId === productId && it.months === months);
+    const existingIdx = cartItems.findIndex(
+      (it) => it.productId === productId && it.selectedModel === selectedModel && it.months === months,
+    );
     if (existingIdx >= 0) {
       const next = cartItems.map((it, i) => (i === existingIdx ? { ...it, qty: Math.min(99, it.qty + 1) } : it));
       persistCart(next);
@@ -242,6 +247,7 @@ export default function LandingPage() {
       {
         id: makeCartItemId(),
         productId,
+        selectedModel,
         months,
         qty: 1,
         selectedColors: colorOptions.slice(0, 2),
@@ -289,7 +295,8 @@ export default function LandingPage() {
   const goCheckoutCadastro = () => {
     const hasMissingPrice = cartItems.some((it) => {
       const p = products.find((x) => x.id === it.productId);
-      return !p || !p.priceCents;
+      if (!p) return true;
+      return getProductPriceCentsByModel(p, it.selectedModel) <= 0;
     });
     if (hasMissingPrice) {
       // Não prossegue sem preço configurado para não gerar parcelas inválidas
@@ -421,7 +428,7 @@ export default function LandingPage() {
                     const missingColors = colorOptions.length >= 2
                       ? !preferred || !alternative || preferred === alternative
                       : !preferred || !alternative;
-                    const per = calculateInstallmentCents(p.priceCents, it.months);
+                    const per = calculateInstallmentCents(getProductPriceCentsByModel(p, it.selectedModel), it.months);
                     return (
                       <div key={it.id} className="border rounded-xl p-3 bg-background">
                         <div className="flex gap-3">
@@ -526,7 +533,7 @@ export default function LandingPage() {
                             <p className="mt-3 text-sm text-muted-foreground">
                               <span className="font-semibold text-primary">{it.months}x</span> de{" "}
                               <span className="font-semibold text-primary">
-                                {p.priceCents ? formatBRLFromCents(per) : "—"}
+                                {formatBRLFromCents(per)}
                               </span>
                             </p>
                           </div>
@@ -540,7 +547,11 @@ export default function LandingPage() {
                   <Button
                     className="w-full rounded-full"
                     onClick={goCheckoutCadastro}
-                    disabled={cartItems.some((it) => !products.find((p) => p.id === it.productId)?.priceCents)}
+                    disabled={cartItems.some((it) => {
+                      const p = products.find((x) => x.id === it.productId);
+                      if (!p) return true;
+                      return getProductPriceCentsByModel(p, it.selectedModel) <= 0;
+                    })}
                   >
                     Finalizar compra
                   </Button>

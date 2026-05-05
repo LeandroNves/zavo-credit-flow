@@ -11,6 +11,9 @@ import {
   ALL_INSTALLMENTS,
   calculateInstallmentCents,
   formatBRLFromCents,
+  getDefaultProductModel,
+  getProductModelOptions,
+  getProductPriceCentsByModel,
   parseProductColors,
   type InstallmentMonths,
   type LandingProduct,
@@ -47,9 +50,12 @@ export default function ClientProducts() {
   function addToCart(productId: string) {
     const p = products.find((x) => x.id === productId);
     if (!p) return;
+    const selectedModel = getDefaultProductModel(p);
     const months = pickDefaultMonths(p);
     const colorOptions = parseProductColors(p.color);
-    const idx = items.findIndex((it) => it.productId === productId && it.months === months);
+    const idx = items.findIndex(
+      (it) => it.productId === productId && it.selectedModel === selectedModel && it.months === months,
+    );
     if (idx >= 0) {
       persist(items.map((it, i) => (i === idx ? { ...it, qty: Math.min(99, it.qty + 1) } : it)));
       return;
@@ -57,6 +63,7 @@ export default function ClientProducts() {
     persist([{
       id: makeClientProductCartItemId(),
       productId,
+      selectedModel,
       months,
       qty: 1,
       selectedColors: colorOptions.slice(0, 2),
@@ -74,6 +81,10 @@ export default function ClientProducts() {
     persist(items.map((it) => (it.id === id ? { ...it, months: months as InstallmentMonths } : it)));
   }
 
+  function setModel(id: string, model: string) {
+    persist(items.map((it) => (it.id === id ? { ...it, selectedModel: model } : it)));
+  }
+
   function setPreferredColor(id: string, color: string) {
     persist(items.map((it) => (it.id === id ? { ...it, selectedColors: [color, it.selectedColors?.[1] ?? ""].filter(Boolean) } : it)));
   }
@@ -85,7 +96,8 @@ export default function ClientProducts() {
   const cartCount = items.reduce((sum, it) => sum + it.qty, 0);
   const hasInvalid = items.some((it) => {
     const p = products.find((x) => x.id === it.productId);
-    return !p || !p.priceCents;
+    if (!p) return true;
+    return getProductPriceCentsByModel(p, it.selectedModel) <= 0;
   });
   const hasMissingColors = items.some((it) => {
     const p = products.find((x) => x.id === it.productId);
@@ -102,7 +114,8 @@ export default function ClientProducts() {
         .map((it) => {
           const p = products.find((x) => x.id === it.productId);
           if (!p) return null;
-          const per = calculateInstallmentCents(p.priceCents, it.months);
+          const selectedPriceCents = getProductPriceCentsByModel(p, it.selectedModel);
+          const per = calculateInstallmentCents(selectedPriceCents, it.months);
           return { it, p, per };
         })
         .filter(Boolean) as Array<{ it: ClientProductCartItem; p: LandingProduct; per: number }>,
@@ -140,6 +153,7 @@ export default function ClientProducts() {
       productId: p.id,
       name: p.name,
       color: (it.selectedColors ?? []).join(" / ") || p.color,
+      model: it.selectedModel,
       colors: (it.selectedColors ?? []).filter(Boolean).slice(0, 2),
       months: it.months,
       qty: it.qty,
@@ -237,6 +251,20 @@ export default function ClientProducts() {
               {cartLines.map(({ it, p, per }) => (
                 <div key={it.id} className="rounded-lg border p-3 space-y-2">
                   <p className="text-sm font-medium text-primary">{p.name}</p>
+                  {!!getProductModelOptions(p).length && (
+                    <Select value={it.selectedModel} onValueChange={(v) => setModel(it.id, v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Modelo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getProductModelOptions(p).map((opt) => (
+                          <SelectItem key={`${it.id}-${opt.model}`} value={opt.model}>
+                            {opt.model} - {formatBRLFromCents(opt.priceCents)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                   <p className="text-xs text-muted-foreground">{p.color}</p>
                   <div className="flex items-center gap-2">
                     <Button size="icon" variant="outline" onClick={() => setQty(it.id, it.qty - 1)}>
@@ -260,7 +288,7 @@ export default function ClientProducts() {
                         .sort((a, b) => a - b)
                         .map((m) => (
                           <SelectItem key={m} value={String(m)}>
-                            {m}x de {formatBRLFromCents(calculateInstallmentCents(p.priceCents, m))}
+                            {m}x de {formatBRLFromCents(calculateInstallmentCents(getProductPriceCentsByModel(p, it.selectedModel), m))}
                           </SelectItem>
                         ))}
                     </SelectContent>
@@ -293,7 +321,7 @@ export default function ClientProducts() {
                   </div>
                   <p className="text-sm text-muted-foreground">
                     <span className="font-semibold text-primary">{it.months}x</span> de{" "}
-                    <span className="font-semibold text-primary">{p.priceCents ? formatBRLFromCents(per) : "—"}</span>
+                    <span className="font-semibold text-primary">{formatBRLFromCents(per)}</span>
                   </p>
                 </div>
               ))}

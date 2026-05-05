@@ -11,6 +11,7 @@ import {
   ALL_INSTALLMENTS,
   type InstallmentMonths,
   type LandingProduct,
+  type ProductModelOption,
   PRODUCT_BRANDS,
   PRODUCT_CATEGORIES,
   type ProductBrand,
@@ -69,7 +70,7 @@ type Draft = {
   description: string;
   deliveryTime: string;
   specificationsInput: string;
-  price: string;
+  modelOptions: Array<{ model: string; price: string }>;
   imageSrcs: string[];
   enabledMonths: InstallmentMonths[];
 };
@@ -84,7 +85,7 @@ function makeEmptyDraft(): Draft {
     description: "",
     deliveryTime: "",
     specificationsInput: "",
-    price: "",
+    modelOptions: [{ model: "", price: "" }],
     imageSrcs: [],
     enabledMonths: [...ALL_INSTALLMENTS],
   };
@@ -137,15 +138,24 @@ export default function AdminProducts() {
   );
 
   const previewInstallments = useMemo(() => {
-    const priceCents = toCentsFromBRL(draft.price);
+    const parsedModelOptions = draft.modelOptions
+      .map((x) => ({ model: x.model.trim(), priceCents: toCentsFromBRL(x.price) }))
+      .filter((x) => x.model && x.priceCents > 0)
+      .filter(
+        (x, i, arr) =>
+          arr.findIndex((y) => y.model.toLowerCase() === x.model.toLowerCase()) === i,
+      ) as ProductModelOption[];
+    const basePriceCents = parsedModelOptions.length
+      ? Math.min(...parsedModelOptions.map((x) => x.priceCents))
+      : 0;
     return draft.enabledMonths
       .slice()
       .sort((a, b) => a - b)
       .map((m) => ({
         months: m,
-        perInstallment: calculateInstallmentCents(priceCents, m),
+        perInstallment: calculateInstallmentCents(basePriceCents, m),
       }));
-  }, [draft.price, draft.enabledMonths]);
+  }, [draft.enabledMonths, draft.modelOptions]);
 
   function resetDraft() {
     setDraft(makeEmptyDraft());
@@ -209,7 +219,12 @@ export default function AdminProducts() {
       description: p.description ?? "",
       deliveryTime: p.deliveryTime ?? "",
       specificationsInput: (p.specifications ?? []).join(", "),
-      price: fromCentsToBRLInput(p.priceCents),
+      modelOptions: (p.modelOptions?.length
+        ? p.modelOptions
+        : (p.specifications ?? []).map((model) => ({ model, priceCents: p.priceCents }))).map((x) => ({
+        model: x.model,
+        price: fromCentsToBRLInput(x.priceCents),
+      })),
       imageSrcs: [...(p.imageSrcs?.length ? p.imageSrcs : [p.imageSrc])],
       enabledMonths: [...p.enabledMonths],
     });
@@ -244,6 +259,17 @@ export default function AdminProducts() {
     setDraft((d) => ({ ...d, imageSrcs: d.imageSrcs.filter((_, i) => i !== idx) }));
   }
 
+  function addModelOptionRow() {
+    setDraft((d) => ({ ...d, modelOptions: [...d.modelOptions, { model: "", price: "" }] }));
+  }
+
+  function removeModelOptionRow(idx: number) {
+    setDraft((d) => {
+      if (d.modelOptions.length <= 1) return d;
+      return { ...d, modelOptions: d.modelOptions.filter((_, i) => i !== idx) };
+    });
+  }
+
   async function save() {
     const name = draft.name.trim();
     const color = draft.color.trim();
@@ -262,12 +288,19 @@ export default function AdminProducts() {
       .filter(Boolean)
       .filter((x, i, a) => a.indexOf(x) === i);
     const imageSrc = imageSrcs[0] ?? "";
-    const priceCents = toCentsFromBRL(draft.price);
+    const modelOptions = draft.modelOptions
+      .map((x) => ({ model: x.model.trim(), priceCents: toCentsFromBRL(x.price) }))
+      .filter((x) => x.model && x.priceCents > 0)
+      .filter(
+        (x, i, arr) =>
+          arr.findIndex((y) => y.model.toLowerCase() === x.model.toLowerCase()) === i,
+      ) as ProductModelOption[];
+    const priceCents = modelOptions.length ? Math.min(...modelOptions.map((x) => x.priceCents)) : 0;
     const enabledMonths = draft.enabledMonths.length ? draft.enabledMonths : [...ALL_INSTALLMENTS];
 
     if (!name) return;
     if (!imageSrc) return;
-    if (priceCents <= 0) return;
+    if (priceCents <= 0 || modelOptions.length === 0) return;
 
     const nowIso = new Date().toISOString();
 
@@ -284,6 +317,7 @@ export default function AdminProducts() {
               description,
               deliveryTime,
               specifications,
+              modelOptions,
               imageSrc,
               imageSrcs,
               priceCents,
@@ -307,6 +341,7 @@ export default function AdminProducts() {
       description,
       deliveryTime,
       specifications,
+      modelOptions,
       imageSrc,
       imageSrcs,
       priceCents,
@@ -354,7 +389,14 @@ export default function AdminProducts() {
             <h2 className="font-semibold text-primary">
               {editingId ? "Editar produto" : "Adicionar produto"}
             </h2>
-            {(editingId || draft.name || draft.imageSrcs.length > 0 || draft.price || draft.color || draft.description || draft.deliveryTime || draft.specificationsInput) && (
+            {(editingId ||
+              draft.name ||
+              draft.imageSrcs.length > 0 ||
+              draft.color ||
+              draft.description ||
+              draft.deliveryTime ||
+              draft.specificationsInput ||
+              draft.modelOptions.some((x) => x.model || x.price)) && (
               <Button variant="ghost" size="sm" onClick={resetDraft}>
                 Limpar
               </Button>
@@ -462,15 +504,48 @@ export default function AdminProducts() {
           </div>
 
           <div className="space-y-2">
-            <Label>Preço do produto (R$)</Label>
-            <Input
-              value={draft.price}
-              onChange={(e) => setDraft((d) => ({ ...d, price: e.target.value }))}
-              placeholder="7000,00"
-              inputMode="decimal"
-            />
+            <div className="flex items-center justify-between">
+              <Label>Modelos e preço base (R$)</Label>
+              <Button type="button" variant="outline" size="sm" onClick={addModelOptionRow}>
+                <Plus className="h-4 w-4 mr-1" /> Adicionar modelo
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {draft.modelOptions.map((row, idx) => (
+                <div key={`model-row-${idx}`} className="grid grid-cols-[1fr_170px_auto] gap-2 items-center">
+                  <Input
+                    value={row.model}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        modelOptions: d.modelOptions.map((it, i) =>
+                          i === idx ? { ...it, model: e.target.value } : it,
+                        ),
+                      }))
+                    }
+                    placeholder="Ex.: 128GB"
+                  />
+                  <Input
+                    value={row.price}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        modelOptions: d.modelOptions.map((it, i) =>
+                          i === idx ? { ...it, price: e.target.value } : it,
+                        ),
+                      }))
+                    }
+                    placeholder="7000,00"
+                    inputMode="decimal"
+                  />
+                  <Button type="button" variant="ghost" size="icon" onClick={() => removeModelOptionRow(idx)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
             <p className="text-xs text-muted-foreground">
-              O usuário final verá apenas as parcelas (com taxas e arredondamento para “.99”).
+              O cliente escolhe o modelo e o valor/parcelas serão calculados pelo preço daquele modelo.
             </p>
           </div>
 
@@ -578,8 +653,17 @@ export default function AdminProducts() {
                   </div>
 
                   <div className="mt-2 text-sm text-muted-foreground">
-                    Preço base: <span className="font-medium text-primary">{formatBRLFromCents(p.priceCents)}</span>
+                    A partir de: <span className="font-medium text-primary">{formatBRLFromCents(p.priceCents)}</span>
                   </div>
+                  {!!p.modelOptions?.length && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {p.modelOptions.map((opt) => (
+                        <span key={`${p.id}-${opt.model}`} className="text-xs px-2.5 py-1 rounded-full bg-secondary/10 text-secondary">
+                          {opt.model}: {formatBRLFromCents(opt.priceCents)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {p.isOnSale && (
                     <div className="mt-1 text-xs font-medium text-emerald-700">Em promoção</div>
                   )}

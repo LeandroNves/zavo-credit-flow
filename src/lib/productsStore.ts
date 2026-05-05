@@ -30,6 +30,11 @@ export const PRODUCT_BRANDS = [
 
 export type ProductBrand = (typeof PRODUCT_BRANDS)[number];
 
+export type ProductModelOption = {
+  model: string;
+  priceCents: number;
+};
+
 export type LandingProduct = {
   id: string;
   name: string;
@@ -40,6 +45,7 @@ export type LandingProduct = {
   description: string;
   deliveryTime: string;
   specifications: string[];
+  modelOptions: ProductModelOption[];
   priceCents: number;
   imageSrc: string;
   imageSrcs: string[];
@@ -95,6 +101,21 @@ function normalizeStringArray(v: unknown): string[] {
     .filter((x, i, a) => a.indexOf(x) === i);
 }
 
+function normalizeModelOptions(v: unknown): ProductModelOption[] {
+  const raw = Array.isArray(v) ? v : [];
+  return raw
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const obj = item as Record<string, unknown>;
+      const model = safeString(obj.model).trim();
+      const priceCents = Math.max(0, Math.round(safeNumber(obj.priceCents)));
+      if (!model || priceCents <= 0) return null;
+      return { model, priceCents };
+    })
+    .filter(Boolean)
+    .filter((x, i, arr) => arr.findIndex((y) => y?.model.toLowerCase() === x?.model.toLowerCase()) === i) as ProductModelOption[];
+}
+
 function normalizeEnabledMonths(v: unknown): InstallmentMonths[] {
   const raw = Array.isArray(v) ? v : [];
   const out = raw
@@ -118,6 +139,7 @@ function normalizeProduct(p: unknown): LandingProduct | null {
   const description = safeString(obj.description).trim();
   const deliveryTime = safeString(obj.deliveryTime).trim();
   const specifications = normalizeStringArray(obj.specifications);
+  const modelOptions = normalizeModelOptions(obj.modelOptions);
   const imageSrc = safeString(obj.imageSrc).trim();
   const imageSrcsRaw = Array.isArray(obj.imageSrcs) ? obj.imageSrcs : [];
   const imageSrcs = imageSrcsRaw
@@ -125,7 +147,11 @@ function normalizeProduct(p: unknown): LandingProduct | null {
     .filter(Boolean)
     .filter((v, i, a) => a.indexOf(v) === i);
   const primaryImageSrc = imageSrcs[0] || imageSrc;
-  const priceCents = Math.max(0, Math.round(safeNumber(obj.priceCents)));
+  const rawPriceCents = Math.max(0, Math.round(safeNumber(obj.priceCents)));
+  const priceCents =
+    modelOptions.length > 0
+      ? Math.min(...modelOptions.map((x) => x.priceCents))
+      : rawPriceCents;
 
   if (!id || !name || !primaryImageSrc) return null;
 
@@ -143,6 +169,7 @@ function normalizeProduct(p: unknown): LandingProduct | null {
     description,
     deliveryTime,
     specifications,
+    modelOptions,
     imageSrc: primaryImageSrc,
     imageSrcs: imageSrcs.length ? imageSrcs : [primaryImageSrc],
     priceCents,
@@ -222,5 +249,27 @@ export function parseProductColors(colorField: string): string[] {
     .map((x) => x.trim())
     .filter(Boolean)
     .filter((x, i, arr) => arr.indexOf(x) === i);
+}
+
+export function getProductModelOptions(product: LandingProduct): ProductModelOption[] {
+  if (product.modelOptions?.length) return product.modelOptions;
+  const specs = (product.specifications ?? [])
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .filter((x, i, arr) => arr.indexOf(x) === i);
+  if (!specs.length || product.priceCents <= 0) return [];
+  return specs.map((model) => ({ model, priceCents: product.priceCents }));
+}
+
+export function getDefaultProductModel(product: LandingProduct): string {
+  const options = getProductModelOptions(product);
+  return options[0]?.model ?? "";
+}
+
+export function getProductPriceCentsByModel(product: LandingProduct, model: string): number {
+  const options = getProductModelOptions(product);
+  if (!options.length) return product.priceCents;
+  const chosen = options.find((x) => x.model === model);
+  return chosen?.priceCents ?? options[0].priceCents;
 }
 

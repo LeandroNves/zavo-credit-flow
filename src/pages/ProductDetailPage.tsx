@@ -24,6 +24,9 @@ import {
   type InstallmentMonths,
   calculateInstallmentCents,
   formatBRLFromCents,
+  getDefaultProductModel,
+  getProductModelOptions,
+  getProductPriceCentsByModel,
   parseProductColors,
 } from "@/lib/productsStore";
 import {
@@ -60,6 +63,7 @@ export default function ProductDetailPage() {
   const colors = parseProductColors(product?.color ?? "");
   const [mainImageIndex, setMainImageIndex] = useState(0);
   const [selectedSpec, setSelectedSpec] = useState(product?.specifications?.[0] ?? "");
+  const [selectedModel, setSelectedModel] = useState("");
   const [selectedMonths, setSelectedMonths] = useState<InstallmentMonths>(6);
   const [cartOpen, setCartOpen] = useState(false);
   const [cartItems, setCartItems] = useState(() => loadCart());
@@ -72,6 +76,7 @@ export default function ProductDetailPage() {
   useEffect(() => {
     setMainImageIndex(0);
     setSelectedSpec(product?.specifications?.[0] ?? "");
+    setSelectedModel(product ? getDefaultProductModel(product) : "");
     setSelectedMonths(6);
   }, [product?.id, product?.specifications]);
 
@@ -138,7 +143,8 @@ export default function ProductDetailPage() {
   const goCheckoutCadastro = () => {
     const hasMissingPrice = cartItems.some((it) => {
       const p = products.find((x) => x.id === it.productId);
-      return !p || !p.priceCents;
+      if (!p) return true;
+      return getProductPriceCentsByModel(p, it.selectedModel) <= 0;
     });
     if (hasMissingPrice) {
       setCartOpen(true);
@@ -188,8 +194,9 @@ export default function ProductDetailPage() {
   const mainImage = images[mainImageIndex] ?? images[0];
   const otherProducts = products.filter((p) => p.id !== product.id).slice(0, 8);
 
+  const selectedPriceCents = getProductPriceCentsByModel(product, selectedModel);
   const paymentPlans = ALL_INSTALLMENTS.map((months) => {
-    const per = calculateInstallmentCents(product.priceCents, months);
+    const per = calculateInstallmentCents(selectedPriceCents, months);
     return {
       months,
       per,
@@ -200,10 +207,11 @@ export default function ProductDetailPage() {
 
   const addCurrentProductToCart = (forcedMonths?: 1 | 6 | 12 | 18 | 24) => {
     const months = forcedMonths ?? selectedMonths ?? pickDefaultMonths(product);
+    const effectiveModel = selectedModel || getDefaultProductModel(product);
     const colorOptions = parseProductColors(product.color);
     const current = loadCart();
     const existingIdx = current.findIndex(
-      (it) => it.productId === product.id && it.months === months,
+      (it) => it.productId === product.id && it.selectedModel === effectiveModel && it.months === months,
     );
 
     if (existingIdx >= 0) {
@@ -221,6 +229,7 @@ export default function ProductDetailPage() {
       {
         id: makeCartItemId(),
         productId: product.id,
+        selectedModel: effectiveModel,
         months: months as 1 | 6 | 12 | 18 | 24,
         qty: 1,
         selectedColors: colorOptions.slice(0, 2),
@@ -324,7 +333,7 @@ export default function ProductDetailPage() {
                       colorOptions.length >= 2
                         ? !preferred || !alternative || preferred === alternative
                         : !preferred || !alternative;
-                    const per = calculateInstallmentCents(p.priceCents, it.months);
+                    const per = calculateInstallmentCents(getProductPriceCentsByModel(p, it.selectedModel), it.months);
                     return (
                       <div key={it.id} className="border rounded-xl p-3 bg-background">
                         <div className="flex gap-3">
@@ -335,6 +344,7 @@ export default function ProductDetailPage() {
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
                                 <p className="font-semibold text-primary truncate">{p.name}</p>
+                                {it.selectedModel && <p className="text-xs text-muted-foreground truncate">Modelo: {it.selectedModel}</p>}
                                 {p.color && <p className="text-xs text-muted-foreground truncate">{p.color}</p>}
                               </div>
                               <button
@@ -429,7 +439,7 @@ export default function ProductDetailPage() {
                             <p className="mt-3 text-sm text-muted-foreground">
                               <span className="font-semibold text-primary">{it.months}x</span> de{" "}
                               <span className="font-semibold text-primary">
-                                {p.priceCents ? formatBRLFromCents(per) : "—"}
+                                {formatBRLFromCents(per)}
                               </span>
                             </p>
                           </div>
@@ -443,7 +453,11 @@ export default function ProductDetailPage() {
                   <Button
                     className="w-full rounded-full"
                     onClick={goCheckoutCadastro}
-                    disabled={cartItems.some((it) => !products.find((p) => p.id === it.productId)?.priceCents)}
+                    disabled={cartItems.some((it) => {
+                      const p = products.find((x) => x.id === it.productId);
+                      if (!p) return true;
+                      return getProductPriceCentsByModel(p, it.selectedModel) <= 0;
+                    })}
                   >
                     Finalizar compra
                   </Button>
@@ -588,6 +602,25 @@ export default function ProductDetailPage() {
                   </div>
                 )}
 
+                {!!getProductModelOptions(product).length && (
+                  <div>
+                    <p className="text-sm font-semibold text-primary mb-1.5">Modelo</p>
+                    <div className="flex flex-wrap gap-2">
+                      {getProductModelOptions(product).map((opt) => (
+                        <Button
+                          key={`${product.id}-${opt.model}`}
+                          type="button"
+                          variant={selectedModel === opt.model ? "default" : "outline"}
+                          className="rounded-full"
+                          onClick={() => setSelectedModel(opt.model)}
+                        >
+                          {opt.model} - {formatBRLFromCents(opt.priceCents)}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {!!colors.length && (
                   <div>
                     <p className="text-sm font-semibold text-primary mb-1.5">Cores</p>
@@ -626,7 +659,7 @@ export default function ProductDetailPage() {
 
           <section className="bg-white rounded-2xl p-4 md:p-5">
             <h3 className="text-lg font-semibold text-primary mb-3">Escolha como pagar</h3>
-            {product.priceCents > 0 ? (
+            {selectedPriceCents > 0 ? (
               <>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   {paymentPlans.map((plan) => (

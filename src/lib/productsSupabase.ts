@@ -3,6 +3,7 @@ import {
   ALL_INSTALLMENTS,
   type InstallmentMonths,
   type LandingProduct,
+  type ProductModelOption,
   PRODUCT_BRANDS,
   PRODUCT_CATEGORIES,
   type ProductBrand,
@@ -25,6 +26,7 @@ type LandingProductRow = {
   description?: string | null;
   delivery_time?: string | null;
   specifications?: unknown;
+  model_options?: unknown;
   price_cents: number;
   image_src: string;
   image_srcs: unknown;
@@ -95,6 +97,20 @@ function parseStringArray(raw: unknown): string[] {
     .filter((v, i, a) => a.indexOf(v) === i);
 }
 
+function parseModelOptions(raw: unknown): ProductModelOption[] {
+  const arr = Array.isArray(raw) ? raw : [];
+  return arr
+    .map((x) => {
+      if (!x || typeof x !== "object") return null;
+      const o = x as Record<string, unknown>;
+      const model = typeof o.model === "string" ? o.model.trim() : "";
+      const priceCents = Number(o.priceCents);
+      if (!model || !Number.isFinite(priceCents) || priceCents <= 0) return null;
+      return { model, priceCents: Math.round(priceCents) };
+    })
+    .filter(Boolean) as ProductModelOption[];
+}
+
 function normalizeCategory(value: unknown): ProductCategory {
   const v = typeof value === "string" ? value.trim() : "";
   return (PRODUCT_CATEGORIES as readonly string[]).includes(v)
@@ -116,7 +132,11 @@ function mapRow(r: LandingProductRow): LandingProduct | null {
   const description = String(r.description ?? "").trim();
   const deliveryTime = String(r.delivery_time ?? "").trim();
   const specifications = parseStringArray(r.specifications);
-  const priceCents = Math.max(0, Math.round(Number(r.price_cents) || 0));
+  const modelOptions = parseModelOptions(r.model_options);
+  const fallbackPriceCents = Math.max(0, Math.round(Number(r.price_cents) || 0));
+  const priceCents = modelOptions.length
+    ? Math.min(...modelOptions.map((x) => x.priceCents))
+    : fallbackPriceCents;
   let imageSrc = String(r.image_src ?? "").trim();
   let imageSrcs = parseImageSrcs(r.image_srcs);
   const primary = imageSrcs[0] || imageSrc;
@@ -136,6 +156,7 @@ function mapRow(r: LandingProductRow): LandingProduct | null {
     description,
     deliveryTime,
     specifications,
+    modelOptions,
     priceCents,
     imageSrc: primary,
     imageSrcs,
