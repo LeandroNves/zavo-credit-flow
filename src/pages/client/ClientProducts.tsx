@@ -259,7 +259,7 @@ export default function ClientProducts() {
                       <SelectContent>
                         {getProductModelOptions(p).map((opt) => (
                           <SelectItem key={`${it.id}-${opt.model}`} value={opt.model}>
-                            {opt.model} - {formatBRLFromCents(opt.priceCents)}
+                          {opt.model}
                           </SelectItem>
                         ))}
                       </SelectContent>

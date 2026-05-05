@@ -69,14 +69,37 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
     .map((x) => (typeof x === "string" ? x.trim() : ""))
     .filter(Boolean)
     .filter((v, i, a) => a.indexOf(v) === i);
+
+  function parsePriceToCents(v: unknown): number | null {
+    if (typeof v === "number") {
+      if (!Number.isFinite(v)) return null;
+      const cents = Math.round(v);
+      return cents > 0 ? cents : null;
+    }
+    if (typeof v === "string") {
+      const normalized = v.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
+      const n = Number(normalized);
+      if (!Number.isFinite(n)) return null;
+      // Strings (legado) vêm no formato BRL (ex.: "7000,00") e precisam virar centavos.
+      const cents = Math.round(n * 100);
+      return cents > 0 ? cents : null;
+    }
+    return null;
+  }
+
   const modelOptionsRaw = Array.isArray(o.modelOptions) ? o.modelOptions : [];
-  const modelOptions = modelOptionsRaw
+  let modelOptions = modelOptionsRaw
     .map((item) => {
       if (!item || typeof item !== "object") return null;
       const obj = item as Record<string, unknown>;
       const model = typeof obj.model === "string" ? obj.model.trim() : "";
-      const priceCents = Number(obj.priceCents);
-      if (!model || !Number.isFinite(priceCents) || priceCents <= 0) return null;
+
+      // Compat: pode vir como { priceCents } (novo) ou { price } (legado).
+      const parsedFromPriceCents = parsePriceToCents(obj.priceCents);
+      const parsedFromPrice = parsePriceToCents(obj.price);
+      const priceCents = parsedFromPriceCents ?? parsedFromPrice;
+
+      if (!model || !priceCents || priceCents <= 0) return null;
       return { model, priceCents: Math.round(priceCents) };
     })
     .filter(Boolean)
@@ -85,10 +108,13 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
         arr.findIndex((y) => y?.model.toLowerCase() === x?.model.toLowerCase()) === i,
     );
   const priceRaw = o.priceCents;
-  const priceCents =
-    typeof priceRaw === "number" && Number.isFinite(priceRaw)
-      ? Math.max(0, Math.round(priceRaw))
-      : Number.NaN;
+  let priceCents: number = Number.NaN;
+  if (typeof priceRaw === "number") {
+    priceCents = Number.isFinite(priceRaw) ? Math.max(0, Math.round(priceRaw)) : Number.NaN;
+  } else if (typeof priceRaw === "string") {
+    const parsed = parsePriceToCents(priceRaw);
+    priceCents = parsed != null ? Math.max(0, Math.round(parsed)) : Number.NaN;
+  }
   const imageSrc = typeof o.imageSrc === "string" ? o.imageSrc.trim() : "";
   const imageSrcsRaw = Array.isArray(o.imageSrcs) ? o.imageSrcs : [];
   const imageSrcs = imageSrcsRaw
@@ -98,6 +124,12 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
   const primary = imageSrcs[0] || imageSrc;
   if (!id || !name || !primary) return null;
   if (!Number.isFinite(priceCents) || priceCents <= 0) return null;
+  // Compatibilidade: se o admin mandar apenas `specifications` (legado),
+  // transforma em model_options usando o preço base do produto.
+  if (modelOptions.length === 0 && specifications.length > 0) {
+    modelOptions = specifications.map((m) => ({ model: m, priceCents }));
+  }
+
   if (modelOptions.length === 0) return null;
 
   const nowIso = new Date().toISOString();

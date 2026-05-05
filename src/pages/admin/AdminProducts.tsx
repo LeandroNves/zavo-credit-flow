@@ -69,7 +69,6 @@ type Draft = {
   color: string;
   description: string;
   deliveryTime: string;
-  specificationsInput: string;
   modelOptions: Array<{ model: string; price: string }>;
   imageSrcs: string[];
   enabledMonths: InstallmentMonths[];
@@ -84,7 +83,6 @@ function makeEmptyDraft(): Draft {
     color: "",
     description: "",
     deliveryTime: "",
-    specificationsInput: "",
     modelOptions: [{ model: "", price: "" }],
     imageSrcs: [],
     enabledMonths: [...ALL_INSTALLMENTS],
@@ -218,7 +216,6 @@ export default function AdminProducts() {
       color: p.color,
       description: p.description ?? "",
       deliveryTime: p.deliveryTime ?? "",
-      specificationsInput: (p.specifications ?? []).join(", "),
       modelOptions: (p.modelOptions?.length
         ? p.modelOptions
         : (p.specifications ?? []).map((model) => ({ model, priceCents: p.priceCents }))).map((x) => ({
@@ -278,11 +275,6 @@ export default function AdminProducts() {
     const isOnSale = draft.isOnSale;
     const description = draft.description.trim();
     const deliveryTime = draft.deliveryTime.trim();
-    const specifications = draft.specificationsInput
-      .split(/[,\n]/g)
-      .map((x) => x.trim())
-      .filter(Boolean)
-      .filter((x, i, arr) => arr.indexOf(x) === i);
     const imageSrcs = draft.imageSrcs
       .map((x) => x.trim())
       .filter(Boolean)
@@ -316,7 +308,7 @@ export default function AdminProducts() {
               color,
               description,
               deliveryTime,
-              specifications,
+              specifications: [],
               modelOptions,
               imageSrc,
               imageSrcs,
@@ -340,7 +332,7 @@ export default function AdminProducts() {
       color,
       description,
       deliveryTime,
-      specifications,
+      specifications: [],
       modelOptions,
       imageSrc,
       imageSrcs,
@@ -395,7 +387,6 @@ export default function AdminProducts() {
               draft.color ||
               draft.description ||
               draft.deliveryTime ||
-              draft.specificationsInput ||
               draft.modelOptions.some((x) => x.model || x.price)) && (
               <Button variant="ghost" size="sm" onClick={resetDraft}>
                 Limpar
@@ -468,18 +459,6 @@ export default function AdminProducts() {
             />
             <p className="text-xs text-muted-foreground">
               A ordem das cores deve seguir a ordem das imagens para seleção na página do produto.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Especificações (opções)</Label>
-            <Input
-              value={draft.specificationsInput}
-              onChange={(e) => setDraft((d) => ({ ...d, specificationsInput: e.target.value }))}
-              placeholder="Ex.: 256GB, 512GB"
-            />
-            <p className="text-xs text-muted-foreground">
-              Separe por vírgula. O cliente escolherá uma opção no detalhe do produto.
             </p>
           </div>
 
@@ -666,16 +645,6 @@ export default function AdminProducts() {
                   )}
                   {p.isOnSale && (
                     <div className="mt-1 text-xs font-medium text-emerald-700">Em promoção</div>
-                  )}
-
-                  {!!p.specifications?.length && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {p.specifications.map((spec) => (
-                        <span key={`${p.id}-${spec}`} className="text-xs px-2.5 py-1 rounded-full bg-secondary/10 text-secondary">
-                          {spec}
-                        </span>
-                      ))}
-                    </div>
                   )}
 
                   {!!p.description && <p className="mt-2 text-sm text-muted-foreground">{p.description}</p>}

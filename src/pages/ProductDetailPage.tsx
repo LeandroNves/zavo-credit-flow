@@ -62,7 +62,6 @@ export default function ProductDetailPage() {
   const images = product?.imageSrcs?.length ? product.imageSrcs : product ? [product.imageSrc] : [];
   const colors = parseProductColors(product?.color ?? "");
   const [mainImageIndex, setMainImageIndex] = useState(0);
-  const [selectedSpec, setSelectedSpec] = useState(product?.specifications?.[0] ?? "");
   const [selectedModel, setSelectedModel] = useState("");
   const [selectedMonths, setSelectedMonths] = useState<InstallmentMonths>(6);
   const [cartOpen, setCartOpen] = useState(false);
@@ -75,10 +74,9 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     setMainImageIndex(0);
-    setSelectedSpec(product?.specifications?.[0] ?? "");
     setSelectedModel(product ? getDefaultProductModel(product) : "");
     setSelectedMonths(6);
-  }, [product?.id, product?.specifications]);
+  }, [product?.id]);
 
   useEffect(() => {
     if (!product?.id) return;
@@ -583,25 +581,6 @@ export default function ProductDetailPage() {
                   <h2 className="text-4xl font-bold text-primary">{product.name}</h2>
                 </div>
 
-                {!!product.specifications?.length && (
-                  <div>
-                    <p className="text-sm font-semibold text-primary mb-1.5">Especificações</p>
-                    <div className="flex flex-wrap gap-2">
-                      {product.specifications.map((spec) => (
-                        <Button
-                          key={`${product.id}-${spec}`}
-                          type="button"
-                          variant={selectedSpec === spec ? "default" : "outline"}
-                          className="rounded-full"
-                          onClick={() => setSelectedSpec(spec)}
-                        >
-                          {spec}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {!!getProductModelOptions(product).length && (
                   <div>
                     <p className="text-sm font-semibold text-primary mb-1.5">Modelo</p>
@@ -614,7 +593,7 @@ export default function ProductDetailPage() {
                           className="rounded-full"
                           onClick={() => setSelectedModel(opt.model)}
                         >
-                          {opt.model} - {formatBRLFromCents(opt.priceCents)}
+                          {opt.model}
                         </Button>
                       ))}
                     </div>
