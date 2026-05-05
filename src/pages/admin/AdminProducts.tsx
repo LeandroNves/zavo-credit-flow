@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { landingProductSeed } from "@/data/landingProductSeed";
 import {
   ALL_INSTALLMENTS,
+  DOWN_PAYMENT_OPTIONS,
+  type DownPaymentOptionId,
   type InstallmentMonths,
   type LandingProduct,
   type ProductModelOption,
@@ -17,7 +19,7 @@ import {
   type ProductBrand,
   type ProductCategory,
   PRODUCTS_UPDATED_EVENT,
-  calculateInstallmentCents,
+  calculateInstallmentWithDownPaymentCents,
   formatBRLFromCents,
   loadLandingProducts,
   makeProductId,
@@ -95,6 +97,9 @@ export default function AdminProducts() {
   );
   const [draft, setDraft] = useState<Draft>(() => makeEmptyDraft());
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [previewModel, setPreviewModel] = useState("");
+  const [previewDownPayment, setPreviewDownPayment] = useState<DownPaymentOptionId>("none");
+  const [previewEarlyPayment, setPreviewEarlyPayment] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,29 +140,52 @@ export default function AdminProducts() {
     [products],
   );
 
+  const parsedModelOptions = useMemo(
+    () =>
+      draft.modelOptions
+        .map((x) => ({ model: x.model.trim(), priceCents: toCentsFromBRL(x.price) }))
+        .filter((x) => x.model && x.priceCents > 0)
+        .filter(
+          (x, i, arr) =>
+            arr.findIndex((y) => y.model.toLowerCase() === x.model.toLowerCase()) === i,
+        ) as ProductModelOption[],
+    [draft.modelOptions],
+  );
+
+  useEffect(() => {
+    if (!parsedModelOptions.length) {
+      setPreviewModel("");
+      return;
+    }
+    if (!parsedModelOptions.some((x) => x.model === previewModel)) {
+      setPreviewModel(parsedModelOptions[0].model);
+    }
+  }, [parsedModelOptions, previewModel]);
+
   const previewInstallments = useMemo(() => {
-    const parsedModelOptions = draft.modelOptions
-      .map((x) => ({ model: x.model.trim(), priceCents: toCentsFromBRL(x.price) }))
-      .filter((x) => x.model && x.priceCents > 0)
-      .filter(
-        (x, i, arr) =>
-          arr.findIndex((y) => y.model.toLowerCase() === x.model.toLowerCase()) === i,
-      ) as ProductModelOption[];
-    const basePriceCents = parsedModelOptions.length
-      ? Math.min(...parsedModelOptions.map((x) => x.priceCents))
-      : 0;
+    const selectedModelPriceCents =
+      parsedModelOptions.find((x) => x.model === previewModel)?.priceCents ??
+      parsedModelOptions[0]?.priceCents ??
+      0;
     return draft.enabledMonths
       .slice()
       .sort((a, b) => a - b)
       .map((m) => ({
         months: m,
-        perInstallment: calculateInstallmentCents(basePriceCents, m),
+        calc: calculateInstallmentWithDownPaymentCents({
+          priceCents: selectedModelPriceCents,
+          months: m,
+          downPaymentOptionId: previewDownPayment,
+        }),
       }));
-  }, [draft.enabledMonths, draft.modelOptions]);
+  }, [draft.enabledMonths, parsedModelOptions, previewDownPayment, previewModel]);
 
   function resetDraft() {
     setDraft(makeEmptyDraft());
     setEditingId(null);
+    setPreviewDownPayment("none");
+    setPreviewEarlyPayment(true);
+    setPreviewModel("");
   }
 
   async function persist(next: LandingProduct[]) {
@@ -584,10 +612,62 @@ export default function AdminProducts() {
 
           <div className="rounded-xl border bg-background p-4">
             <p className="text-sm font-medium text-primary mb-2">Prévia de parcelas</p>
+            <div className="space-y-3 mb-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Modelo para prévia</Label>
+                <Select value={previewModel} onValueChange={setPreviewModel}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Escolha o modelo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {parsedModelOptions.map((opt) => (
+                      <SelectItem key={`preview-model-${opt.model}`} value={opt.model}>
+                        {opt.model} ({formatBRLFromCents(opt.priceCents)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Entrada da simulação</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {DOWN_PAYMENT_OPTIONS.map((entry) => (
+                    <label key={`preview-entry-${entry.id}`} className="flex items-center gap-2 rounded-md border p-2 text-xs">
+                      <Checkbox
+                        checked={previewDownPayment === entry.id}
+                        onCheckedChange={(checked) => {
+                          if (checked) setPreviewDownPayment(entry.id);
+                        }}
+                      />
+                      {entry.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 text-xs">
+                <Checkbox
+                  checked={previewEarlyPayment}
+                  onCheckedChange={(checked) => setPreviewEarlyPayment(Boolean(checked))}
+                />
+                Aplicar pagamento antes do vencimento (15% na parcela)
+              </label>
+            </div>
             <div className="space-y-1">
               {previewInstallments.map((x) => (
                 <div key={x.months} className="text-sm text-muted-foreground">
-                  {x.months}x de <span className="font-semibold text-primary">{formatBRLFromCents(x.perInstallment)}</span>
+                  {x.months}x de{" "}
+                  <span className="font-semibold text-primary">
+                    {formatBRLFromCents(
+                      previewEarlyPayment
+                        ? x.calc.earlyPaymentPerInstallmentCents
+                        : x.calc.perInstallmentCents,
+                    )}
+                  </span>
+                  <span className="text-xs ml-1">
+                    (total financiado: {formatBRLFromCents(x.calc.financedTotalCents)})
+                  </span>
                 </div>
               ))}
               {previewInstallments.length === 0 && (

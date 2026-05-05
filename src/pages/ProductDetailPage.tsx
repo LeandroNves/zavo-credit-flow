@@ -68,7 +68,7 @@ export default function ProductDetailPage() {
   useEffect(() => {
     setMainImageIndex(0);
     setSelectedModel(product ? getDefaultProductModel(product) : "");
-    setSelectedMonths(6);
+    setSelectedMonths(product ? pickDefaultMonths(product) : 6);
     setSelectedDownPayment("none");
   }, [product?.id]);
 
@@ -187,7 +187,13 @@ export default function ProductDetailPage() {
   const otherProducts = products.filter((p) => p.id !== product.id).slice(0, 8);
 
   const selectedPriceCents = getProductPriceCentsByModel(product, selectedModel);
-  const paymentPlans = ALL_INSTALLMENTS.map((months) => {
+  const visibleMonths = (product.enabledMonths?.length ? product.enabledMonths : ALL_INSTALLMENTS)
+    .slice()
+    .sort((a, b) => a - b);
+  const effectiveSelectedMonths = visibleMonths.includes(selectedMonths)
+    ? selectedMonths
+    : ((visibleMonths[0] ?? 6) as InstallmentMonths);
+  const paymentPlans = visibleMonths.map((months) => {
     const calc = calculateInstallmentWithDownPaymentCents({
       priceCents: selectedPriceCents,
       months,
@@ -198,11 +204,11 @@ export default function ProductDetailPage() {
       ...calc,
     };
   });
-  const selectedPlan = paymentPlans.find((x) => x.months === selectedMonths) ?? paymentPlans[0];
-  const originalMonthlyCents = calculateInstallmentCents(selectedPriceCents, selectedMonths);
+  const selectedPlan = paymentPlans.find((x) => x.months === effectiveSelectedMonths) ?? paymentPlans[0];
+  const originalMonthlyCents = calculateInstallmentCents(selectedPriceCents, effectiveSelectedMonths);
 
   const addCurrentProductToCart = (forcedMonths?: 1 | 6 | 12 | 18 | 24) => {
-    const months = forcedMonths ?? selectedMonths ?? pickDefaultMonths(product);
+    const months = forcedMonths ?? effectiveSelectedMonths ?? pickDefaultMonths(product);
     const effectiveModel = selectedModel || getDefaultProductModel(product);
     const effectiveDownPayment: DownPaymentOptionId =
       forcedMonths === 1 ? "none" : selectedDownPayment;
@@ -648,7 +654,7 @@ export default function ProductDetailPage() {
 
               <div className="rounded-2xl border bg-[#fafafa] p-4 md:p-5 h-fit lg:sticky lg:top-24">
                 <p className="text-xs md:text-sm font-semibold tracking-[0.08em] text-primary uppercase">Preço/mês</p>
-                <p className="text-sm text-muted-foreground">No cartão de crédito ou pix automático</p>
+                <p className="text-sm text-muted-foreground">No Pix ou boleto parcelado</p>
                 <div className="mt-2 flex items-end justify-between gap-3">
                   <p className="text-4xl font-bold text-primary">
                     {formatBRLFromCents(selectedPlan?.perInstallmentCents ?? 0)}
@@ -658,10 +664,16 @@ export default function ProductDetailPage() {
                   )}
                 </div>
                 <div className="mt-2 rounded-xl bg-[#03EBB1]/15 p-2.5">
-                  <p className="text-xs font-semibold text-[#047857]">Pagamento antes do vencimento</p>
+                  <p className="text-xs font-semibold text-[#047857]">Pagamento até o vencimento</p>
                   <p className="text-lg font-bold text-[#047857]">
                     {formatBRLFromCents(selectedPlan?.earlyPaymentPerInstallmentCents ?? 0)}
                     <span className="text-sm font-medium"> /mês</span>
+                  </p>
+                </div>
+                <div className="mt-2 rounded-xl border bg-white p-2.5">
+                  <p className="text-xs font-semibold text-primary">Valor da entrada</p>
+                  <p className="text-lg font-bold text-primary">
+                    {formatBRLFromCents(selectedPlan?.downPaymentCents ?? 0)}
                   </p>
                 </div>
 
@@ -695,20 +707,20 @@ export default function ProductDetailPage() {
                       type="button"
                       onClick={() => setSelectedMonths(plan.months)}
                       className={`relative rounded-xl border p-3 text-left transition-colors ${
-                        selectedMonths === plan.months
+                        effectiveSelectedMonths === plan.months
                           ? "bg-[#0b2a6f] text-white border-[#0b2a6f]"
                           : "bg-white text-primary border-border hover:bg-muted"
                       }`}
                     >
                       {plan.months === 6 && (
                         <span className={`absolute -top-2 left-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                          selectedMonths === plan.months ? "bg-[#03EBB1] text-[#064e3b]" : "bg-[#d1fae5] text-[#065f46]"
+                          effectiveSelectedMonths === plan.months ? "bg-[#03EBB1] text-[#064e3b]" : "bg-[#d1fae5] text-[#065f46]"
                         }`}>
                           Mais econômico
                         </span>
                       )}
                       <p className="text-2xl font-bold leading-none">{plan.months} meses</p>
-                      <p className={`text-sm mt-1 ${selectedMonths === plan.months ? "text-white/90" : "text-muted-foreground"}`}>
+                      <p className={`text-sm mt-1 ${effectiveSelectedMonths === plan.months ? "text-white/90" : "text-muted-foreground"}`}>
                         {formatBRLFromCents(plan.perInstallmentCents)}/mês
                       </p>
                     </button>
@@ -718,7 +730,7 @@ export default function ProductDetailPage() {
                 <div className="mt-4 space-y-2">
                   <Button className="w-full h-12 rounded-xl gap-2 text-base" onClick={() => addCurrentProductToCart()}>
                     <ShoppingCart className="h-4 w-4" />
-                    Adicionar ao carrinho ({selectedMonths}x)
+                    Adicionar ao carrinho ({effectiveSelectedMonths}x)
                   </Button>
                   <Button
                     className="w-full h-12 rounded-xl text-base font-bold text-primary"
@@ -729,6 +741,22 @@ export default function ProductDetailPage() {
                   </Button>
                 </div>
               </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+              {[
+                "Pague em dia e garanta desconto na sua parcela",
+                "Seu produto é seu desde o início",
+                "Processo simples, rápido e 100% online",
+                "Atendimento próximo e humanizado",
+              ].map((text) => (
+                <div
+                  key={text}
+                  className="rounded-xl border bg-gradient-to-r from-[#eef7ff] to-[#f3fff9] px-3 py-2.5 text-xs text-[#0b2a6f] font-medium"
+                >
+                  {text}
+                </div>
+              ))}
             </div>
           </section>
 
