@@ -20,6 +20,7 @@ import {
   type ProductCategory,
   PRODUCTS_UPDATED_EVENT,
   calculateInstallmentWithDownPaymentCents,
+  calculateInstallmentCents,
   formatBRLFromCents,
   loadLandingProducts,
   makeProductId,
