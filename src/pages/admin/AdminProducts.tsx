@@ -175,6 +175,10 @@ export default function AdminProducts() {
           ok?: boolean;
           error?: string;
           message?: string;
+          index?: number;
+          id?: string | null;
+          name?: string | null;
+          reason?: string;
         };
         if (!r.ok || !data.ok) {
           setProducts(prev);
@@ -186,6 +190,8 @@ export default function AdminProducts() {
                 : data.error === "invalid_service_role_key"
                   ? data.message ||
                     "Use a chave service_role (secreta) em SUPABASE_SERVICE_ROLE_KEY, não a chave anon."
+                  : data.error === "invalid_product"
+                    ? `Produto inválido no índice ${data.index ?? "?"}${data.name ? ` (${data.name})` : ""}${data.reason ? ` - ${data.reason}` : ""}.`
                   : data.message || data.error || "Não foi possível salvar o catálogo.",
           );
           return;

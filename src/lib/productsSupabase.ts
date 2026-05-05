@@ -104,7 +104,11 @@ function parseModelOptions(raw: unknown): ProductModelOption[] {
       if (!x || typeof x !== "object") return null;
       const o = x as Record<string, unknown>;
       const model = typeof o.model === "string" ? o.model.trim() : "";
-      const priceCents = Number(o.priceCents);
+      // Compatibilidade com dados legados no banco:
+      // - priceCents (novo, camelCase)
+      // - price_cents (snake_case)
+      const rawPrice = o.priceCents ?? o.price_cents;
+      const priceCents = Number(rawPrice);
       if (!model || !Number.isFinite(priceCents) || priceCents <= 0) return null;
       return { model, priceCents: Math.round(priceCents) };
     })

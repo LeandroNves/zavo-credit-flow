@@ -108,12 +108,12 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
         arr.findIndex((y) => y?.model.toLowerCase() === x?.model.toLowerCase()) === i,
     );
   const priceRaw = o.priceCents;
-  let priceCents: number = Number.NaN;
+  let priceCents: number = 0;
   if (typeof priceRaw === "number") {
-    priceCents = Number.isFinite(priceRaw) ? Math.max(0, Math.round(priceRaw)) : Number.NaN;
+    priceCents = Number.isFinite(priceRaw) ? Math.max(0, Math.round(priceRaw)) : 0;
   } else if (typeof priceRaw === "string") {
     const parsed = parsePriceToCents(priceRaw);
-    priceCents = parsed != null ? Math.max(0, Math.round(parsed)) : Number.NaN;
+    priceCents = parsed != null ? Math.max(0, Math.round(parsed)) : 0;
   }
   const imageSrc = typeof o.imageSrc === "string" ? o.imageSrc.trim() : "";
   const imageSrcsRaw = Array.isArray(o.imageSrcs) ? o.imageSrcs : [];
@@ -123,14 +123,15 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
     .filter((v, i, a) => a.indexOf(v) === i);
   const primary = imageSrcs[0] || imageSrc;
   if (!id || !name || !primary) return null;
-  if (!Number.isFinite(priceCents) || priceCents <= 0) return null;
   // Compatibilidade: se o admin mandar apenas `specifications` (legado),
   // transforma em model_options usando o preço base do produto.
   if (modelOptions.length === 0 && specifications.length > 0) {
     modelOptions = specifications.map((m) => ({ model: m, priceCents }));
   }
-
-  if (modelOptions.length === 0) return null;
+  // Quando houver model_options válidos, o preço base do produto vira o menor deles.
+  if (modelOptions.length > 0) {
+    priceCents = Math.min(...modelOptions.map((x) => x.priceCents));
+  }
 
   const nowIso = new Date().toISOString();
   const createdAt =
@@ -156,6 +157,23 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
     created_at: createdAt,
     updated_at: updatedAt,
   };
+}
+
+function inspectInvalidProduct(p: unknown): string {
+  if (!p || typeof p !== "object") return "product_not_object";
+  const o = p as Record<string, unknown>;
+  const id = typeof o.id === "string" ? o.id.trim() : "";
+  const name = typeof o.name === "string" ? o.name.trim() : "";
+  const imageSrc = typeof o.imageSrc === "string" ? o.imageSrc.trim() : "";
+  const imageSrcsRaw = Array.isArray(o.imageSrcs) ? o.imageSrcs : [];
+  const imageSrcs = imageSrcsRaw
+    .map((x) => (typeof x === "string" ? x.trim() : ""))
+    .filter(Boolean);
+  const primary = imageSrcs[0] || imageSrc;
+  if (!id) return "missing_id";
+  if (!name) return "missing_name";
+  if (!primary) return "missing_image";
+  return "unknown_invalid_product";
 }
 
 export async function handleAdminProductsPost(
@@ -233,7 +251,17 @@ export async function handleAdminProductsPost(
     if (!row) {
       res.statusCode = 400;
       res.setHeader("Content-Type", "application/json");
-      res.end(JSON.stringify({ ok: false, error: "invalid_product", index: i }));
+      const product = products[i] as Record<string, unknown> | undefined;
+      res.end(
+        JSON.stringify({
+          ok: false,
+          error: "invalid_product",
+          index: i,
+          id: typeof product?.id === "string" ? product.id : null,
+          name: typeof product?.name === "string" ? product.name : null,
+          reason: inspectInvalidProduct(products[i]),
+        }),
+      );
       return;
     }
     items.push(row);
