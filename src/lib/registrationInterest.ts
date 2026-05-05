@@ -1,7 +1,8 @@
 import type { CartItem } from "@/lib/cartStore";
 import type { LandingProduct } from "@/lib/productsStore";
 import {
-  calculateInstallmentCents,
+  calculateInstallmentWithDownPaymentCents,
+  DOWN_PAYMENT_OPTIONS,
   formatBRLFromCents,
   getProductPriceCentsByModel,
 } from "@/lib/productsStore";
@@ -12,6 +13,7 @@ export type RegistrationCartSnapshotItem = {
   productId: string;
   name: string;
   model: string;
+  downPayment: string;
   color: string;
   colors: string[];
   months: 1 | 6 | 12 | 18 | 24;
@@ -75,11 +77,18 @@ export function buildCartSnapshot(args: {
   for (const it of args.cartItems) {
     const p = byId.get(it.productId);
     if (!p) continue;
-    const per = calculateInstallmentCents(getProductPriceCentsByModel(p, it.selectedModel), it.months);
+    const per = calculateInstallmentWithDownPaymentCents({
+      priceCents: getProductPriceCentsByModel(p, it.selectedModel),
+      months: it.months,
+      downPaymentOptionId: it.selectedDownPayment ?? "none",
+    }).perInstallmentCents;
     items.push({
       productId: p.id,
       name: p.name,
       model: it.selectedModel,
+      downPayment:
+        DOWN_PAYMENT_OPTIONS.find((x) => x.id === (it.selectedDownPayment ?? "none"))?.label ??
+        "Sem entrada",
       color: it.selectedColors.join(" / ") || p.color,
       colors: it.selectedColors,
       months: it.months,

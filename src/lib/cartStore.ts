@@ -1,9 +1,10 @@
-import type { InstallmentMonths, LandingProduct } from "@/lib/productsStore";
+import type { DownPaymentOptionId, InstallmentMonths, LandingProduct } from "@/lib/productsStore";
 
 export type CartItem = {
   id: string;
   productId: string;
   selectedModel: string;
+  selectedDownPayment?: DownPaymentOptionId;
   months: InstallmentMonths;
   qty: number;
   selectedColors: string[];
@@ -26,6 +27,12 @@ export function loadCart(): CartItem[] {
         const id = typeof o.id === "string" ? o.id : "";
         const productId = typeof o.productId === "string" ? o.productId : "";
         const selectedModel = typeof o.selectedModel === "string" ? o.selectedModel.trim() : "";
+        const selectedDownPayment =
+          o.selectedDownPayment === "light" ||
+          o.selectedDownPayment === "medium" ||
+          o.selectedDownPayment === "high"
+            ? o.selectedDownPayment
+            : "none";
         const months = typeof o.months === "number" ? o.months : NaN;
         const qty = typeof o.qty === "number" ? o.qty : NaN;
         const selectedColors = Array.isArray(o.selectedColors)
@@ -42,6 +49,7 @@ export function loadCart(): CartItem[] {
           id,
           productId,
           selectedModel,
+          selectedDownPayment,
           months: months as InstallmentMonths,
           qty: safeQty,
           selectedColors: selectedColors.slice(0, 2),

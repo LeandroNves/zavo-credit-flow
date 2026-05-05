@@ -59,10 +59,10 @@ export const PRODUCTS_UPDATED_EVENT = "zavo:products-updated";
 
 export const INSTALLMENT_RATES: Record<InstallmentMonths, number> = {
   1: 0,
-  6: 0.6,
-  12: 0.96,
-  18: 1.44,
-  24: 1.92,
+  6: 0.88,
+  12: 1.47,
+  18: 1.94,
+  24: 2.43,
 };
 
 export const ALL_INSTALLMENTS: InstallmentMonths[] = [6, 12, 18, 24];
@@ -218,17 +218,7 @@ export function formatBRLFromCents(cents: number): string {
 }
 
 export function charmRoundToTenMinusOneCent(perInstallmentCents: number): number {
-  // Nova regra de arredondamento:
-  // - arredonda para cima até o próximo valor inteiro de reais
-  // - ajusta para o próximo valor cuja parte inteira termina em 9
-  // - centavos sempre ficam em ,00
-  const rawReais = perInstallmentCents / 100;
-  if (rawReais <= 0) return 0;
-  let reais = Math.ceil(rawReais);
-  const mod = reais % 10;
-  const delta = (9 - mod + 10) % 10;
-  reais += delta;
-  return Math.max(0, reais * 100);
+  return Math.max(0, Math.floor(perInstallmentCents));
 }
 
 export function calculateInstallmentCents(priceCents: number, months: InstallmentMonths): number {
@@ -236,6 +226,56 @@ export function calculateInstallmentCents(priceCents: number, months: Installmen
   const totalCents = Math.round(priceCents * (1 + rate));
   const rawPerInstallment = totalCents / months;
   return charmRoundToTenMinusOneCent(rawPerInstallment);
+}
+
+export type DownPaymentOptionId = "none" | "light" | "medium" | "high";
+
+export type DownPaymentOption = {
+  id: DownPaymentOptionId;
+  label: string;
+  entryPercent: number;
+  totalDiscountPercent: number;
+};
+
+export const DOWN_PAYMENT_OPTIONS: DownPaymentOption[] = [
+  { id: "none", label: "Sem entrada", entryPercent: 0, totalDiscountPercent: 0 },
+  { id: "light", label: "Entrada leve", entryPercent: 0.1, totalDiscountPercent: 0.1 },
+  { id: "medium", label: "Entrada média", entryPercent: 0.2, totalDiscountPercent: 0.15 },
+  { id: "high", label: "Entrada alta", entryPercent: 0.3, totalDiscountPercent: 0.2 },
+];
+
+export function getDownPaymentOptionById(id: string): DownPaymentOption {
+  return DOWN_PAYMENT_OPTIONS.find((x) => x.id === id) ?? DOWN_PAYMENT_OPTIONS[0];
+}
+
+export function calculateInstallmentWithDownPaymentCents(args: {
+  priceCents: number;
+  months: InstallmentMonths;
+  downPaymentOptionId: DownPaymentOptionId;
+}): {
+  basePlanTotalCents: number;
+  discountedPlanTotalCents: number;
+  downPaymentCents: number;
+  financedTotalCents: number;
+  perInstallmentCents: number;
+  earlyPaymentPerInstallmentCents: number;
+} {
+  const option = getDownPaymentOptionById(args.downPaymentOptionId);
+  const rate = INSTALLMENT_RATES[args.months];
+  const basePlanTotalCents = Math.round(args.priceCents * (1 + rate));
+  const discountedPlanTotalCents = Math.round(basePlanTotalCents * (1 - option.totalDiscountPercent));
+  const downPaymentCents = Math.round(args.priceCents * option.entryPercent);
+  const financedTotalCents = Math.max(0, discountedPlanTotalCents - downPaymentCents);
+  const perInstallmentCents = Math.max(0, Math.floor(financedTotalCents / args.months));
+  const earlyPaymentPerInstallmentCents = Math.max(0, Math.floor(perInstallmentCents * 0.85));
+  return {
+    basePlanTotalCents,
+    discountedPlanTotalCents,
+    downPaymentCents,
+    financedTotalCents,
+    perInstallmentCents,
+    earlyPaymentPerInstallmentCents,
+  };
 }
 
 export function makeProductId(): string {

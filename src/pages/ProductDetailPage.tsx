@@ -2,16 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
-  BadgeCheck,
-  CalendarCheck2,
   Menu,
   Search,
-  ShieldCheck,
   ShoppingCart,
   Loader2,
   Minus,
   Plus,
-  Sparkles,
   Trash2,
   WalletCards,
   X as XIcon,
@@ -20,8 +16,11 @@ import { Button } from "@/components/ui/button";
 import { useGlobalLandingProductsState } from "@/hooks/useGlobalLandingProducts";
 import {
   ALL_INSTALLMENTS,
+  DOWN_PAYMENT_OPTIONS,
+  type DownPaymentOptionId,
   PRODUCT_CATEGORIES,
   type InstallmentMonths,
+  calculateInstallmentWithDownPaymentCents,
   calculateInstallmentCents,
   formatBRLFromCents,
   getDefaultProductModel,
@@ -46,13 +45,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { buildCartSnapshot, saveRegistrationInterest } from "@/lib/registrationInterest";
 
-const PAYMENT_LABELS: Record<number, string> = {
-  6: "Econômico",
-  12: "Pagar rápido",
-  18: "Cabe no bolso",
-  24: "Mais prazo",
-};
-
 export default function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -64,6 +56,7 @@ export default function ProductDetailPage() {
   const [mainImageIndex, setMainImageIndex] = useState(0);
   const [selectedModel, setSelectedModel] = useState("");
   const [selectedMonths, setSelectedMonths] = useState<InstallmentMonths>(6);
+  const [selectedDownPayment, setSelectedDownPayment] = useState<DownPaymentOptionId>("none");
   const [cartOpen, setCartOpen] = useState(false);
   const [cartItems, setCartItems] = useState(() => loadCart());
   const [cartCount, setCartCount] = useState(() => loadCart().reduce((sum, it) => sum + it.qty, 0));
@@ -76,6 +69,7 @@ export default function ProductDetailPage() {
     setMainImageIndex(0);
     setSelectedModel(product ? getDefaultProductModel(product) : "");
     setSelectedMonths(6);
+    setSelectedDownPayment("none");
   }, [product?.id]);
 
   useEffect(() => {
@@ -194,22 +188,32 @@ export default function ProductDetailPage() {
 
   const selectedPriceCents = getProductPriceCentsByModel(product, selectedModel);
   const paymentPlans = ALL_INSTALLMENTS.map((months) => {
-    const per = calculateInstallmentCents(selectedPriceCents, months);
+    const calc = calculateInstallmentWithDownPaymentCents({
+      priceCents: selectedPriceCents,
+      months,
+      downPaymentOptionId: selectedDownPayment,
+    });
     return {
       months,
-      per,
-      total: per * months,
-      label: PAYMENT_LABELS[months],
+      ...calc,
     };
   });
+  const selectedPlan = paymentPlans.find((x) => x.months === selectedMonths) ?? paymentPlans[0];
+  const originalMonthlyCents = calculateInstallmentCents(selectedPriceCents, selectedMonths);
 
   const addCurrentProductToCart = (forcedMonths?: 1 | 6 | 12 | 18 | 24) => {
     const months = forcedMonths ?? selectedMonths ?? pickDefaultMonths(product);
     const effectiveModel = selectedModel || getDefaultProductModel(product);
+    const effectiveDownPayment: DownPaymentOptionId =
+      forcedMonths === 1 ? "none" : selectedDownPayment;
     const colorOptions = parseProductColors(product.color);
     const current = loadCart();
     const existingIdx = current.findIndex(
-      (it) => it.productId === product.id && it.selectedModel === effectiveModel && it.months === months,
+      (it) =>
+        it.productId === product.id &&
+        it.selectedModel === effectiveModel &&
+        (it.selectedDownPayment ?? "none") === effectiveDownPayment &&
+        it.months === months,
     );
 
     if (existingIdx >= 0) {
@@ -228,6 +232,7 @@ export default function ProductDetailPage() {
         id: makeCartItemId(),
         productId: product.id,
         selectedModel: effectiveModel,
+        selectedDownPayment: effectiveDownPayment,
         months: months as 1 | 6 | 12 | 18 | 24,
         qty: 1,
         selectedColors: colorOptions.slice(0, 2),
@@ -331,7 +336,11 @@ export default function ProductDetailPage() {
                       colorOptions.length >= 2
                         ? !preferred || !alternative || preferred === alternative
                         : !preferred || !alternative;
-                    const per = calculateInstallmentCents(getProductPriceCentsByModel(p, it.selectedModel), it.months);
+                    const per = calculateInstallmentWithDownPaymentCents({
+                      priceCents: getProductPriceCentsByModel(p, it.selectedModel),
+                      months: it.months,
+                      downPaymentOptionId: it.selectedDownPayment ?? "none",
+                    }).perInstallmentCents;
                     return (
                       <div key={it.id} className="border rounded-xl p-3 bg-background">
                         <div className="flex gap-3">
@@ -343,6 +352,9 @@ export default function ProductDetailPage() {
                               <div className="min-w-0">
                                 <p className="font-semibold text-primary truncate">{p.name}</p>
                                 {it.selectedModel && <p className="text-xs text-muted-foreground truncate">Modelo: {it.selectedModel}</p>}
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {DOWN_PAYMENT_OPTIONS.find((x) => x.id === (it.selectedDownPayment ?? "none"))?.label ?? "Sem entrada"}
+                                </p>
                                 {p.color && <p className="text-xs text-muted-foreground truncate">{p.color}</p>}
                               </div>
                               <button
@@ -557,7 +569,7 @@ export default function ProductDetailPage() {
           </section>
 
           <section className="bg-white rounded-2xl p-4 md:p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr_420px] gap-6">
               <div className="space-y-3">
                 <div className="rounded-xl bg-white min-h-[320px] flex items-center justify-center p-4">
                   {mainImage && <img src={mainImage} alt={product.name} className="max-h-[360px] object-contain" />}
@@ -633,100 +645,91 @@ export default function ProductDetailPage() {
                   </div>
                 )}
               </div>
-            </div>
-          </section>
 
-          <section className="bg-white rounded-2xl p-4 md:p-5">
-            <h3 className="text-lg font-semibold text-primary mb-3">Escolha como pagar</h3>
-            {selectedPriceCents > 0 ? (
-              <>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {paymentPlans.map((plan) => (
-                    <div
-                      key={plan.months}
-                      className={`rounded-xl bg-white p-3 cursor-pointer transition-all ${
-                        plan.months === 6
-                          ? selectedMonths === plan.months
-                            ? "ring-2 ring-[#03EBB1] shadow-[0_0_0_2px_rgba(3,235,177,0.35)] bg-[#03EBB1]/10"
-                            : "ring-2 ring-[#b8f7e9] hover:ring-[#7eeed5] bg-[#effff9]"
-                          : plan.months === 12
-                            ? selectedMonths === plan.months
-                              ? "ring-2 ring-[#4cc9ff] shadow-[0_0_0_2px_rgba(76,201,255,0.35)] bg-[#4cc9ff]/15"
-                              : "ring-2 ring-[#4cc9ff]/70 hover:ring-[#4cc9ff] bg-[#4cc9ff]/8"
-                            : plan.months === 18
-                              ? selectedMonths === plan.months
-                                ? "ring-2 ring-[#1d4ed8] shadow-[0_0_0_2px_rgba(29,78,216,0.35)] bg-[#1d4ed8]/15"
-                                : "ring-2 ring-[#1d4ed8]/70 hover:ring-[#1d4ed8] bg-[#1d4ed8]/8"
-                              : selectedMonths === plan.months
-                                ? "ring-2 ring-[#5b4bff] shadow-[0_0_0_2px_rgba(91,75,255,0.35)] bg-[#5b4bff]/15"
-                                : "ring-2 ring-[#5b4bff]/70 hover:ring-[#5b4bff] bg-[#5b4bff]/8"
+              <div className="rounded-2xl border bg-[#fafafa] p-4 md:p-5 h-fit lg:sticky lg:top-24">
+                <p className="text-xs md:text-sm font-semibold tracking-[0.08em] text-primary uppercase">Preço/mês</p>
+                <p className="text-sm text-muted-foreground">No cartão de crédito ou pix automático</p>
+                <div className="mt-2 flex items-end justify-between gap-3">
+                  <p className="text-4xl font-bold text-primary">
+                    {formatBRLFromCents(selectedPlan?.perInstallmentCents ?? 0)}
+                  </p>
+                  {originalMonthlyCents > (selectedPlan?.perInstallmentCents ?? 0) && (
+                    <p className="text-xl text-muted-foreground line-through">{formatBRLFromCents(originalMonthlyCents)}</p>
+                  )}
+                </div>
+                <div className="mt-2 rounded-xl bg-[#03EBB1]/15 p-2.5">
+                  <p className="text-xs font-semibold text-[#047857]">Pagamento antes do vencimento</p>
+                  <p className="text-lg font-bold text-[#047857]">
+                    {formatBRLFromCents(selectedPlan?.earlyPaymentPerInstallmentCents ?? 0)}
+                    <span className="text-sm font-medium"> /mês</span>
+                  </p>
+                </div>
+
+                <div className="my-4 border-t" />
+
+                <p className="text-xs md:text-sm font-semibold tracking-[0.08em] text-primary uppercase">Forma de entrada</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {DOWN_PAYMENT_OPTIONS.map((entry) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => setSelectedDownPayment(entry.id)}
+                      className={`rounded-xl border px-3 py-2 text-sm font-medium text-left transition-colors ${
+                        selectedDownPayment === entry.id
+                          ? "bg-[#0b2a6f] text-white border-[#0b2a6f]"
+                          : "bg-white text-primary border-border hover:bg-muted"
                       }`}
+                    >
+                      {entry.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="my-4 border-t" />
+
+                <p className="text-xs md:text-sm font-semibold tracking-[0.08em] text-primary uppercase">Escolha o tempo de contrato</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {paymentPlans.map((plan) => (
+                    <button
+                      key={plan.months}
+                      type="button"
                       onClick={() => setSelectedMonths(plan.months)}
+                      className={`relative rounded-xl border p-3 text-left transition-colors ${
+                        selectedMonths === plan.months
+                          ? "bg-[#0b2a6f] text-white border-[#0b2a6f]"
+                          : "bg-white text-primary border-border hover:bg-muted"
+                      }`}
                     >
                       {plan.months === 6 && (
-                        <p className="text-sm text-[#03EBB1] font-extrabold mb-1">Mais econômico</p>
+                        <span className={`absolute -top-2 left-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          selectedMonths === plan.months ? "bg-[#03EBB1] text-[#064e3b]" : "bg-[#d1fae5] text-[#065f46]"
+                        }`}>
+                          Mais econômico
+                        </span>
                       )}
-                      {selectedMonths === plan.months && (
-                        <p
-                          className={`text-sm font-extrabold mb-1 ${
-                            plan.months === 6
-                              ? "text-[#03EBB1]"
-                              : plan.months === 12
-                                ? "text-[#4cc9ff]"
-                                : plan.months === 18
-                                  ? "text-[#1d4ed8]"
-                                  : "text-[#5b4bff]"
-                          }`}
-                        >
-                          Selecionado para o carrinho
-                        </p>
-                      )}
-                      <p className={`font-bold leading-none ${plan.months === 6 ? "text-[#03EBB1] text-4xl" : "text-primary text-3xl"}`}>
-                        {plan.months}x
+                      <p className="text-2xl font-bold leading-none">{plan.months} meses</p>
+                      <p className={`text-sm mt-1 ${selectedMonths === plan.months ? "text-white/90" : "text-muted-foreground"}`}>
+                        {formatBRLFromCents(plan.perInstallmentCents)}/mês
                       </p>
-                      <p className="text-sm text-primary mt-1">de {formatBRLFromCents(plan.per)}</p>
-                      <p className="text-xs text-muted-foreground mt-3">Total: {formatBRLFromCents(plan.total)}</p>
-                      <p className="text-xs text-muted-foreground">à vista no prazo</p>
-                    </div>
+                    </button>
                   ))}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mt-6">
-                  {[
-                    { icon: CalendarCheck2, text: "Pague em dia e garanta desconto na sua parcela" },
-                    { icon: ShieldCheck, text: "Seu produto é seu desde o início" },
-                    { icon: BadgeCheck, text: "Processo simples, rápido e 100% online" },
-                    { icon: Sparkles, text: "Atendimento próximo e humanizado" },
-                  ].map((item) => (
-                    <div
-                      key={item.text}
-                      className="rounded-xl bg-gradient-to-r from-blue-50 via-cyan-50 to-emerald-50 p-3.5 text-xs text-blue-900 flex items-center gap-2.5 shadow-sm"
-                    >
-                      <item.icon className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                      <span className="font-medium">{item.text}</span>
-                    </div>
-                  ))}
+                <div className="mt-4 space-y-2">
+                  <Button className="w-full h-12 rounded-xl gap-2 text-base" onClick={() => addCurrentProductToCart()}>
+                    <ShoppingCart className="h-4 w-4" />
+                    Adicionar ao carrinho ({selectedMonths}x)
+                  </Button>
+                  <Button
+                    className="w-full h-12 rounded-xl text-base font-bold text-primary"
+                    style={{ backgroundColor: "#03EBB1" }}
+                    onClick={() => addCurrentProductToCart(1)}
+                  >
+                    Comprar à vista (1x)
+                  </Button>
                 </div>
-
-                <div className="mt-8">
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                    <Button className="w-full max-w-sm flex h-14 rounded-2xl gap-2 text-base" onClick={() => addCurrentProductToCart()}>
-                      <ShoppingCart className="h-4 w-4" />
-                      Adicionar ao carrinho ({selectedMonths}x)
-                    </Button>
-                    <Button
-                      className="w-full max-w-sm h-14 rounded-2xl text-base font-bold text-primary"
-                      style={{ backgroundColor: "#03EBB1" }}
-                      onClick={() => addCurrentProductToCart(1)}
-                    >
-                      Comprar à vista (1x)
-                    </Button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">Consulte valores com nosso time.</p>
-            )}
+              </div>
+            </div>
           </section>
 
           {otherProducts.length > 0 && (
