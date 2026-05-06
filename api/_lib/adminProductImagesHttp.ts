@@ -72,6 +72,11 @@ function assertAdminSession(env: NodeJS.ProcessEnv, req: IncomingMessage): { ok:
   return { ok: true };
 }
 
+type SessionFail = { ok: false; status: number; error: string; message?: string };
+function isSessionFail(x: ReturnType<typeof assertAdminSession>): x is SessionFail {
+  return x.ok === false;
+}
+
 function decodeDataUrl(dataUrl: string): { bytes: Buffer; contentType: string; ext: string } | null {
   const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
   if (!m) return null;
@@ -92,7 +97,7 @@ function decodeDataUrl(dataUrl: string): { bytes: Buffer; contentType: string; e
   return { bytes, contentType, ext };
 }
 
-async function ensureBucket(sb: ReturnType<typeof createClient>): Promise<void> {
+async function ensureBucket(sb: any): Promise<void> {
   // Cria o bucket se não existir (idempotente no fluxo: ignora erro de "already exists")
   const { data: buckets, error: listErr } = await sb.storage.listBuckets();
   if (listErr) throw listErr;
@@ -115,7 +120,7 @@ export async function handleAdminUploadProductImagePost(
   res: ServerResponse,
 ): Promise<void> {
   const session = assertAdminSession(env, req);
-  if (!session.ok) {
+  if (isSessionFail(session)) {
     res.statusCode = session.status;
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ ok: false, error: session.error, message: session.message }));
@@ -166,7 +171,7 @@ export async function handleAdminMigrateProductImagesPost(
   res: ServerResponse,
 ): Promise<void> {
   const session = assertAdminSession(env, req);
-  if (!session.ok) {
+  if (isSessionFail(session)) {
     res.statusCode = session.status;
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ ok: false, error: session.error, message: session.message }));
