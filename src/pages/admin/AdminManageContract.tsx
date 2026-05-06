@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useContractsData } from "@/contexts/ContractsDataContext";
 import { contractNumeroForInput } from "@/lib/contractNumero";
 import type { Parcela } from "@/data/mockData";
