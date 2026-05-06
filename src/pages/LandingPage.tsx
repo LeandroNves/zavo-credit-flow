@@ -580,19 +580,9 @@ export default function LandingPage() {
               Acesse a linha completa de iPhones com parcelamento que cabe no seu bolso. Sem cartão, sem complicação.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-              <a href="#produtos">
+              <a href="/produtos">
                 <Button size="lg" className="rounded-full px-8 gap-2 w-full sm:w-auto">
                   Ver modelos <ArrowRight className="h-4 w-4" />
-                </Button>
-              </a>
-              <a href="#produtos">
-                <Button
-                  type="button"
-                  size="lg"
-                  variant="outline"
-                  className="rounded-full px-8 w-full sm:w-auto"
-                >
-                  Escolher produtos
                 </Button>
               </a>
             </div>

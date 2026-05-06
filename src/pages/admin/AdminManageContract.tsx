@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, Pencil, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Check, Pencil, Trash2, Barcode, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -40,8 +40,10 @@ import { brVencimentoToDateInputValue } from "@/lib/parcelSchedule";
 export default function AdminManageContract() {
   const navigate = useNavigate();
   const { id, contratoId } = useParams();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [uploadParcelaNum, setUploadParcelaNum] = useState<number | null>(null);
+  const [payCodeOpen, setPayCodeOpen] = useState(false);
+  const [payCodeParcela, setPayCodeParcela] = useState<Parcela | null>(null);
+  const [boletoCode, setBoletoCode] = useState("");
+  const [pixCode, setPixCode] = useState("");
   const [renameOpen, setRenameOpen] = useState(false);
   const [numeroEdit, setNumeroEdit] = useState("");
   const [parcelaEdit, setParcelaEdit] = useState<Parcela | null>(null);
@@ -53,7 +55,7 @@ export default function AdminManageContract() {
     getClienteById,
     updateParcelaStatus,
     updateParcelaValorVencimento,
-    uploadParcelaBoleto,
+    updateParcelaPaymentCodes,
     updateContractStatus,
     renameContractNumero,
     deleteContract,
@@ -71,21 +73,11 @@ export default function AdminManageContract() {
     setParcelaDueIso(brVencimentoToDateInputValue(parcelaEdit.vencimento));
   }, [parcelaEdit]);
 
-  const openFilePicker = (parcelaNumero: number) => {
-    setUploadParcelaNum(parcelaNumero);
-    requestAnimationFrame(() => fileRef.current?.click());
-  };
-
-  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !id || !contratoId || uploadParcelaNum == null || !cliente) {
-      setUploadParcelaNum(null);
-      return;
-    }
-    await uploadParcelaBoleto(id, contratoId, uploadParcelaNum, file);
-    setUploadParcelaNum(null);
-  };
+  useEffect(() => {
+    if (!payCodeOpen || !payCodeParcela) return;
+    setBoletoCode(payCodeParcela.boletoCode ?? "");
+    setPixCode(payCodeParcela.pixCode ?? "");
+  }, [payCodeOpen, payCodeParcela]);
 
   const handleStatusChange = async (
     parcelaNumero: number,
@@ -165,13 +157,63 @@ export default function AdminManageContract() {
 
   return (
     <div className="space-y-6">
-      <input
-        ref={fileRef}
-        type="file"
-        className="hidden"
-        accept=".pdf,image/*"
-        onChange={onFileChange}
-      />
+      <Dialog
+        open={payCodeOpen}
+        onOpenChange={(open) => {
+          setPayCodeOpen(open);
+          if (!open) setPayCodeParcela(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Códigos de pagamento {payCodeParcela ? `— Parcela ${payCodeParcela.numero}/${payCodeParcela.total}` : ""}
+            </DialogTitle>
+            <DialogDescription>
+              Cole a linha digitável do boleto e/ou o código Pix “copia e cola”. O cliente terá um botão para copiar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="boleto-code">Código do boleto</Label>
+              <Textarea
+                id="boleto-code"
+                value={boletoCode}
+                onChange={(e) => setBoletoCode(e.target.value)}
+                placeholder="Cole aqui a linha digitável do boleto"
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pix-code">Código Pix</Label>
+              <Textarea
+                id="pix-code"
+                value={pixCode}
+                onChange={(e) => setPixCode(e.target.value)}
+                placeholder="Cole aqui o código Pix (copia e cola)"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPayCodeOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (!id || !contratoId || !payCodeParcela) return;
+                void updateParcelaPaymentCodes(id, contratoId, payCodeParcela.numero, {
+                  boletoCode,
+                  pixCode,
+                }).then(() => setPayCodeOpen(false));
+              }}
+            >
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={parcelaEdit != null}
@@ -365,7 +407,7 @@ export default function AdminManageContract() {
                 <th className="px-4 py-3 font-medium">Valor</th>
                 <th className="px-4 py-3 font-medium">Vencimento</th>
                 <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Boleto</th>
+                <th className="px-4 py-3 font-medium">Pagamento</th>
                 <th className="px-4 py-3 font-medium text-right">Ações</th>
               </tr>
             </thead>
@@ -406,8 +448,8 @@ export default function AdminManageContract() {
                       </SelectContent>
                     </Select>
                   </td>
-                  <td className="px-4 py-4 text-xs text-muted-foreground max-w-[140px] truncate">
-                    {p.boletoUrl ? "Anexado" : "—"}
+                  <td className="px-4 py-4 text-xs text-muted-foreground max-w-[180px] truncate">
+                    {p.boletoCode || p.pixCode ? "Código salvo" : p.boletoUrl ? "Arquivo (legado)" : "—"}
                   </td>
                   <td className="px-4 py-4 text-right">
                     <Button
@@ -416,10 +458,13 @@ export default function AdminManageContract() {
                       variant="outline"
                       className="gap-1"
                       disabled={contractLocked}
-                      onClick={() => openFilePicker(p.numero)}
+                      onClick={() => {
+                        setPayCodeParcela(p);
+                        setPayCodeOpen(true);
+                      }}
                     >
-                      <Upload className="h-3 w-3" />
-                      Enviar boleto
+                      <Barcode className="h-3 w-3" />
+                      Códigos
                     </Button>
                     <Button
                       type="button"

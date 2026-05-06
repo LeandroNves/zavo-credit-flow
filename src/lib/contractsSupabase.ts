@@ -47,6 +47,8 @@ type InstallmentRow = {
   due_date: string;
   status: string;
   boleto_storage_path: string | null;
+  boleto_code?: string | null;
+  pix_code?: string | null;
 };
 
 function clientToRow(c: Cliente): Record<string, unknown> {
@@ -519,6 +521,8 @@ export async function fetchClientesFromSupabase(sb: SupabaseClient): Promise<Cli
           status: i.status as Parcela["status"],
           boletoUrl,
           boletoPath: i.boleto_storage_path,
+          boletoCode: (i as any).boleto_code ?? null,
+          pixCode: (i as any).pix_code ?? null,
         };
       });
 
@@ -675,6 +679,23 @@ export async function supabaseUploadInstallmentBoleto(
   const { error } = await sb
     .from("installments")
     .update({ boleto_storage_path: path })
+    .eq("contract_id", contractId)
+    .eq("numero", parcelaNumero);
+  if (error) throw error;
+}
+
+export async function supabaseUpdateInstallmentPaymentCodes(
+  sb: SupabaseClient,
+  contractId: string,
+  parcelaNumero: number,
+  input: { boletoCode?: string | null; pixCode?: string | null },
+): Promise<void> {
+  const payload: Record<string, unknown> = {};
+  if (input.boletoCode !== undefined) payload.boleto_code = input.boletoCode;
+  if (input.pixCode !== undefined) payload.pix_code = input.pixCode;
+  const { error } = await sb
+    .from("installments")
+    .update(payload)
     .eq("contract_id", contractId)
     .eq("numero", parcelaNumero);
   if (error) throw error;

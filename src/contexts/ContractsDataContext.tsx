@@ -35,6 +35,7 @@ import {
   supabaseUpdateInstallmentStatus,
   supabaseUpdateInstallmentValorVencimento,
   supabaseUploadInstallmentBoleto,
+  supabaseUpdateInstallmentPaymentCodes,
 } from "@/lib/contractsSupabase";
 import { validatePortalPassword } from "@/lib/clientPasswordPolicy";
 import { deriveClienteStatus } from "@/lib/deriveClienteStatus";
@@ -101,6 +102,12 @@ type ContractsContextValue = {
     contractId: string,
     parcelaNumero: number,
     file: File,
+  ) => Promise<void>;
+  updateParcelaPaymentCodes: (
+    clientId: string,
+    contractId: string,
+    parcelaNumero: number,
+    input: { boletoCode?: string; pixCode?: string },
   ) => Promise<void>;
   finalizeContract: (clientId: string, contractId: string) => Promise<void>;
   updateContractStatus: (
@@ -468,6 +475,52 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
     [clientes, dataSource, persistLocal, reload],
   );
 
+  const updateParcelaPaymentCodes = useCallback(
+    async (
+      clientId: string,
+      contractId: string,
+      parcelaNumero: number,
+      input: { boletoCode?: string; pixCode?: string },
+    ) => {
+      const boletoCode = (input.boletoCode ?? "").trim();
+      const pixCode = (input.pixCode ?? "").trim();
+      try {
+        if (dataSource === "supabase" && supabase) {
+          await supabaseUpdateInstallmentPaymentCodes(supabase, contractId, parcelaNumero, {
+            boletoCode: boletoCode.length ? boletoCode : null,
+            pixCode: pixCode.length ? pixCode : null,
+          });
+          await reload();
+        } else {
+          const next = clientes.map((c) => {
+            if (c.id !== clientId) return c;
+            return {
+              ...c,
+              contratos: c.contratos.map((k) => {
+                if (k.id !== contractId) return k;
+                return {
+                  ...k,
+                  listaParcelas: k.listaParcelas.map((p) =>
+                    p.numero === parcelaNumero
+                      ? { ...p, boletoCode: boletoCode || null, pixCode: pixCode || null }
+                      : p,
+                  ),
+                };
+              }),
+            };
+          });
+          setClientes(next);
+          persistLocal(next);
+        }
+        toast.success("Códigos de pagamento atualizados.");
+      } catch (e) {
+        console.error(e);
+        toast.error("Não foi possível salvar os códigos.");
+      }
+    },
+    [clientes, dataSource, persistLocal, reload],
+  );
+
   const finalizeContract = useCallback(
     async (clientId: string, contractId: string) => {
       try {
@@ -815,6 +868,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       updateParcelaStatus,
       updateParcelaValorVencimento,
       uploadParcelaBoleto,
+      updateParcelaPaymentCodes,
       finalizeContract,
       updateContractStatus,
       renameContractNumero,
@@ -836,6 +890,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       updateParcelaStatus,
       updateParcelaValorVencimento,
       uploadParcelaBoleto,
+      updateParcelaPaymentCodes,
       finalizeContract,
       updateContractStatus,
       renameContractNumero,

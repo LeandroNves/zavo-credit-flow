@@ -92,6 +92,20 @@ function makeEmptyDraft(): Draft {
   };
 }
 
+async function uploadProductImage(args: { dataUrl: string; productId?: string }): Promise<string> {
+  const res = await fetch("/api/admin/upload-product-image", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dataUrl: args.dataUrl, productId: args.productId ?? "" }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string; error?: string; message?: string };
+  if (!res.ok || !data.ok || !data.url) {
+    throw new Error(data.message || data.error || "Falha ao enviar imagem");
+  }
+  return data.url;
+}
+
 export default function AdminProducts() {
   const [products, setProducts] = useState<LandingProduct[]>(() =>
     isSupabaseConfigured ? [] : loadLandingProducts(),
@@ -279,7 +293,17 @@ export default function AdminProducts() {
 
   async function onPickImages(files: FileList | null) {
     if (!files || files.length === 0) return;
-    const picked = await Promise.all(Array.from(files).map((file) => readFileAsDataUrl(file)));
+    const pickedDataUrls = await Promise.all(Array.from(files).map((file) => readFileAsDataUrl(file)));
+    const picked = await (async () => {
+      // Em produção (Supabase), não salva base64 no catálogo: sobe para Storage e guarda URL.
+      if (isSupabaseConfigured) {
+        return await Promise.all(
+          pickedDataUrls.map(async (dataUrl) => await uploadProductImage({ dataUrl, productId: draft.id ?? editingId ?? "" })),
+        );
+      }
+      // fallback local: mantém data URL (dev sem Supabase)
+      return pickedDataUrls;
+    })();
     setDraft((d) => {
       const merged = [...d.imageSrcs, ...picked].filter(Boolean);
       const unique = merged.filter((v, i, a) => a.indexOf(v) === i);
@@ -400,6 +424,30 @@ export default function AdminProducts() {
           </p>
         </div>
         <div className="flex gap-2">
+          {isSupabaseConfigured && (
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => {
+                void (async () => {
+                  try {
+                    const r = await fetch("/api/admin/migrate-product-images", { method: "POST", credentials: "include" });
+                    const data = (await r.json().catch(() => ({}))) as { ok?: boolean; scanned?: number; migrated?: number; error?: string; message?: string };
+                    if (!r.ok || !data.ok) {
+                      toast.error(data.message || data.error || "Não foi possível migrar imagens.");
+                      return;
+                    }
+                    toast.success(`Migração concluída. Itens verificados: ${data.scanned ?? "?"}. Migrados: ${data.migrated ?? "?"}.`);
+                    window.dispatchEvent(new Event(PRODUCTS_UPDATED_EVENT));
+                  } catch (e: any) {
+                    toast.error(e?.message || "Não foi possível migrar imagens.");
+                  }
+                })();
+              }}
+            >
+              Migrar imagens antigas
+            </Button>
+          )}
           <Button variant="outline" className="gap-2" onClick={seedIfEmpty}>
             <RefreshCcw className="h-4 w-4" /> Recarregar
           </Button>

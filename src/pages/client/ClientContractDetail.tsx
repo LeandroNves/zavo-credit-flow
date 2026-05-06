@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Check, FileText } from "lucide-react";
+import { ArrowLeft, Check, FileText, Barcode, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useContractsData } from "@/contexts/ContractsDataContext";
 import { getClienteAtualId } from "@/lib/clienteSession";
@@ -23,6 +23,33 @@ export default function ClientContractDetail() {
     toast.info(
       "Boleto ainda não disponível. Entre em contato ou aguarde o envio pelo administrador.",
     );
+  };
+
+  const copyToClipboard = async (label: string, value: string) => {
+    const text = (value ?? "").trim();
+    if (!text) {
+      toast.info(`${label} ainda não disponível.`);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Copiado!");
+    } catch {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        toast.success("Copiado!");
+      } catch {
+        toast.error("Não foi possível copiar.");
+      }
+    }
   };
 
   if (!ready || loading) {
@@ -103,14 +130,35 @@ export default function ClientContractDetail() {
                       </span>
                     )}
                     {parcela.status === "pendente" && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => handleOpenBoleto(parcela)}
-                        className="bg-secondary hover:bg-secondary/90"
-                      >
-                        PAGAR
-                      </Button>
+                      <div className="flex flex-col sm:flex-row gap-2 justify-end">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="gap-2"
+                          onClick={() => void copyToClipboard("Boleto", parcela.boletoCode ?? "")}
+                        >
+                          <Barcode className="h-4 w-4" /> Copiar boleto
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="gap-2 bg-secondary hover:bg-secondary/90"
+                          onClick={() => void copyToClipboard("Pix", parcela.pixCode ?? "")}
+                        >
+                          <QrCode className="h-4 w-4" /> Copiar Pix
+                        </Button>
+                        {!parcela.boletoCode && !parcela.pixCode && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleOpenBoleto(parcela)}
+                          >
+                            Ver arquivo
+                          </Button>
+                        )}
+                      </div>
                     )}
                     {parcela.status === "atrasado" && (
                       <Button

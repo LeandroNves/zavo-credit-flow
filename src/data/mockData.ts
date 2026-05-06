@@ -10,6 +10,10 @@ export interface Parcela {
   boletoUrl?: string | null;
   /** Caminho no bucket Supabase Storage (modo nuvem) */
   boletoPath?: string | null;
+  /** Código copiável do boleto (linha digitável) */
+  boletoCode?: string | null;
+  /** Código copiável do Pix (copia e cola) */
+  pixCode?: string | null;
 }
 
 export interface Contrato {
