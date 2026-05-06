@@ -14,11 +14,14 @@ export type RegistrationCartSnapshotItem = {
   name: string;
   model: string;
   downPayment: string;
+  downPaymentValueBRL: string;
+  dueDay: number;
   color: string;
   colors: string[];
   months: 1 | 6 | 12 | 18 | 24;
   qty: number;
   perInstallmentBRL: string;
+  totalPlanBRL: string;
 };
 
 export type RegistrationCartSnapshot = {
@@ -77,23 +80,27 @@ export function buildCartSnapshot(args: {
   for (const it of args.cartItems) {
     const p = byId.get(it.productId);
     if (!p) continue;
-    const per = calculateInstallmentWithDownPaymentCents({
+    const calc = calculateInstallmentWithDownPaymentCents({
       priceCents: getProductPriceCentsByModel(p, it.selectedModel),
       months: it.months,
       downPaymentOptionId: it.selectedDownPayment ?? "none",
-    }).perInstallmentCents;
+    });
+    const downPaymentLabel =
+      DOWN_PAYMENT_OPTIONS.find((x) => x.id === (it.selectedDownPayment ?? "none"))?.label ??
+      "Sem entrada";
     items.push({
       productId: p.id,
       name: p.name,
       model: it.selectedModel,
-      downPayment:
-        DOWN_PAYMENT_OPTIONS.find((x) => x.id === (it.selectedDownPayment ?? "none"))?.label ??
-        "Sem entrada",
+      downPayment: downPaymentLabel,
+      downPaymentValueBRL: formatBRLFromCents(calc.downPaymentCents),
+      dueDay: Math.max(1, Math.min(31, Math.round(it.dueDay ?? 10))),
       color: it.selectedColors.join(" / ") || p.color,
       colors: it.selectedColors,
       months: it.months,
       qty: it.qty,
-      perInstallmentBRL: formatBRLFromCents(per),
+      perInstallmentBRL: formatBRLFromCents(calc.perInstallmentCents),
+      totalPlanBRL: formatBRLFromCents(calc.discountedPlanTotalCents),
     });
   }
 

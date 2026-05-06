@@ -36,9 +36,15 @@ const DOC_LABELS: { key: DocKey; label: string }[] = [
 type InterestCartItem = {
   qty?: number;
   name?: string;
+  model?: string;
   color?: string;
+  colors?: string[];
+  downPayment?: string;
+  downPaymentValueBRL?: string;
+  dueDay?: number;
   months?: number;
   perInstallmentBRL?: string;
+  totalPlanBRL?: string;
 };
 
 function readInterestCartItems(value: unknown): InterestCartItem[] {
@@ -50,10 +56,19 @@ function readInterestCartItems(value: unknown): InterestCartItem[] {
     .map((it) => ({
       qty: typeof it.qty === "number" ? it.qty : undefined,
       name: typeof it.name === "string" ? it.name : undefined,
+      model: typeof it.model === "string" ? it.model : undefined,
       color: typeof it.color === "string" ? it.color : undefined,
+      colors: Array.isArray(it.colors)
+        ? it.colors.filter((x): x is string => typeof x === "string")
+        : undefined,
+      downPayment: typeof it.downPayment === "string" ? it.downPayment : undefined,
+      downPaymentValueBRL:
+        typeof it.downPaymentValueBRL === "string" ? it.downPaymentValueBRL : undefined,
+      dueDay: typeof it.dueDay === "number" ? Math.max(1, Math.min(31, Math.round(it.dueDay))) : undefined,
       months: typeof it.months === "number" ? it.months : undefined,
       perInstallmentBRL:
         typeof it.perInstallmentBRL === "string" ? it.perInstallmentBRL : undefined,
+      totalPlanBRL: typeof it.totalPlanBRL === "string" ? it.totalPlanBRL : undefined,
     }));
 }
 
@@ -176,15 +191,39 @@ export default function AdminPendingRegistrations() {
             <div className="rounded-lg border bg-background p-4 space-y-2">
               <p className="text-sm font-medium text-primary">Produtos selecionados</p>
               {selectedInterestItems.map((it, idx) => (
-                <div key={`${it.name ?? "item"}-${idx}`} className="text-sm text-muted-foreground">
-                  <span className="font-medium text-primary">{it.qty ?? 1}x</span>{" "}
-                  {it.name || "Produto"}
-                  {it.color ? ` (${it.color})` : ""} —{" "}
-                  <span className="font-medium text-primary">{it.months ?? "-" }x</span>{" "}
-                  de{" "}
-                  <span className="font-medium text-primary">
-                    {it.perInstallmentBRL || "—"}
-                  </span>
+                <div key={`${it.name ?? "item"}-${idx}`} className="text-sm text-muted-foreground rounded-md border p-3">
+                  <p>
+                    <span className="font-medium text-primary">{it.qty ?? 1}x</span>{" "}
+                    {it.name || "Produto"}
+                    {it.model ? ` (modelo selecionado - "${it.model}")` : ""}
+                    {it.color ? ` (${it.color})` : ""}
+                  </p>
+                  <p>
+                    {it.downPayment && it.downPayment !== "Sem entrada"
+                      ? (
+                        <>
+                          Entrada de{" "}
+                          <span className="font-medium text-primary">{it.downPaymentValueBRL || "—"}</span>
+                        </>
+                        )
+                      : "Entrada (sem)"}{" "}
+                    e{" "}
+                    <span className="font-medium text-primary">{it.months ?? "-" }x</span>{" "}
+                    de{" "}
+                    <span className="font-medium text-primary">{it.perInstallmentBRL || "—"}</span>
+                    {typeof it.dueDay === "number" ? (
+                      <>
+                        {" "}• Vencimento todo dia{" "}
+                        <span className="font-medium text-primary">{String(it.dueDay).padStart(2, "0")}</span>
+                      </>
+                    ) : null}
+                    {it.totalPlanBRL ? (
+                      <>
+                        {" "}• Total do plano:{" "}
+                        <span className="font-medium text-primary">{it.totalPlanBRL}</span>
+                      </>
+                    ) : null}
+                  </p>
                 </div>
               ))}
             </div>

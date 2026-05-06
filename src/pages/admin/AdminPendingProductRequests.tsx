@@ -158,10 +158,44 @@ export default function AdminPendingProductRequests() {
           <div className="space-y-2">
             {selected.request.items.map((it, idx) => (
               <div key={`${it.productId}-${idx}`} className="text-sm text-muted-foreground rounded-lg border p-3">
-                <span className="font-medium text-primary">{it.qty}x</span> {it.name}
-                {it.color ? ` (${it.color})` : ""} —{" "}
-                <span className="font-medium text-primary">{it.months}x</span> de{" "}
-                <span className="font-medium text-primary">{it.perInstallmentBRL}</span>
+                <p>
+                  <span className="font-medium text-primary">{it.qty}x</span> {it.name}
+                  {"model" in it && typeof it.model === "string" && it.model
+                    ? ` (modelo selecionado - "${it.model}")`
+                    : ""}
+                  {it.color ? ` (${it.color})` : ""}
+                </p>
+                <p>
+                  {"downPayment" in it && typeof it.downPayment === "string" && it.downPayment !== "Sem entrada"
+                    ? (
+                        <>
+                          Entrada de{" "}
+                          <span className="font-medium text-primary">
+                            {"downPaymentValueBRL" in it && typeof it.downPaymentValueBRL === "string"
+                              ? it.downPaymentValueBRL
+                              : "—"}
+                          </span>
+                        </>
+                      )
+                    : "Entrada (sem)"}{" "}
+                  e <span className="font-medium text-primary">{it.months}x</span> de{" "}
+                  <span className="font-medium text-primary">{it.perInstallmentBRL}</span>
+                  {"dueDay" in it && typeof it.dueDay === "number"
+                    ? (
+                        <>
+                          {" "}• Vencimento todo dia{" "}
+                          <span className="font-medium text-primary">{String(it.dueDay).padStart(2, "0")}</span>
+                        </>
+                      )
+                    : null}
+                  {"totalPlanBRL" in it && typeof it.totalPlanBRL === "string" && it.totalPlanBRL
+                    ? (
+                        <>
+                          {" "}• Total do plano: <span className="font-medium text-primary">{it.totalPlanBRL}</span>
+                        </>
+                      )
+                    : null}
+                </p>
               </div>
             ))}
           </div>

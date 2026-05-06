@@ -6,11 +6,13 @@ import { Input } from "@/components/ui/input";
 import { RotatingProductImage } from "@/components/product/RotatingProductImage";
 import { useGlobalLandingProductsState } from "@/hooks/useGlobalLandingProducts";
 import {
-  calculateInstallmentCents,
+  calculateInstallmentWithDownPaymentCents,
   formatBRLFromCents,
   PRODUCT_BRANDS,
   PRODUCT_CATEGORIES,
   type LandingProduct,
+  getDefaultProductModel,
+  getProductPriceCentsByModel,
 } from "@/lib/productsStore";
 import { CART_UPDATED_EVENT, loadCart, saveCart } from "@/lib/cartStore";
 import logo from "@/assets/logo.png";
@@ -268,9 +270,19 @@ export default function ProductsPage() {
                 </span>
               )}
             </button>
+            <Link to="/login">
+              <Button variant="ghost" size="sm" className="text-foreground/70 hover:text-foreground">
+                Entrar
+              </Button>
+            </Link>
           </div>
 
           <div className="md:hidden flex items-center gap-1">
+            <Link to="/login">
+              <Button variant="outline" size="sm" className="h-8 rounded-full px-3 text-xs">
+                Entrar
+              </Button>
+            </Link>
             <button
               type="button"
               onClick={() => setCartOpen(true)}
@@ -435,50 +447,50 @@ export default function ProductsPage() {
               {filteredProducts.length} produto(s) encontrado(s)
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
               {filteredProducts.map((p: LandingProduct) => {
-            const per6 = p.priceCents ? calculateInstallmentCents(p.priceCents, 6) : 0;
-            const per12 = p.priceCents ? calculateInstallmentCents(p.priceCents, 12) : 0;
-            const total12 = per12 * 12;
+            const basePriceCents = getProductPriceCentsByModel(p, getDefaultProductModel(p));
+            const plan24 = calculateInstallmentWithDownPaymentCents({
+              priceCents: basePriceCents,
+              months: 24,
+              downPaymentOptionId: "none",
+            });
             return (
               <Link
                 key={p.id}
                 to={`/produtos/${p.id}`}
-                className="group bg-white rounded-2xl p-6 border border-border/50 hover:shadow-xl hover:border-secondary/30 transition-all duration-300"
+                className="group bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-border/50 hover:shadow-lg hover:border-secondary/30 transition-all duration-300"
               >
-                <div className="h-56 flex items-center justify-center mb-5">
+                <div className="h-28 sm:h-40 flex items-center justify-center mb-2 sm:mb-3">
                   <RotatingProductImage
                     images={p.imageSrcs?.length ? p.imageSrcs : [p.imageSrc]}
                     alt={p.name}
-                    containerClassName="h-48 w-full"
+                    containerClassName="h-24 sm:h-36 w-full"
                     intervalMs={3000}
                   />
                 </div>
-                <h2 className="text-lg font-bold text-primary">{p.name}</h2>
-                <p className="text-sm text-muted-foreground mt-1">{p.brand} • {p.category}</p>
+                <h2 className="text-sm sm:text-base font-bold text-primary line-clamp-2">{p.name}</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">{p.brand} • {p.category}</p>
                 {p.isOnSale && (
-                  <span className="inline-flex mt-2 text-xs px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
+                  <span className="inline-flex mt-1.5 text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                     Em promoção
                   </span>
                 )}
 
-                {p.priceCents > 0 ? (
-                  <div className="mt-4 space-y-1">
-                    <p className="text-base text-muted-foreground">
-                      <span className="font-bold text-primary">A partir de 6x de {formatBRLFromCents(per6)}</span>
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      12x de <span className="font-semibold text-primary">{formatBRLFromCents(per12)}</span> pagando até vencimento
-                    </p>
+                {basePriceCents > 0 ? (
+                  <div className="mt-2.5 space-y-0.5">
                     <p className="text-xs text-muted-foreground">
-                      Total em 12x: {formatBRLFromCents(total12)}
+                      <span className="font-bold text-primary">A partir de 24x de {formatBRLFromCents(plan24.perInstallmentCents)}</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground leading-tight">
+                      24x de <span className="font-semibold text-primary">{formatBRLFromCents(plan24.earlyPaymentPerInstallmentCents)}</span> pagando até vencimento
                     </p>
                   </div>
                 ) : (
-                  <p className="mt-4 text-sm text-muted-foreground">Consulte valores com nosso time.</p>
+                  <p className="mt-2.5 text-xs text-muted-foreground">Consulte valores com nosso time.</p>
                 )}
 
-                <Button className="w-full mt-5 rounded-full gap-2">
+                <Button className="w-full mt-3 rounded-full gap-2 h-9 text-xs sm:text-sm">
                   Ver produto <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>

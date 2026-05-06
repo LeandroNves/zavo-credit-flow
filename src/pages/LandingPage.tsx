@@ -248,6 +248,7 @@ export default function LandingPage() {
         id: makeCartItemId(),
         productId,
         selectedModel,
+        dueDay: 10,
         months,
         qty: 1,
         selectedColors: colorOptions.slice(0, 2),
@@ -267,6 +268,11 @@ export default function LandingPage() {
   const setMonths = (id: string, months: number) => {
     if (![1, 6, 12, 18, 24].includes(months)) return;
     persistCart(cartItems.map((it) => (it.id === id ? { ...it, months: months as any } : it)));
+  };
+
+  const setDueDay = (id: string, dueDay: number) => {
+    const d = Math.max(1, Math.min(31, Math.round(dueDay)));
+    persistCart(cartItems.map((it) => (it.id === id ? { ...it, dueDay: d } : it)));
   };
 
   const setPreferredColor = (id: string, color: string) => {
@@ -425,6 +431,7 @@ export default function LandingPage() {
                     const colorOptions = parseProductColors(p.color);
                     const preferred = it.selectedColors?.[0] ?? "";
                     const alternative = it.selectedColors?.[1] ?? "";
+                    const dueDay = Math.max(1, Math.min(31, Math.round(it.dueDay ?? 10)));
                     const missingColors = colorOptions.length >= 2
                       ? !preferred || !alternative || preferred === alternative
                       : !preferred || !alternative;
@@ -451,7 +458,7 @@ export default function LandingPage() {
                               </button>
                             </div>
 
-                            <div className="mt-3 grid grid-cols-2 gap-2 items-center">
+                            <div className="mt-3 grid grid-cols-3 gap-2 items-center">
                               <div>
                                 <p className="text-xs text-muted-foreground mb-1">Parcelas</p>
                                 <Select value={String(it.months)} onValueChange={(v) => setMonths(it.id, Number(v))}>
@@ -462,6 +469,22 @@ export default function LandingPage() {
                                     {allowedMonths.map((m) => (
                                       <SelectItem key={m} value={String(m)}>
                                         {m}x
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Venc.</p>
+                                <Select value={String(dueDay)} onValueChange={(v) => setDueDay(it.id, Number(v))}>
+                                  <SelectTrigger className="h-9">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                                      <SelectItem key={`due-${it.id}-${d}`} value={String(d)}>
+                                        {String(d).padStart(2, "0")}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>

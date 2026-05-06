@@ -5,6 +5,7 @@ export type CartItem = {
   productId: string;
   selectedModel: string;
   selectedDownPayment?: DownPaymentOptionId;
+  dueDay?: number;
   months: InstallmentMonths;
   qty: number;
   selectedColors: string[];
@@ -34,6 +35,7 @@ export function loadCart(): CartItem[] {
             ? o.selectedDownPayment
             : "none";
         const months = typeof o.months === "number" ? o.months : NaN;
+        const dueDay = typeof o.dueDay === "number" ? Math.round(o.dueDay) : 10;
         const qty = typeof o.qty === "number" ? o.qty : NaN;
         const selectedColors = Array.isArray(o.selectedColors)
           ? o.selectedColors
@@ -50,6 +52,7 @@ export function loadCart(): CartItem[] {
           productId,
           selectedModel,
           selectedDownPayment,
+          dueDay: Math.max(1, Math.min(31, dueDay)),
           months: months as InstallmentMonths,
           qty: safeQty,
           selectedColors: selectedColors.slice(0, 2),

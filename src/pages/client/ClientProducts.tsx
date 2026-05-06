@@ -10,6 +10,7 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import {
   ALL_INSTALLMENTS,
   calculateInstallmentCents,
+  calculateInstallmentWithDownPaymentCents,
   formatBRLFromCents,
   getDefaultProductModel,
   getProductModelOptions,
@@ -64,6 +65,7 @@ export default function ClientProducts() {
       id: makeClientProductCartItemId(),
       productId,
       selectedModel,
+      dueDay: 10,
       months,
       qty: 1,
       selectedColors: colorOptions.slice(0, 2),
@@ -83,6 +85,11 @@ export default function ClientProducts() {
 
   function setModel(id: string, model: string) {
     persist(items.map((it) => (it.id === id ? { ...it, selectedModel: model } : it)));
+  }
+
+  function setDueDay(id: string, dueDay: number) {
+    const d = Math.max(1, Math.min(31, Math.round(dueDay)));
+    persist(items.map((it) => (it.id === id ? { ...it, dueDay: d } : it)));
   }
 
   function setPreferredColor(id: string, color: string) {
@@ -149,16 +156,27 @@ export default function ClientProducts() {
       return;
     }
 
-    const payloadItems = cartLines.map(({ it, p, per }) => ({
+    const payloadItems = cartLines.map(({ it, p, per }) => {
+      const calc = calculateInstallmentWithDownPaymentCents({
+        priceCents: getProductPriceCentsByModel(p, it.selectedModel),
+        months: it.months,
+        downPaymentOptionId: "none",
+      });
+      return {
       productId: p.id,
       name: p.name,
       color: (it.selectedColors ?? []).join(" / ") || p.color,
       model: it.selectedModel,
       colors: (it.selectedColors ?? []).filter(Boolean).slice(0, 2),
+      downPayment: "Sem entrada",
+      downPaymentValueBRL: formatBRLFromCents(calc.downPaymentCents),
+      dueDay: Math.max(1, Math.min(31, Math.round(it.dueDay ?? 10))),
       months: it.months,
       qty: it.qty,
       perInstallmentBRL: formatBRLFromCents(per),
-    }));
+      totalPlanBRL: formatBRLFromCents(calc.discountedPlanTotalCents),
+      };
+    });
 
     setSubmitting(true);
     try {
@@ -278,6 +296,18 @@ export default function ClientProducts() {
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
+                  <Select value={String(Math.max(1, Math.min(31, Math.round(it.dueDay ?? 10))))} onValueChange={(v) => setDueDay(it.id, Number(v))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Dia de vencimento" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                        <SelectItem key={`due-${it.id}-${d}`} value={String(d)}>
+                          Dia {String(d).padStart(2, "0")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Select value={String(it.months)} onValueChange={(v) => setMonths(it.id, Number(v))}>
                     <SelectTrigger>
                       <SelectValue />

@@ -4,6 +4,7 @@ export type ClientProductCartItem = {
   id: string;
   productId: string;
   selectedModel: string;
+  dueDay?: number;
   months: InstallmentMonths;
   qty: number;
   selectedColors: string[];
@@ -26,6 +27,7 @@ export function loadClientProductCart(): ClientProductCartItem[] {
         const id = typeof o.id === "string" ? o.id : "";
         const productId = typeof o.productId === "string" ? o.productId : "";
         const selectedModel = typeof o.selectedModel === "string" ? o.selectedModel.trim() : "";
+        const dueDay = typeof o.dueDay === "number" ? Math.round(o.dueDay) : 10;
         const months = typeof o.months === "number" ? o.months : NaN;
         const qty = typeof o.qty === "number" ? o.qty : NaN;
         const selectedColors = Array.isArray(o.selectedColors)
@@ -42,6 +44,7 @@ export function loadClientProductCart(): ClientProductCartItem[] {
           id,
           productId,
           selectedModel,
+          dueDay: Math.max(1, Math.min(31, dueDay)),
           months: months as InstallmentMonths,
           qty: safeQty,
           selectedColors: selectedColors.slice(0, 2),
