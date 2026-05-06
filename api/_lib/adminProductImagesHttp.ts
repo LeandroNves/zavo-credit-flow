@@ -56,7 +56,7 @@ function assertAdminSession(env: NodeJS.ProcessEnv, req: IncomingMessage): { ok:
     return { ok: false, status: 503, error: "supabase_not_configured" };
   }
   const keyRole = getSupabaseJwtRole(serviceKey);
-  if (keyRole != null && keyRole !== "service_role") {
+  if (keyRole !== "service_role") {
     return {
       ok: false,
       status: 503,
@@ -64,7 +64,9 @@ function assertAdminSession(env: NodeJS.ProcessEnv, req: IncomingMessage): { ok:
       message:
         keyRole === "anon"
           ? "SUPABASE_SERVICE_ROLE_KEY está com a chave anon/publicável. Use a chave secreta service_role."
-          : "SUPABASE_SERVICE_ROLE_KEY não é service_role. Use apenas a chave secreta service_role do Supabase.",
+          : keyRole
+            ? `SUPABASE_SERVICE_ROLE_KEY não é service_role (role=${keyRole}). Use apenas a chave secreta service_role do Supabase.`
+            : "SUPABASE_SERVICE_ROLE_KEY não parece ser uma JWT válida. Confira se você colou a chave service_role correta no ambiente (sem aspas e sem espaços).",
     };
   }
   return { ok: true };
@@ -92,7 +94,8 @@ function decodeDataUrl(dataUrl: string): { bytes: Buffer; contentType: string; e
 
 async function ensureBucket(sb: ReturnType<typeof createClient>): Promise<void> {
   // Cria o bucket se não existir (idempotente no fluxo: ignora erro de "already exists")
-  const { data: buckets } = await sb.storage.listBuckets();
+  const { data: buckets, error: listErr } = await sb.storage.listBuckets();
+  if (listErr) throw listErr;
   if (Array.isArray(buckets) && buckets.some((b) => b.name === BUCKET)) return;
   const { error } = await sb.storage.createBucket(BUCKET, { public: true });
   if (error && !String(error.message || "").toLowerCase().includes("already exists")) {
@@ -231,7 +234,16 @@ export async function handleAdminMigrateProductImagesPost(
   } catch (e: any) {
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ ok: false, error: "migration_failed", message: e?.message || String(e) }));
+    res.end(
+      JSON.stringify({
+        ok: false,
+        error: "migration_failed",
+        message: e?.message || String(e),
+        code: e?.code,
+        details: e?.details,
+        hint: e?.hint,
+      }),
+    );
   }
 }
 
