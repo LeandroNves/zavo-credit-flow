@@ -5,10 +5,12 @@
       "destination": "/index.html"
     }
   ],
+  "build": {
+    "serverExternalPackages": ["@sparticuz/chromium", "puppeteer-core"]
+  },
   "functions": {
     "api/admin/generate-document.ts": {
       "maxDuration": 60,
-      "memory": 3008,
       "includeFiles": "api/_lib/templates/**"
     }
   }

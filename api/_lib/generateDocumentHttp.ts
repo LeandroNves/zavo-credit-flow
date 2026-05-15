@@ -140,14 +140,21 @@ export async function handleGenerateDocument(
     if (msg.includes("template_missing")) errorCode = "template_missing";
     else if (msg.includes("docx_template_error")) errorCode = "docx_template_error";
 
-    const friendly =
-      errorCode === "template_missing"
-        ? "Modelo Word não encontrado no servidor. Faça redeploy com os ficheiros em api/_lib/templates/."
-        : errorCode === "docx_template_error"
-          ? `Erro no modelo Word: ${msg.replace(/^docx_template_error:\s*/, "")}`
-          : msg.length < 200
-            ? msg
-            : "Falha ao gerar PDF. Tente novamente ou contacte o suporte.";
+    let friendly = "Falha ao gerar PDF. Tente novamente.";
+    if (errorCode === "template_missing") {
+      friendly =
+        "Modelo Word não encontrado no servidor. Confirme api/_lib/templates/ no deploy.";
+    } else if (errorCode === "docx_template_error") {
+      friendly = `Erro no modelo Word: ${msg.replace(/^docx_template_error:\s*/, "")}`;
+    } else if (msg.includes("chromium_launch_error")) {
+      friendly = `Erro ao iniciar o gerador PDF: ${msg.replace(/^chromium_launch_error:\s*/, "")}`;
+    } else if (msg.includes("docx_template_error")) {
+      friendly = msg.replace(/^docx_template_error:\s*/, "");
+    } else if (msg.includes("pdf_render_error")) {
+      friendly = `Erro ao montar PDF: ${msg.replace(/^pdf_render_error:\s*/, "")}`;
+    } else if (msg.length < 280) {
+      friendly = msg;
+    }
 
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");

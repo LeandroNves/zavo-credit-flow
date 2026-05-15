@@ -104,35 +104,52 @@ function wrapHtmlForPdf(bodyHtml: string): string {
 }
 
 async function launchBrowser() {
-  chromium.setGraphicsMode(false);
   const executablePath = await chromium.executablePath();
   return puppeteer.launch({
-    args: chromium.args,
+    args: [...chromium.args, "--disable-dev-shm-usage", "--single-process"],
     defaultViewport: chromium.defaultViewport,
     executablePath,
     headless: chromium.headless,
   });
 }
 
-/** DOCX preenchido → PDF (Chromium embutido; funciona na Vercel). */
+/** DOCX preenchido → PDF (Chromium na Vercel). */
 export async function docxBufferToPdf(docx: Buffer): Promise<Buffer> {
-  const { value: html } = await mammoth.convertToHtml({ buffer: docx });
-  const fullHtml = wrapHtmlForPdf(html);
+  let html = "";
+  try {
+    const result = await mammoth.convertToHtml({ buffer: docx });
+    html = result.value;
+  } catch (err) {
+    throw new Error(
+      `mammoth_error: ${err instanceof Error ? err.message : "falha ao ler docx"}`,
+    );
+  }
 
-  const browser = await launchBrowser();
+  const fullHtml = wrapHtmlForPdf(html);
+  let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
+
+  try {
+    browser = await launchBrowser();
+  } catch (err) {
+    throw new Error(
+      `chromium_launch_error: ${err instanceof Error ? err.message : "falha ao iniciar chromium"}`,
+    );
+  }
+
   try {
     const page = await browser.newPage();
-    await page.setContent(fullHtml, {
-      waitUntil: "domcontentloaded",
-      timeout: 45_000,
-    });
+    page.setDefaultNavigationTimeout(60_000);
+    await page.setContent(fullHtml, { waitUntil: "domcontentloaded" });
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
       margin: { top: "12mm", right: "12mm", bottom: "12mm", left: "12mm" },
-      timeout: 45_000,
     });
     return Buffer.from(pdf);
+  } catch (err) {
+    throw new Error(
+      `pdf_render_error: ${err instanceof Error ? err.message : "falha ao gerar pdf"}`,
+    );
   } finally {
     await browser.close();
   }
@@ -142,7 +159,12 @@ export async function renderPdfBuffer(
   templateId: DocumentTemplateId,
   vars: Record<string, string>,
 ): Promise<Buffer> {
-  const docx = renderDocxBuffer(templateId, vars);
+  let docx: Buffer;
+  try {
+    docx = renderDocxBuffer(templateId, vars);
+  } catch (err) {
+    throw err;
+  }
   return docxBufferToPdf(docx);
 }
 
