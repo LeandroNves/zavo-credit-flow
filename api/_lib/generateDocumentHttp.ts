@@ -146,8 +146,8 @@ export async function handleGenerateDocument(
         "Modelo Word não encontrado no servidor. Confirme api/_lib/templates/ no deploy.";
     } else if (errorCode === "docx_template_error") {
       friendly = `Erro no modelo Word: ${msg.replace(/^docx_template_error:\s*/, "")}`;
-    } else if (msg.includes("chromium_launch_error")) {
-      friendly = `Erro ao iniciar o gerador PDF: ${msg.replace(/^chromium_launch_error:\s*/, "")}`;
+    } else if (msg.includes("mammoth_error")) {
+      friendly = `Erro ao ler o documento Word: ${msg.replace(/^mammoth_error:\s*/, "")}`;
     } else if (msg.includes("docx_template_error")) {
       friendly = msg.replace(/^docx_template_error:\s*/, "");
     } else if (msg.includes("pdf_render_error")) {
