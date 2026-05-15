@@ -1,8 +1,13 @@
 import mammoth from "mammoth";
 import PDFDocument from "pdfkit";
+import { docxBufferToPdfGotenberg } from "./gotenberg.js";
 
-/** Converte HTML do mammoth em texto com parágrafos preservados. */
-export function htmlToPlainText(html: string): string {
+function getGotenbergUrl(): string | undefined {
+  return process.env.GOTENBERG_URL?.trim() || undefined;
+}
+
+/** Converte HTML do mammoth em texto (fallback sem Gotenberg). */
+function htmlToPlainText(html: string): string {
   return html
     .replace(/<\/p>\s*<p[^>]*>/gi, "\n\n")
     .replace(/<br\s*\/?>/gi, "\n")
@@ -24,8 +29,8 @@ export function htmlToPlainText(html: string): string {
     .trim();
 }
 
-/** DOCX preenchido → PDF (sem Chromium; funciona na Vercel). */
-export async function docxBufferToPdf(docx: Buffer): Promise<Buffer> {
+/** PDF simplificado (só texto) quando não há Gotenberg. */
+async function docxBufferToPdfKit(docx: Buffer): Promise<Buffer> {
   let html = "";
   try {
     const result = await mammoth.convertToHtml({ buffer: docx });
@@ -64,4 +69,21 @@ export async function docxBufferToPdf(docx: Buffer): Promise<Buffer> {
     });
     doc.end();
   });
+}
+
+/**
+ * DOCX → PDF.
+ * Com GOTENBERG_URL: layout fiel (LibreOffice).
+ * Sem Gotenberg: PDF só com texto (fallback).
+ */
+export async function docxBufferToPdf(docx: Buffer): Promise<Buffer> {
+  const gotenbergUrl = getGotenbergUrl();
+  if (gotenbergUrl) {
+    return docxBufferToPdfGotenberg(docx, gotenbergUrl);
+  }
+  return docxBufferToPdfKit(docx);
+}
+
+export function isPdfFormattingEnabled(): boolean {
+  return Boolean(getGotenbergUrl());
 }

@@ -1,7 +1,7 @@
 import { ZipArchive } from "archiver";
 
-export async function buildZipFromPdfEntries(
-  entries: { filename: string; pdf: Buffer }[],
+export async function buildZipFromEntries(
+  entries: { filename: string; data: Buffer }[],
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const archive = new ZipArchive({ zlib: { level: 9 } });
@@ -11,7 +11,7 @@ export async function buildZipFromPdfEntries(
     archive.on("end", () => resolve(Buffer.concat(chunks)));
 
     for (const e of entries) {
-      archive.append(e.pdf, { name: e.filename });
+      archive.append(e.data, { name: e.filename });
     }
     void archive.finalize();
   });
