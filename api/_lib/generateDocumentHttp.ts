@@ -2,7 +2,6 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { getSessionSecret } from "./adminEnv.js";
 import { parseSessionCookie } from "./sessionCookie.js";
 import {
-  buildZipFromPdfEntries,
   renderPdfBuffer,
   sanitizeDownloadFilename,
   type DocumentTemplateId,
@@ -97,6 +96,7 @@ export async function handleGenerateDocument(
           pdf,
         });
       }
+      const { buildZipFromPdfEntries } = await import("./generateDocumentZip.js");
       const zipBuf = await buildZipFromPdfEntries(pdfs);
       const zipName = sanitizeDownloadFilename(
         body.zip.filename || "promissorias.zip",

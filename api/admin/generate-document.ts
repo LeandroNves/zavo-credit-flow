@@ -3,6 +3,7 @@ import { handleGenerateDocument } from "../_lib/generateDocumentHttp.js";
 
 export const config = {
   maxDuration: 60,
+  memory: 3008,
 };
 
 export default async function handler(

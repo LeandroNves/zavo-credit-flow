@@ -3,7 +3,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
-import archiver from "archiver";
 import mammoth from "mammoth";
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
@@ -29,8 +28,6 @@ function resolveTemplatesDir(): string {
   return candidates[0]!;
 }
 
-const TEMPLATES_DIR = resolveTemplatesDir();
-
 function trimVars(vars: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(vars)) {
@@ -54,8 +51,9 @@ export function renderDocxBuffer(
   templateId: DocumentTemplateId,
   vars: Record<string, string>,
 ): Buffer {
+  const templatesDir = resolveTemplatesDir();
   const fileName = TEMPLATE_FILES[templateId];
-  const filePath = path.join(TEMPLATES_DIR, fileName);
+  const filePath = path.join(templatesDir, fileName);
   if (!fs.existsSync(filePath)) {
     throw new Error(
       `template_missing:${templateId} (procurado em ${filePath}, cwd=${process.cwd()})`,
@@ -104,12 +102,21 @@ function wrapHtmlForPdf(bodyHtml: string): string {
 }
 
 async function launchBrowser() {
+  chromium.setGraphicsMode = false;
   const executablePath = await chromium.executablePath();
+  const viewport = {
+    deviceScaleFactor: 1,
+    hasTouch: false,
+    height: 1080,
+    isLandscape: true,
+    isMobile: false,
+    width: 1920,
+  };
   return puppeteer.launch({
-    args: [...chromium.args, "--disable-dev-shm-usage", "--single-process"],
-    defaultViewport: chromium.defaultViewport,
+    args: puppeteer.defaultArgs({ args: chromium.args, headless: "shell" }),
+    defaultViewport: viewport,
     executablePath,
-    headless: chromium.headless,
+    headless: "shell",
   });
 }
 
@@ -166,23 +173,6 @@ export async function renderPdfBuffer(
     throw err;
   }
   return docxBufferToPdf(docx);
-}
-
-export async function buildZipFromPdfEntries(
-  entries: { filename: string; pdf: Buffer }[],
-): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const archive = archiver("zip", { zlib: { level: 9 } });
-    const chunks: Buffer[] = [];
-    archive.on("data", (c: Buffer) => chunks.push(c));
-    archive.on("error", reject);
-    archive.on("end", () => resolve(Buffer.concat(chunks)));
-
-    for (const e of entries) {
-      archive.append(e.pdf, { name: e.filename });
-    }
-    void archive.finalize();
-  });
 }
 
 export function sanitizeDownloadFilename(name: string): string {
