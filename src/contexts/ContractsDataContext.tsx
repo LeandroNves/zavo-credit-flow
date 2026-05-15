@@ -8,7 +8,13 @@ import {
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
-import type { Cliente, Contrato, Parcela } from "@/data/mockData";
+import type {
+  Cliente,
+  Contrato,
+  ContractProductFields,
+  Parcela,
+} from "@/data/mockData";
+import { emptyContractProductFields } from "@/data/mockData";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import {
   loadClientesFromLocalStorage,
@@ -29,7 +35,8 @@ import {
   supabaseFinalizeContract,
   supabaseSendClientPasswordReset,
   supabaseUpdateContractStatus,
-  supabaseUpdateContractNumero,
+  supabaseUpdateContractDetails,
+  type UpdateContractDetailsInput,
   supabaseUpdateClientManualFields,
   supabaseUpdateClientManualStatus,
   supabaseUpdateInstallmentStatus,
@@ -70,7 +77,7 @@ export type CreateContractInput = {
   status: ContractStatus;
   /** Se preenchido, sobrescreve o vencimento (automático) de cada parcela por ISO yyyy-MM-dd. */
   vencimentosPorParcelaIso?: string[];
-};
+} & ContractProductFields;
 
 type DataSource = "supabase" | "local";
 
@@ -115,10 +122,10 @@ type ContractsContextValue = {
     contractId: string,
     status: ContractStatus,
   ) => Promise<void>;
-  renameContractNumero: (
+  updateContractDetails: (
     clientId: string,
     contractId: string,
-    rawNumero: string,
+    input: UpdateContractDetailsInput,
   ) => Promise<boolean>;
   deleteContract: (clientId: string, contractId: string) => Promise<boolean>;
   /**
@@ -247,6 +254,13 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
         valorParcela,
         status: input.status,
         listaParcelas,
+        produtoCategoria: (input.produtoCategoria ?? "").trim(),
+        produtoModelo: (input.produtoModelo ?? "").trim(),
+        produtoCor: (input.produtoCor ?? "").trim(),
+        produtoSerie: (input.produtoSerie ?? "").trim(),
+        produtoImei: (input.produtoImei ?? "").trim(),
+        produtoEstado: (input.produtoEstado ?? "").trim(),
+        produtoAcessorios: (input.produtoAcessorios ?? "").trim(),
       };
 
       const filesByNum = new Map<number, File>();
@@ -581,37 +595,51 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
     [clientes, dataSource, persistLocal, reload],
   );
 
-  const renameContractNumero = useCallback(
+  const updateContractDetails = useCallback(
     async (
       clientId: string,
       contractId: string,
-      rawNumero: string,
+      input: UpdateContractDetailsInput,
     ): Promise<boolean> => {
       const client = clientes.find((c) => c.id === clientId);
       if (!client) {
         toast.error("Cliente não encontrado.");
         return false;
       }
-      const atual = client.contratos.find((c) => c.id === contractId)?.numero;
+      const atual = client.contratos.find((c) => c.id === contractId);
       if (!atual) {
         toast.error("Contrato não encontrado.");
         return false;
       }
-      if (!rawNumero.trim()) {
+      if (!input.numero.trim()) {
         toast.error("Informe a identificação do contrato.");
         return false;
       }
-      const novo = resolveContractNumero(rawNumero, atual);
-      if (novo.toLowerCase() === atual.toLowerCase()) {
-        return true;
-      }
-      if (isContractNumeroTaken(client, novo, contractId)) {
+      const numero = resolveContractNumero(input.numero, atual.numero);
+      if (
+        numero.toLowerCase() !== atual.numero.toLowerCase() &&
+        isContractNumeroTaken(client, numero, contractId)
+      ) {
         toast.error("Já existe um contrato com essa identificação neste cliente.");
         return false;
       }
+      const patch: Contrato = {
+        ...atual,
+        numero,
+        produtoCategoria: input.produtoCategoria.trim(),
+        produtoModelo: input.produtoModelo.trim(),
+        produtoCor: input.produtoCor.trim(),
+        produtoSerie: input.produtoSerie.trim(),
+        produtoImei: input.produtoImei.trim(),
+        produtoEstado: input.produtoEstado.trim(),
+        produtoAcessorios: input.produtoAcessorios.trim(),
+      };
       try {
         if (dataSource === "supabase" && supabase) {
-          await supabaseUpdateContractNumero(supabase, contractId, novo);
+          await supabaseUpdateContractDetails(supabase, contractId, {
+            numero,
+            ...patch,
+          });
           await reload();
         } else {
           const next = clientes.map((c) => {
@@ -619,18 +647,18 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
             return {
               ...c,
               contratos: c.contratos.map((k) =>
-                k.id === contractId ? { ...k, numero: novo } : k,
+                k.id === contractId ? patch : k,
               ),
             };
           });
           setClientes(next);
           persistLocal(next);
         }
-        toast.success("Identificação do contrato atualizada.");
+        toast.success("Contrato atualizado.");
         return true;
       } catch (e) {
         console.error(e);
-        toast.error("Falha ao atualizar identificação.");
+        toast.error("Falha ao atualizar contrato.");
         return false;
       }
     },
@@ -871,7 +899,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       updateParcelaPaymentCodes,
       finalizeContract,
       updateContractStatus,
-      renameContractNumero,
+      updateContractDetails,
       deleteContract,
       deleteCliente,
       createClienteManual,
@@ -893,7 +921,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       updateParcelaPaymentCodes,
       finalizeContract,
       updateContractStatus,
-      renameContractNumero,
+      updateContractDetails,
       deleteContract,
       deleteCliente,
       createClienteManual,

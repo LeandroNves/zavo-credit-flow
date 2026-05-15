@@ -1,5 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Cliente, Contrato, Parcela } from "@/data/mockData";
+import type {
+  Cliente,
+  Contrato,
+  ContractProductFields,
+  Parcela,
+} from "@/data/mockData";
+import { emptyContractProductFields } from "@/data/mockData";
 import { mockClientes } from "@/data/mockData";
 import { deriveClienteStatus } from "@/lib/deriveClienteStatus";
 import {
@@ -14,6 +20,9 @@ type ClientRow = {
   id: string;
   nome: string;
   cpf: string | null;
+  rg: string | null;
+  profissao: string | null;
+  data_nascimento: string | null;
   email: string | null;
   telefone: string | null;
   estado_civil: string | null;
@@ -38,6 +47,13 @@ type ContractRow = {
   parcelas_count: number;
   valor_parcela: number;
   status: string;
+  produto_categoria?: string | null;
+  produto_modelo?: string | null;
+  produto_cor?: string | null;
+  produto_serie?: string | null;
+  produto_imei?: string | null;
+  produto_estado?: string | null;
+  produto_acessorios?: string | null;
 };
 
 type InstallmentRow = {
@@ -51,11 +67,38 @@ type InstallmentRow = {
   pix_code?: string | null;
 };
 
+function productFieldsToRow(p: ContractProductFields): Record<string, unknown> {
+  return {
+    produto_categoria: emptyToNull(p.produtoCategoria),
+    produto_modelo: emptyToNull(p.produtoModelo),
+    produto_cor: emptyToNull(p.produtoCor),
+    produto_serie: emptyToNull(p.produtoSerie),
+    produto_imei: emptyToNull(p.produtoImei),
+    produto_estado: emptyToNull(p.produtoEstado),
+    produto_acessorios: emptyToNull(p.produtoAcessorios),
+  };
+}
+
+function rowToProductFields(row: ContractRow): ContractProductFields {
+  return {
+    produtoCategoria: row.produto_categoria ?? "",
+    produtoModelo: row.produto_modelo ?? "",
+    produtoCor: row.produto_cor ?? "",
+    produtoSerie: row.produto_serie ?? "",
+    produtoImei: row.produto_imei ?? "",
+    produtoEstado: row.produto_estado ?? "",
+    produtoAcessorios: row.produto_acessorios ?? "",
+  };
+}
+
 function clientToRow(c: Cliente): Record<string, unknown> {
   return {
     id: c.id,
     nome: c.nome,
     cpf: formatCPF(c.cpf),
+    rg: emptyToNull(c.rg),
+    profissao: emptyToNull(c.profissao),
+    data_nascimento: emptyToNull(c.dataNascimento),
     email: c.email,
     telefone: formatTelefoneBR(c.telefone),
     estado_civil: c.estadoCivil,
@@ -80,6 +123,9 @@ function rowToCliente(row: ClientRow, contratos: Contrato[]): Cliente {
     id: row.id,
     nome: row.nome,
     cpf: formatCPF(row.cpf ?? ""),
+    rg: row.rg ?? "",
+    profissao: row.profissao ?? "",
+    dataNascimento: row.data_nascimento ?? "",
     email: row.email ?? "",
     telefone: formatTelefoneBR(row.telefone ?? ""),
     estadoCivil: row.estado_civil ?? "",
@@ -133,6 +179,9 @@ function resolvedTipoMoradiaKey(key: string | undefined): string | null {
 export type ManualClienteFields = {
   nome: string;
   cpf?: string;
+  rg?: string;
+  profissao?: string;
+  dataNascimento?: string;
   email?: string;
   telefone?: string;
   estadoCivil?: string;
@@ -157,6 +206,9 @@ export function buildClienteFromManualFields(
     id,
     nome: fields.nome.trim(),
     cpf: (fields.cpf ?? "").trim(),
+    rg: (fields.rg ?? "").trim(),
+    profissao: (fields.profissao ?? "").trim(),
+    dataNascimento: (fields.dataNascimento ?? "").trim(),
     email: (fields.email ?? "").trim().toLowerCase(),
     telefone: (fields.telefone ?? "").trim(),
     estadoCivil: ec ?? "",
@@ -201,6 +253,9 @@ export async function supabaseCreateClientManual(
     id,
     nome,
     cpf: emptyToNull(fields.cpf),
+    rg: emptyToNull(fields.rg),
+    profissao: emptyToNull(fields.profissao),
+    data_nascimento: emptyToNull(fields.dataNascimento),
     email: emptyToNull(fields.email?.toLowerCase()),
     telefone: emptyToNull(fields.telefone),
     estado_civil: resolvedEstadoCivilKey(fields.estadoCivil),
@@ -249,6 +304,9 @@ export async function supabaseUpdateClientManualFields(
   const row = {
     nome,
     cpf: emptyToNull(cpfFmt),
+    rg: emptyToNull(fields.rg),
+    profissao: emptyToNull(fields.profissao),
+    data_nascimento: emptyToNull(fields.dataNascimento),
     email: emptyToNull(emailLower),
     telefone: emptyToNull(telFmt),
     estado_civil: resolvedEstadoCivilKey(fields.estadoCivil),
@@ -536,6 +594,7 @@ export async function fetchClientesFromSupabase(sb: SupabaseClient): Promise<Cli
       valorParcela: Number(k.valor_parcela),
       status,
       listaParcelas,
+      ...rowToProductFields(k),
     };
 
     const list = contractsByClient.get(k.client_id) || [];
@@ -583,6 +642,7 @@ export async function supabaseCreateContractWithInstallments(
     parcelas_count: contrato.parcelas,
     valor_parcela: contrato.valorParcela,
     status: contrato.status,
+    ...productFieldsToRow(contrato),
   });
   if (e1) throw e1;
 
@@ -714,16 +774,35 @@ export async function supabaseFinalizeContract(
   await recomputeClientRowStatus(sb, clientId);
 }
 
+export type UpdateContractDetailsInput = {
+  numero: string;
+} & ContractProductFields;
+
+export async function supabaseUpdateContractDetails(
+  sb: SupabaseClient,
+  contractId: string,
+  input: UpdateContractDetailsInput,
+) {
+  const { error } = await sb
+    .from("contracts")
+    .update({
+      numero: input.numero,
+      ...productFieldsToRow(input),
+    })
+    .eq("id", contractId);
+  if (error) throw error;
+}
+
+/** @deprecated Use supabaseUpdateContractDetails */
 export async function supabaseUpdateContractNumero(
   sb: SupabaseClient,
   contractId: string,
   numero: string,
 ) {
-  const { error } = await sb
-    .from("contracts")
-    .update({ numero })
-    .eq("id", contractId);
-  if (error) throw error;
+  await supabaseUpdateContractDetails(sb, contractId, {
+    numero,
+    ...emptyContractProductFields(),
+  });
 }
 
 /** Remove boletos no Storage, depois o contrato (parcelas em cascade). */

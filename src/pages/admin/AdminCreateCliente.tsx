@@ -26,6 +26,9 @@ export default function AdminCreateCliente() {
   const [senha, setSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
   const [cpf, setCpf] = useState("");
+  const [rg, setRg] = useState("");
+  const [profissao, setProfissao] = useState("");
+  const [dataNascimento, setDataNascimento] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
   const [estadoCivil, setEstadoCivil] = useState("");
@@ -56,6 +59,9 @@ export default function AdminCreateCliente() {
         {
           nome,
           cpf,
+          rg,
+          profissao,
+          dataNascimento,
           email,
           telefone,
           estadoCivil: estadoCivil || undefined,
@@ -163,6 +169,23 @@ export default function AdminCreateCliente() {
               onChange={(e) => setCpf(formatCPF(e.target.value))}
               placeholder="Opcional"
               autoComplete="off"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ac-rg">RG</Label>
+            <Input id="ac-rg" value={rg} onChange={(e) => setRg(e.target.value)} placeholder="Opcional" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ac-prof">Profissão</Label>
+            <Input id="ac-prof" value={profissao} onChange={(e) => setProfissao(e.target.value)} placeholder="Opcional" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ac-nasc">Data de nascimento</Label>
+            <Input
+              id="ac-nasc"
+              placeholder="dd/mm/aaaa"
+              value={dataNascimento}
+              onChange={(e) => setDataNascimento(e.target.value)}
             />
           </div>
           <div className="space-y-2">

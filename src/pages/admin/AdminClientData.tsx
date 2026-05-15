@@ -32,6 +32,9 @@ function emptyFormState() {
   return {
     nome: "",
     cpf: "",
+    rg: "",
+    profissao: "",
+    dataNascimento: "",
     email: "",
     telefone: "",
     estadoCivil: "",
@@ -50,6 +53,9 @@ function formStateFromCliente(c: Cliente) {
   return {
     nome: c.nome,
     cpf: c.cpf,
+    rg: c.rg,
+    profissao: c.profissao,
+    dataNascimento: c.dataNascimento,
     email: c.email,
     telefone: c.telefone,
     estadoCivil: c.estadoCivil,
@@ -104,6 +110,9 @@ export default function AdminClientData() {
       const ok = await updateClienteManualFields(id, {
         nome: form.nome,
         cpf: form.cpf,
+        rg: form.rg,
+        profissao: form.profissao,
+        dataNascimento: form.dataNascimento,
         email: form.email,
         telefone: form.telefone,
         estadoCivil: form.estadoCivil || undefined,
@@ -247,6 +256,31 @@ export default function AdminClientData() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="acd-rg">RG</Label>
+              <Input
+                id="acd-rg"
+                value={form.rg}
+                onChange={(e) => setForm((f) => ({ ...f, rg: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="acd-prof">Profissão</Label>
+              <Input
+                id="acd-prof"
+                value={form.profissao}
+                onChange={(e) => setForm((f) => ({ ...f, profissao: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="acd-nasc">Data de nascimento</Label>
+              <Input
+                id="acd-nasc"
+                placeholder="dd/mm/aaaa"
+                value={form.dataNascimento}
+                onChange={(e) => setForm((f) => ({ ...f, dataNascimento: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="acd-email">E-mail</Label>
               <Input
                 id="acd-email"
@@ -294,6 +328,9 @@ export default function AdminClientData() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             <Field label="Nome" value={cliente.nome} />
             <Field label="CPF" value={cliente.cpf} />
+            <Field label="RG" value={cliente.rg} />
+            <Field label="Profissão" value={cliente.profissao} />
+            <Field label="Data de nascimento" value={cliente.dataNascimento} />
             <Field label="Email" value={cliente.email} />
             <Field label="Telefone" value={cliente.telefone} />
             <Field label="Estado Civil" value={cliente.estadoCivil} />

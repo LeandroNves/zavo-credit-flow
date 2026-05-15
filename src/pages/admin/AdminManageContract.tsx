@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, Pencil, Trash2, Barcode, QrCode } from "lucide-react";
+import { ArrowLeft, Check, Pencil, Trash2, Barcode, QrCode, FileText, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -32,11 +32,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useContractsData } from "@/contexts/ContractsDataContext";
-import { contractNumeroForInput } from "@/lib/contractNumero";
 import type { Parcela } from "@/data/mockData";
 import { toast } from "sonner";
 import { CONTRACT_STATUS_BADGE_CLASS, CONTRACT_STATUS_LABELS, CONTRACT_STATUS_VALUES, type ContractStatus } from "@/lib/contractStatus";
 import { brVencimentoToDateInputValue } from "@/lib/parcelSchedule";
+import { ContractProductFieldsForm } from "@/components/admin/ContractProductFieldsForm";
+import { emptyContractProductFields } from "@/data/mockData";
+import type { ContractProductFields } from "@/data/mockData";
+import {
+  buildContratoDocumentVars,
+  buildPromissoriaDocumentVars,
+} from "@/lib/documentVars";
+import {
+  downloadGeneratedPdf,
+  downloadGeneratedZip,
+} from "@/lib/generateDocumentClient";
+import { contractNumeroForInput } from "@/lib/contractNumero";
 
 export default function AdminManageContract() {
   const navigate = useNavigate();
@@ -45,8 +56,16 @@ export default function AdminManageContract() {
   const [payCodeParcela, setPayCodeParcela] = useState<Parcela | null>(null);
   const [boletoCode, setBoletoCode] = useState("");
   const [pixCode, setPixCode] = useState("");
-  const [renameOpen, setRenameOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [numeroEdit, setNumeroEdit] = useState("");
+  const [produtoEdit, setProdutoEdit] = useState<ContractProductFields>(
+    emptyContractProductFields(),
+  );
+  const [editSaving, setEditSaving] = useState(false);
+  const [promissoriaOpen, setPromissoriaOpen] = useState(false);
+  const [promissoriaMode, setPromissoriaMode] = useState<"uma" | "todas">("uma");
+  const [promissoriaParcela, setPromissoriaParcela] = useState("1");
+  const [generatingDoc, setGeneratingDoc] = useState(false);
   const [parcelaEdit, setParcelaEdit] = useState<Parcela | null>(null);
   const [parcelaValorStr, setParcelaValorStr] = useState("");
   const [parcelaDueIso, setParcelaDueIso] = useState("");
@@ -58,7 +77,7 @@ export default function AdminManageContract() {
     updateParcelaValorVencimento,
     updateParcelaPaymentCodes,
     updateContractStatus,
-    renameContractNumero,
+    updateContractDetails,
     deleteContract,
     ready,
     loading,
@@ -94,15 +113,90 @@ export default function AdminManageContract() {
     await updateContractStatus(id, contratoId, status);
   };
 
-  const openRename = () => {
-    if (contrato) setNumeroEdit(contractNumeroForInput(contrato.numero));
-    setRenameOpen(true);
+  const openEdit = () => {
+    if (!contrato) return;
+    setNumeroEdit(contractNumeroForInput(contrato.numero));
+    setProdutoEdit({
+      produtoCategoria: contrato.produtoCategoria,
+      produtoModelo: contrato.produtoModelo,
+      produtoCor: contrato.produtoCor,
+      produtoSerie: contrato.produtoSerie,
+      produtoImei: contrato.produtoImei,
+      produtoEstado: contrato.produtoEstado,
+      produtoAcessorios: contrato.produtoAcessorios,
+    });
+    setEditOpen(true);
   };
 
-  const handleRenameSave = async () => {
-    if (!id || !contratoId) return;
-    const ok = await renameContractNumero(id, contratoId, numeroEdit);
-    if (ok) setRenameOpen(false);
+  const handleEditSave = async () => {
+    if (!id || !contratoId || editSaving) return;
+    setEditSaving(true);
+    try {
+      const ok = await updateContractDetails(id, contratoId, {
+        numero: numeroEdit,
+        ...produtoEdit,
+      });
+      if (ok) setEditOpen(false);
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleGerarContrato = async () => {
+    if (!cliente || !contrato || generatingDoc) return;
+    setGeneratingDoc(true);
+    try {
+      const vars = buildContratoDocumentVars(cliente, contrato);
+      const safeNum = contrato.numero.replace(/[^\w.-]+/g, "_");
+      await downloadGeneratedPdf({
+        template: "contrato",
+        filename: `contrato-${safeNum}.pdf`,
+        vars,
+      });
+      toast.success("Contrato PDF gerado.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao gerar contrato.");
+    } finally {
+      setGeneratingDoc(false);
+    }
+  };
+
+  const handleGerarPromissorias = async () => {
+    if (!cliente || !contrato || generatingDoc) return;
+    setGeneratingDoc(true);
+    try {
+      const safeNum = contrato.numero.replace(/[^\w.-]+/g, "_");
+      if (promissoriaMode === "todas") {
+        const entries = parcelas.map((p) => ({
+          filename: `promissoria-${safeNum}-parc-${p.numero}.pdf`,
+          vars: buildPromissoriaDocumentVars(cliente, contrato, p),
+        }));
+        await downloadGeneratedZip({
+          template: "promissoria",
+          zipFilename: `promissorias-${safeNum}.zip`,
+          entries,
+        });
+        toast.success("ZIP de promissórias gerado.");
+      } else {
+        const n = parseInt(promissoriaParcela, 10);
+        const p = parcelas.find((x) => x.numero === n);
+        if (!p) {
+          toast.error("Parcela não encontrada.");
+          return;
+        }
+        await downloadGeneratedPdf({
+          template: "promissoria",
+          filename: `promissoria-${safeNum}-parc-${p.numero}.pdf`,
+          vars: buildPromissoriaDocumentVars(cliente, contrato, p),
+        });
+        toast.success("Promissória gerada.");
+      }
+      setPromissoriaOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao gerar promissória.");
+    } finally {
+      setGeneratingDoc(false);
+    }
   };
 
   const handleDeleteContract = async () => {
@@ -277,30 +371,79 @@ export default function AdminManageContract() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Identificação do contrato</DialogTitle>
+            <DialogTitle>Editar contrato</DialogTitle>
             <DialogDescription>
-              Ex.: 395-2025 — o símbolo # é acrescentado automaticamente se faltar.
+              Identificação e dados do produto para geração de PDF.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 py-2">
-            <Label htmlFor="rename-numero">Nome / número do contrato</Label>
-            <Input
-              id="rename-numero"
-              value={numeroEdit}
-              onChange={(e) => setNumeroEdit(e.target.value)}
-              placeholder="395-2025"
-              autoComplete="off"
+          <div className="space-y-6 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-numero">Identificação do contrato</Label>
+              <Input
+                id="edit-numero"
+                value={numeroEdit}
+                onChange={(e) => setNumeroEdit(e.target.value)}
+                placeholder="395-2025"
+                autoComplete="off"
+              />
+            </div>
+            <ContractProductFieldsForm
+              value={produtoEdit}
+              onChange={setProdutoEdit}
+              idPrefix="edit-prod"
             />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setRenameOpen(false)}>
+            <Button type="button" variant="outline" disabled={editSaving} onClick={() => setEditOpen(false)}>
               Cancelar
             </Button>
-            <Button type="button" onClick={() => void handleRenameSave()}>
-              Salvar
+            <Button type="button" disabled={editSaving} onClick={() => void handleEditSave()}>
+              {editSaving ? "Salvando…" : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={promissoriaOpen} onOpenChange={setPromissoriaOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Gerar promissórias (PDF)</DialogTitle>
+            <DialogDescription>Uma parcela ou todas em ZIP.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Opção</Label>
+              <Select value={promissoriaMode} onValueChange={(v) => setPromissoriaMode(v as "uma" | "todas")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="uma">Uma parcela</SelectItem>
+                  <SelectItem value="todas">Todas (ZIP)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {promissoriaMode === "uma" && (
+              <div className="space-y-2">
+                <Label>Parcela</Label>
+                <Select value={promissoriaParcela} onValueChange={setPromissoriaParcela}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {parcelas.map((p) => (
+                      <SelectItem key={p.numero} value={String(p.numero)}>
+                        {p.numero}/{p.total} — {p.vencimento}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPromissoriaOpen(false)}>Cancelar</Button>
+            <Button type="button" disabled={generatingDoc} onClick={() => void handleGerarPromissorias()}>
+              {generatingDoc ? "Gerando…" : "Baixar"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -322,10 +465,10 @@ export default function AdminManageContract() {
               size="sm"
               variant="outline"
               className="gap-1 shrink-0"
-              onClick={openRename}
+              onClick={openEdit}
             >
               <Pencil className="h-3 w-3" />
-              Renomear
+              Editar
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
@@ -333,9 +476,33 @@ export default function AdminManageContract() {
             {contrato.parcelas} parcelas (soma das parcelas)
           </p>
         </div>
-        <span className={`text-xs font-medium px-3 py-1 rounded-full shrink-0 ${CONTRACT_STATUS_BADGE_CLASS[contrato.status]}`}>
-          {CONTRACT_STATUS_LABELS[contrato.status]}
-        </span>
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          <span className={`text-xs font-medium px-3 py-1 rounded-full ${CONTRACT_STATUS_BADGE_CLASS[contrato.status]}`}>
+            {CONTRACT_STATUS_LABELS[contrato.status]}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="gap-1"
+            disabled={generatingDoc}
+            onClick={() => void handleGerarContrato()}
+          >
+            <FileText className="h-3 w-3" />
+            Contrato PDF
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1"
+            disabled={generatingDoc || parcelas.length === 0}
+            onClick={() => setPromissoriaOpen(true)}
+          >
+            <Download className="h-3 w-3" />
+            Promissórias
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3 items-center">

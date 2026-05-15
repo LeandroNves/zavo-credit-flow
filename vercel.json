@@ -4,5 +4,11 @@
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/admin/generate-document.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  }
 }

@@ -16,7 +16,28 @@ export interface Parcela {
   pixCode?: string | null;
 }
 
-export interface Contrato {
+/** Dados do produto vendido no contrato (documentos PDF). */
+export type ContractProductFields = {
+  produtoCategoria: string;
+  produtoModelo: string;
+  produtoCor: string;
+  produtoSerie: string;
+  produtoImei: string;
+  produtoEstado: string;
+  produtoAcessorios: string;
+};
+
+export const emptyContractProductFields = (): ContractProductFields => ({
+  produtoCategoria: "",
+  produtoModelo: "",
+  produtoCor: "",
+  produtoSerie: "",
+  produtoImei: "",
+  produtoEstado: "",
+  produtoAcessorios: "",
+});
+
+export interface Contrato extends ContractProductFields {
   id: string;
   numero: string;
   valor: number;
@@ -30,6 +51,9 @@ export interface Cliente {
   id: string;
   nome: string;
   cpf: string;
+  rg: string;
+  profissao: string;
+  dataNascimento: string;
   email: string;
   telefone: string;
   estadoCivil: string;
@@ -86,6 +110,9 @@ export const mockClientes: Cliente[] = [
     id: "1",
     nome: "João Silva",
     cpf: "123.456.789-00",
+    rg: "",
+    profissao: "",
+    dataNascimento: "",
     email: "joao@email.com",
     telefone: "(11) 99999-1234",
     estadoCivil: "Solteiro",
@@ -108,6 +135,7 @@ export const mockClientes: Cliente[] = [
         parcelas: 5,
         valorParcela: 540,
         status: "ativo",
+        ...emptyContractProductFields(),
         listaParcelas: mockParcelas1,
       },
     ],
@@ -116,6 +144,9 @@ export const mockClientes: Cliente[] = [
     id: "2",
     nome: "Maria Souza",
     cpf: "987.654.321-00",
+    rg: "",
+    profissao: "",
+    dataNascimento: "",
     email: "maria@email.com",
     telefone: "(21) 98888-5678",
     estadoCivil: "Casada",
@@ -138,6 +169,7 @@ export const mockClientes: Cliente[] = [
         parcelas: 4,
         valorParcela: 375,
         status: "ativo",
+        ...emptyContractProductFields(),
         listaParcelas: mockParcelas2,
       },
     ],
@@ -146,6 +178,9 @@ export const mockClientes: Cliente[] = [
     id: "3",
     nome: "Carlos Oliveira",
     cpf: "456.789.123-00",
+    rg: "",
+    profissao: "",
+    dataNascimento: "",
     email: "carlos@email.com",
     telefone: "(31) 97777-9012",
     estadoCivil: "Divorciado",
@@ -166,6 +201,9 @@ export const mockClientes: Cliente[] = [
     id: "4",
     nome: "Ana Paula Costa",
     cpf: "321.654.987-00",
+    rg: "",
+    profissao: "",
+    dataNascimento: "",
     email: "anapaula@email.com",
     telefone: "(41) 96666-3456",
     estadoCivil: "Solteira",
@@ -188,6 +226,7 @@ export const mockClientes: Cliente[] = [
         parcelas: 3,
         valorParcela: 600,
         status: "finalizado",
+        ...emptyContractProductFields(),
         listaParcelas: [
           { numero: 1, total: 3, valor: 600, vencimento: "15/08/2025", status: "pago" },
           { numero: 2, total: 3, valor: 600, vencimento: "15/09/2025", status: "pago" },
