@@ -136,13 +136,26 @@ export async function handleGenerateDocument(
   } catch (e) {
     const msg = e instanceof Error ? e.message : "generate_failed";
     console.error("[generate-document]", e);
+    let errorCode = "generate_failed";
+    if (msg.includes("template_missing")) errorCode = "template_missing";
+    else if (msg.includes("docx_template_error")) errorCode = "docx_template_error";
+
+    const friendly =
+      errorCode === "template_missing"
+        ? "Modelo Word não encontrado no servidor. Faça redeploy com os ficheiros em api/_lib/templates/."
+        : errorCode === "docx_template_error"
+          ? `Erro no modelo Word: ${msg.replace(/^docx_template_error:\s*/, "")}`
+          : msg.length < 200
+            ? msg
+            : "Falha ao gerar PDF. Tente novamente ou contacte o suporte.";
+
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
     res.end(
       JSON.stringify({
         ok: false,
-        error: msg.includes("template_missing") ? "template_missing" : "generate_failed",
-        message: msg,
+        error: errorCode,
+        message: friendly,
       }),
     );
   }

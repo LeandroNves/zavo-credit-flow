@@ -9,7 +9,6 @@ import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const TEMPLATES_DIR = path.join(__dirname, "templates");
 
 export type DocumentTemplateId = "contrato" | "promissoria";
 
@@ -17,6 +16,20 @@ const TEMPLATE_FILES: Record<DocumentTemplateId, string> = {
   contrato: "contrato.docx",
   promissoria: "promissoria.docx",
 };
+
+function resolveTemplatesDir(): string {
+  const candidates = [
+    path.join(__dirname, "templates"),
+    path.join(process.cwd(), "api", "_lib", "templates"),
+    path.join(process.cwd(), ".vercel", "output", "api", "_lib", "templates"),
+  ];
+  for (const dir of candidates) {
+    if (fs.existsSync(path.join(dir, "contrato.docx"))) return dir;
+  }
+  return candidates[0]!;
+}
+
+const TEMPLATES_DIR = resolveTemplatesDir();
 
 function trimVars(vars: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
@@ -26,13 +39,27 @@ function trimVars(vars: Record<string, string>): Record<string, string> {
   return out;
 }
 
+function formatDocxError(err: unknown): string {
+  if (err && typeof err === "object" && "properties" in err) {
+    const props = (err as { properties?: { errors?: Array<{ message?: string }> } })
+      .properties;
+    const parts = props?.errors?.map((e) => e.message).filter(Boolean);
+    if (parts?.length) return `docx_template_error: ${parts.join("; ")}`;
+  }
+  if (err instanceof Error) return err.message;
+  return "docx_render_failed";
+}
+
 export function renderDocxBuffer(
   templateId: DocumentTemplateId,
   vars: Record<string, string>,
 ): Buffer {
-  const filePath = path.join(TEMPLATES_DIR, TEMPLATE_FILES[templateId]);
+  const fileName = TEMPLATE_FILES[templateId];
+  const filePath = path.join(TEMPLATES_DIR, fileName);
   if (!fs.existsSync(filePath)) {
-    throw new Error(`template_missing:${templateId}`);
+    throw new Error(
+      `template_missing:${templateId} (procurado em ${filePath}, cwd=${process.cwd()})`,
+    );
   }
   const content = fs.readFileSync(filePath);
   const zip = new PizZip(content);
@@ -40,8 +67,13 @@ export function renderDocxBuffer(
     paragraphLoop: true,
     linebreaks: true,
     delimiters: { start: "{", end: "}" },
+    nullGetter: () => "",
   });
-  doc.render(trimVars(vars));
+  try {
+    doc.render(trimVars(vars));
+  } catch (err) {
+    throw new Error(formatDocxError(err));
+  }
   return doc.getZip().generate({
     type: "nodebuffer",
     compression: "DEFLATE",
@@ -71,26 +103,34 @@ function wrapHtmlForPdf(bodyHtml: string): string {
 </html>`;
 }
 
-/** DOCX preenchido → PDF (sem LibreOffice/Gotenberg; roda na Vercel). */
+async function launchBrowser() {
+  chromium.setGraphicsMode(false);
+  const executablePath = await chromium.executablePath();
+  return puppeteer.launch({
+    args: chromium.args,
+    defaultViewport: chromium.defaultViewport,
+    executablePath,
+    headless: chromium.headless,
+  });
+}
+
+/** DOCX preenchido → PDF (Chromium embutido; funciona na Vercel). */
 export async function docxBufferToPdf(docx: Buffer): Promise<Buffer> {
   const { value: html } = await mammoth.convertToHtml({ buffer: docx });
   const fullHtml = wrapHtmlForPdf(html);
 
-  const executablePath = await chromium.executablePath();
-  const browser = await puppeteer.launch({
-    args: chromium.args,
-    defaultViewport: { width: 794, height: 1123 },
-    executablePath,
-    headless: true,
-  });
-
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
-    await page.setContent(fullHtml, { waitUntil: "networkidle0" });
+    await page.setContent(fullHtml, {
+      waitUntil: "domcontentloaded",
+      timeout: 45_000,
+    });
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
-      margin: { top: "0", right: "0", bottom: "0", left: "0" },
+      margin: { top: "12mm", right: "12mm", bottom: "12mm", left: "12mm" },
+      timeout: 45_000,
     });
     return Buffer.from(pdf);
   } finally {
