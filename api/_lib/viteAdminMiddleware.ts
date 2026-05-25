@@ -10,6 +10,7 @@ import {
   handleAdminMigrateProductImagesPost,
   handleAdminUploadProductImagePost,
 } from "./adminProductImagesHttp.js";
+import { handleGenerateDocument } from "./generateDocumentHttp.js";
 
 /**
  * Dev server only: expõe /api/admin/* com a mesma lógica das funções na Vercel.
@@ -65,6 +66,10 @@ export function createAdminApiMiddleware(
     }
     if (url === "/api/admin/migrate-product-images" && method === "POST") {
       void handleAdminMigrateProductImagesPost(merged, ireq, ires);
+      return;
+    }
+    if (url === "/api/admin/generate-document" && method === "POST") {
+      void handleGenerateDocument(merged, ireq, ires);
       return;
     }
 

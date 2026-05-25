@@ -137,16 +137,25 @@ export function dataBRPorExtenso(vencimentoBR: string): string {
   return `${day} de ${mes} de ${year}`;
 }
 
-/** Ex.: "DEZ de JUNHO de DOIS MIL E VINTE E SEIS" (promissória). */
+/** Ex.: "DEZ de JUNHO de DOIS MIL E VINTE E SEIS" (texto do corpo da promissória). */
 export function mesAnoPagamentoExtenso(vencimentoBR: string): string {
   const p = vencimentoBR.trim().split("/").map(Number);
   if (p.length !== 3 || p.some((n) => Number.isNaN(n))) return "";
-  const [, month, year] = p;
+  const [day, month, year] = p;
   const mes = MESES[month - 1];
   if (!mes) return "";
+  const diaTxt = extensoInteiro(day).toUpperCase();
   const mesUpper = mes.toUpperCase();
   const anoTxt = extensoInteiro(year).toUpperCase();
-  return `${mesUpper} de ${mesUpper} de ${anoTxt}`;
+  return `${diaTxt} de ${mesUpper} de ${anoTxt}`;
+}
+
+/** Valor numérico sem "R$" (ex.: 186,15) para o campo ao lado do símbolo no modelo. */
+export function formatMoedaNumeroBR(valor: number): string {
+  return valor.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 /** Ex.: "12 de maio de 2026" para data de assinatura. */

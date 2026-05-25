@@ -15,6 +15,11 @@ import {
 } from "@/lib/parcelSchedule";
 import { type ContractStatus, isContractStatus } from "@/lib/contractStatus";
 import { formatCPF, formatTelefoneBR } from "@/lib/brFormat";
+import {
+  normalizeContractProductsList,
+  parseProdutosFromContractRow,
+  productFieldsToLegacyRow,
+} from "@/lib/contractProducts";
 
 type ClientRow = {
   id: string;
@@ -54,6 +59,7 @@ type ContractRow = {
   produto_imei?: string | null;
   produto_estado?: string | null;
   produto_acessorios?: string | null;
+  produtos?: unknown;
 };
 
 type InstallmentRow = {
@@ -67,28 +73,10 @@ type InstallmentRow = {
   pix_code?: string | null;
 };
 
-function productFieldsToRow(p: ContractProductFields): Record<string, unknown> {
-  return {
-    produto_categoria: emptyToNull(p.produtoCategoria),
-    produto_modelo: emptyToNull(p.produtoModelo),
-    produto_cor: emptyToNull(p.produtoCor),
-    produto_serie: emptyToNull(p.produtoSerie),
-    produto_imei: emptyToNull(p.produtoImei),
-    produto_estado: emptyToNull(p.produtoEstado),
-    produto_acessorios: emptyToNull(p.produtoAcessorios),
-  };
-}
-
-function rowToProductFields(row: ContractRow): ContractProductFields {
-  return {
-    produtoCategoria: row.produto_categoria ?? "",
-    produtoModelo: row.produto_modelo ?? "",
-    produtoCor: row.produto_cor ?? "",
-    produtoSerie: row.produto_serie ?? "",
-    produtoImei: row.produto_imei ?? "",
-    produtoEstado: row.produto_estado ?? "",
-    produtoAcessorios: row.produto_acessorios ?? "",
-  };
+function contractProductsToRow(
+  produtos: ContractProductFields[],
+): Record<string, unknown> {
+  return productFieldsToLegacyRow(normalizeContractProductsList(produtos));
 }
 
 function clientToRow(c: Cliente): Record<string, unknown> {
@@ -594,7 +582,7 @@ export async function fetchClientesFromSupabase(sb: SupabaseClient): Promise<Cli
       valorParcela: Number(k.valor_parcela),
       status,
       listaParcelas,
-      ...rowToProductFields(k),
+      produtos: parseProdutosFromContractRow(k),
     };
 
     const list = contractsByClient.get(k.client_id) || [];
@@ -642,7 +630,7 @@ export async function supabaseCreateContractWithInstallments(
     parcelas_count: contrato.parcelas,
     valor_parcela: contrato.valorParcela,
     status: contrato.status,
-    ...productFieldsToRow(contrato),
+    ...contractProductsToRow(contrato.produtos),
   });
   if (e1) throw e1;
 
@@ -776,7 +764,8 @@ export async function supabaseFinalizeContract(
 
 export type UpdateContractDetailsInput = {
   numero: string;
-} & ContractProductFields;
+  produtos: ContractProductFields[];
+};
 
 export async function supabaseUpdateContractDetails(
   sb: SupabaseClient,
@@ -787,7 +776,7 @@ export async function supabaseUpdateContractDetails(
     .from("contracts")
     .update({
       numero: input.numero,
-      ...productFieldsToRow(input),
+      ...contractProductsToRow(input.produtos),
     })
     .eq("id", contractId);
   if (error) throw error;
@@ -801,7 +790,7 @@ export async function supabaseUpdateContractNumero(
 ) {
   await supabaseUpdateContractDetails(sb, contractId, {
     numero,
-    ...emptyContractProductFields(),
+    produtos: [emptyContractProductFields()],
   });
 }
 

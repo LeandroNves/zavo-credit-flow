@@ -26,10 +26,11 @@ function resolveTemplatesDir(): string {
   return candidates[0]!;
 }
 
-function trimVars(vars: Record<string, string>): Record<string, string> {
-  const out: Record<string, string> = {};
+function trimRenderData(vars: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(vars)) {
-    out[k] = String(v ?? "").trim();
+    if (typeof v === "string") out[k] = v.trim();
+    else out[k] = v;
   }
   return out;
 }
@@ -47,7 +48,7 @@ function formatDocxError(err: unknown): string {
 
 export function renderDocxBuffer(
   templateId: DocumentTemplateId,
-  vars: Record<string, string>,
+  vars: Record<string, unknown>,
 ): Buffer {
   const templatesDir = resolveTemplatesDir();
   const fileName = TEMPLATE_FILES[templateId];
@@ -60,13 +61,14 @@ export function renderDocxBuffer(
   const content = fs.readFileSync(filePath);
   const zip = new PizZip(content);
   const doc = new Docxtemplater(zip, {
-    paragraphLoop: true,
+    // Contrato: evita duplicar parágrafos extras. Promissória: páginas mescladas no servidor.
+    paragraphLoop: false,
     linebreaks: true,
     delimiters: { start: "{", end: "}" },
     nullGetter: () => "",
   });
   try {
-    doc.render(trimVars(vars));
+    doc.render(trimRenderData(vars));
   } catch (err) {
     throw new Error(formatDocxError(err));
   }
@@ -78,7 +80,7 @@ export function renderDocxBuffer(
 
 export async function renderPdfBuffer(
   templateId: DocumentTemplateId,
-  vars: Record<string, string>,
+  vars: Record<string, unknown>,
 ): Promise<Buffer> {
   const docx = renderDocxBuffer(templateId, vars);
   return docxBufferToPdf(docx);

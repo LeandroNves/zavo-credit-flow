@@ -23,6 +23,8 @@ export type ContractProductFields = {
   produtoCor: string;
   produtoSerie: string;
   produtoImei: string;
+  /** Segundo IMEI (opcional; omitido no Word se vazio). */
+  produtoImei2: string;
   produtoEstado: string;
   produtoAcessorios: string;
 };
@@ -33,11 +35,12 @@ export const emptyContractProductFields = (): ContractProductFields => ({
   produtoCor: "",
   produtoSerie: "",
   produtoImei: "",
+  produtoImei2: "",
   produtoEstado: "",
   produtoAcessorios: "",
 });
 
-export interface Contrato extends ContractProductFields {
+export interface Contrato {
   id: string;
   numero: string;
   valor: number;
@@ -45,6 +48,8 @@ export interface Contrato extends ContractProductFields {
   valorParcela: number;
   status: ContractStatus;
   listaParcelas: Parcela[];
+  /** Um ou mais produtos vendidos neste contrato. */
+  produtos: ContractProductFields[];
 }
 
 export interface Cliente {
@@ -135,7 +140,7 @@ export const mockClientes: Cliente[] = [
         parcelas: 5,
         valorParcela: 540,
         status: "ativo",
-        ...emptyContractProductFields(),
+        produtos: [emptyContractProductFields()],
         listaParcelas: mockParcelas1,
       },
     ],
@@ -169,7 +174,7 @@ export const mockClientes: Cliente[] = [
         parcelas: 4,
         valorParcela: 375,
         status: "ativo",
-        ...emptyContractProductFields(),
+        produtos: [emptyContractProductFields()],
         listaParcelas: mockParcelas2,
       },
     ],
@@ -226,7 +231,7 @@ export const mockClientes: Cliente[] = [
         parcelas: 3,
         valorParcela: 600,
         status: "finalizado",
-        ...emptyContractProductFields(),
+        produtos: [emptyContractProductFields()],
         listaParcelas: [
           { numero: 1, total: 3, valor: 600, vencimento: "15/08/2025", status: "pago" },
           { numero: 2, total: 3, valor: 600, vencimento: "15/09/2025", status: "pago" },

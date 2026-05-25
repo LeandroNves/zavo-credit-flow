@@ -19,8 +19,9 @@ import {
   formatVencimentoBR,
   splitTotalAcrossInstallments,
 } from "@/lib/parcelSchedule";
-import { ContractProductFieldsForm } from "@/components/admin/ContractProductFieldsForm";
+import { ContractProductsEditor } from "@/components/admin/ContractProductsEditor";
 import { emptyContractProductFields } from "@/data/mockData";
+import type { ContractProductFields } from "@/data/mockData";
 
 export default function AdminCreateContract() {
   const { id } = useParams();
@@ -47,7 +48,9 @@ export default function AdminCreateContract() {
     Array.from({ length: 12 }, () => null),
   );
   const [submitting, setSubmitting] = useState(false);
-  const [produto, setProduto] = useState(emptyContractProductFields);
+  const [produtos, setProdutos] = useState<ContractProductFields[]>([
+    emptyContractProductFields(),
+  ]);
 
   const nParcelas = Math.max(1, parseInt(qtdParcelas, 10) || 1);
   const dia = Math.min(31, Math.max(1, parseInt(diaVencimento, 10) || 10));
@@ -102,7 +105,7 @@ export default function AdminCreateContract() {
         primeiroVencimentoYm: primeiroMes,
         arquivosPorParcela: arquivos.slice(0, nParcelas),
         vencimentosPorParcelaIso: vencimentosOverrideIso.slice(0, nParcelas),
-        ...produto,
+        produtos,
       });
       navigate(`/admin/cliente/${id}`);
     } finally {
@@ -226,11 +229,15 @@ export default function AdminCreateContract() {
         </div>
 
         <div className="bg-card rounded-lg border p-6 space-y-4">
-          <h2 className="font-semibold text-primary">Produto vendido</h2>
+          <h2 className="font-semibold text-primary">Produtos vendidos</h2>
           <p className="text-sm text-muted-foreground">
-            Dados usados no contrato e nas promissórias geradas em PDF.
+            Inclua todos os itens desta venda. Os dados entram no contrato em PDF/Word.
           </p>
-          <ContractProductFieldsForm value={produto} onChange={setProduto} idPrefix="novo-prod" />
+          <ContractProductsEditor
+            value={produtos}
+            onChange={setProdutos}
+            idPrefix="novo-prod"
+          />
         </div>
 
         {preview.length > 0 && (

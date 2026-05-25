@@ -42,7 +42,8 @@ export function ContractProductFieldsForm({
       {field("produtoModelo", "Modelo", "Ex.: Apple iPhone 8 64GB")}
       {field("produtoCor", "Cor", "Ex.: Branco")}
       {field("produtoSerie", "Número de série")}
-      {field("produtoImei", "IMEI")}
+      {field("produtoImei", "IMEI 1")}
+      {field("produtoImei2", "IMEI 2 (opcional)", "Deixe vazio se não houver")}
       {field("produtoEstado", "Estado (novo/usado)", "Ex.: Usado")}
       {field("produtoAcessorios", "Acessórios inclusos", "Ex.: Não")}
     </fieldset>

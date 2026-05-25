@@ -36,18 +36,16 @@ import type { Parcela } from "@/data/mockData";
 import { toast } from "sonner";
 import { CONTRACT_STATUS_BADGE_CLASS, CONTRACT_STATUS_LABELS, CONTRACT_STATUS_VALUES, type ContractStatus } from "@/lib/contractStatus";
 import { brVencimentoToDateInputValue } from "@/lib/parcelSchedule";
-import { ContractProductFieldsForm } from "@/components/admin/ContractProductFieldsForm";
+import { ContractProductsEditor } from "@/components/admin/ContractProductsEditor";
 import { emptyContractProductFields } from "@/data/mockData";
 import type { ContractProductFields } from "@/data/mockData";
-import {
-  buildContratoDocumentVars,
-  buildPromissoriaDocumentVars,
-} from "@/lib/documentVars";
+import { getContratoProdutos } from "@/lib/contractProducts";
+import { buildContratoDocxData } from "@/lib/documentVars";
 import {
   downloadGeneratedDocx,
-  downloadGeneratedPdf,
-  downloadGeneratedZip,
+  downloadPromissoriasBatch,
 } from "@/lib/generateDocumentClient";
+import { buildPromissoriasPaginasData } from "@/lib/promissoriaBatch";
 import { contractNumeroForInput } from "@/lib/contractNumero";
 
 export default function AdminManageContract() {
@@ -59,14 +57,10 @@ export default function AdminManageContract() {
   const [pixCode, setPixCode] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [numeroEdit, setNumeroEdit] = useState("");
-  const [produtoEdit, setProdutoEdit] = useState<ContractProductFields>(
+  const [produtosEdit, setProdutosEdit] = useState<ContractProductFields[]>([
     emptyContractProductFields(),
-  );
+  ]);
   const [editSaving, setEditSaving] = useState(false);
-  const [promissoriaOpen, setPromissoriaOpen] = useState(false);
-  const [promissoriaMode, setPromissoriaMode] = useState<"uma" | "todas">("uma");
-  const [promissoriaFormat, setPromissoriaFormat] = useState<"pdf" | "docx">("pdf");
-  const [promissoriaParcela, setPromissoriaParcela] = useState("1");
   const [generatingDoc, setGeneratingDoc] = useState(false);
   const [parcelaEdit, setParcelaEdit] = useState<Parcela | null>(null);
   const [parcelaValorStr, setParcelaValorStr] = useState("");
@@ -118,15 +112,7 @@ export default function AdminManageContract() {
   const openEdit = () => {
     if (!contrato) return;
     setNumeroEdit(contractNumeroForInput(contrato.numero));
-    setProdutoEdit({
-      produtoCategoria: contrato.produtoCategoria,
-      produtoModelo: contrato.produtoModelo,
-      produtoCor: contrato.produtoCor,
-      produtoSerie: contrato.produtoSerie,
-      produtoImei: contrato.produtoImei,
-      produtoEstado: contrato.produtoEstado,
-      produtoAcessorios: contrato.produtoAcessorios,
-    });
+    setProdutosEdit(getContratoProdutos(contrato));
     setEditOpen(true);
   };
 
@@ -136,7 +122,7 @@ export default function AdminManageContract() {
     try {
       const ok = await updateContractDetails(id, contratoId, {
         numero: numeroEdit,
-        ...produtoEdit,
+        produtos: produtosEdit,
       });
       if (ok) setEditOpen(false);
     } finally {
@@ -144,30 +130,11 @@ export default function AdminManageContract() {
     }
   };
 
-  const handleGerarContratoPdf = async () => {
-    if (!cliente || !contrato || generatingDoc) return;
-    setGeneratingDoc(true);
-    try {
-      const vars = buildContratoDocumentVars(cliente, contrato);
-      const safeNum = contrato.numero.replace(/[^\w.-]+/g, "_");
-      await downloadGeneratedPdf({
-        template: "contrato",
-        filename: `contrato-${safeNum}.pdf`,
-        vars,
-      });
-      toast.success("Contrato PDF gerado.");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha ao gerar contrato PDF.");
-    } finally {
-      setGeneratingDoc(false);
-    }
-  };
-
   const handleGerarContratoWord = async () => {
     if (!cliente || !contrato || generatingDoc) return;
     setGeneratingDoc(true);
     try {
-      const vars = buildContratoDocumentVars(cliente, contrato);
+      const vars = buildContratoDocxData(cliente, contrato);
       const safeNum = contrato.numero.replace(/[^\w.-]+/g, "_");
       await downloadGeneratedDocx({
         template: "contrato",
@@ -183,48 +150,20 @@ export default function AdminManageContract() {
   };
 
   const handleGerarPromissorias = async () => {
-    if (!cliente || !contrato || generatingDoc) return;
+    if (!cliente || !contrato || generatingDoc || parcelas.length === 0) return;
     setGeneratingDoc(true);
     try {
       const safeNum = contrato.numero.replace(/[^\w.-]+/g, "_");
-      const ext = promissoriaFormat === "docx" ? "docx" : "pdf";
-      if (promissoriaMode === "todas") {
-        const entries = parcelas.map((p) => ({
-          filename: `promissoria-${safeNum}-parc-${p.numero}.${ext}`,
-          vars: buildPromissoriaDocumentVars(cliente, contrato, p),
-        }));
-        await downloadGeneratedZip({
-          template: "promissoria",
-          format: promissoriaFormat,
-          zipFilename: `promissorias-${safeNum}.zip`,
-          entries,
-        });
-        toast.success("ZIP de promissórias gerado.");
-      } else {
-        const n = parseInt(promissoriaParcela, 10);
-        const p = parcelas.find((x) => x.numero === n);
-        if (!p) {
-          toast.error("Parcela não encontrada.");
-          return;
-        }
-        if (promissoriaFormat === "docx") {
-          await downloadGeneratedDocx({
-            template: "promissoria",
-            filename: `promissoria-${safeNum}-parc-${p.numero}.docx`,
-            vars: buildPromissoriaDocumentVars(cliente, contrato, p),
-          });
-        } else {
-          await downloadGeneratedPdf({
-            template: "promissoria",
-            filename: `promissoria-${safeNum}-parc-${p.numero}.pdf`,
-            vars: buildPromissoriaDocumentVars(cliente, contrato, p),
-          });
-        }
-        toast.success("Promissória gerada.");
-      }
-      setPromissoriaOpen(false);
+      const batchVars = buildPromissoriasPaginasData(cliente, contrato, parcelas);
+      await downloadPromissoriasBatch({
+        filename: `promissorias-${safeNum}-todas-${parcelas.length}parc.docx`,
+        paginas: batchVars.paginas,
+      });
+      toast.success(
+        `Word gerado com ${parcelas.length} promissória(s) em ordem de vencimento.`,
+      );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha ao gerar promissória.");
+      toast.error(e instanceof Error ? e.message : "Falha ao gerar promissórias.");
     } finally {
       setGeneratingDoc(false);
     }
@@ -407,7 +346,7 @@ export default function AdminManageContract() {
           <DialogHeader>
             <DialogTitle>Editar contrato</DialogTitle>
             <DialogDescription>
-              Identificação e dados do produto para geração de PDF.
+              Identificação do contrato e produtos vendidos (um ou mais itens).
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-2">
@@ -421,9 +360,9 @@ export default function AdminManageContract() {
                 autoComplete="off"
               />
             </div>
-            <ContractProductFieldsForm
-              value={produtoEdit}
-              onChange={setProdutoEdit}
+            <ContractProductsEditor
+              value={produtosEdit}
+              onChange={setProdutosEdit}
               idPrefix="edit-prod"
             />
           </div>
@@ -433,63 +372,6 @@ export default function AdminManageContract() {
             </Button>
             <Button type="button" disabled={editSaving} onClick={() => void handleEditSave()}>
               {editSaving ? "Salvando…" : "Salvar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={promissoriaOpen} onOpenChange={setPromissoriaOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Gerar promissórias</DialogTitle>
-            <DialogDescription>
-              Word mantém o layout do modelo; PDF fiel exige Gotenberg na Vercel.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Formato</Label>
-              <Select
-                value={promissoriaFormat}
-                onValueChange={(v) => setPromissoriaFormat(v as "pdf" | "docx")}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pdf">PDF</SelectItem>
-                  <SelectItem value="docx">Word (.docx)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Opção</Label>
-              <Select value={promissoriaMode} onValueChange={(v) => setPromissoriaMode(v as "uma" | "todas")}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="uma">Uma parcela</SelectItem>
-                  <SelectItem value="todas">Todas (ZIP)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {promissoriaMode === "uma" && (
-              <div className="space-y-2">
-                <Label>Parcela</Label>
-                <Select value={promissoriaParcela} onValueChange={setPromissoriaParcela}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {parcelas.map((p) => (
-                      <SelectItem key={p.numero} value={String(p.numero)}>
-                        {p.numero}/{p.total} — {p.vencimento}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setPromissoriaOpen(false)}>Cancelar</Button>
-            <Button type="button" disabled={generatingDoc} onClick={() => void handleGerarPromissorias()}>
-              {generatingDoc ? "Gerando…" : "Baixar"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -542,22 +424,11 @@ export default function AdminManageContract() {
             size="sm"
             variant="outline"
             className="gap-1"
-            disabled={generatingDoc}
-            onClick={() => void handleGerarContratoPdf()}
-          >
-            <Download className="h-3 w-3" />
-            Contrato PDF
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="gap-1"
             disabled={generatingDoc || parcelas.length === 0}
-            onClick={() => setPromissoriaOpen(true)}
+            onClick={() => void handleGerarPromissorias()}
           >
             <Download className="h-3 w-3" />
-            Promissórias
+            {generatingDoc ? "Gerando…" : "Promissórias Word"}
           </Button>
         </div>
       </div>

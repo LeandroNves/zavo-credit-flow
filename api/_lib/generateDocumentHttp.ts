@@ -7,6 +7,11 @@ import {
   sanitizeDownloadFilename,
   type DocumentTemplateId,
 } from "./generateDocument.js";
+import {
+  renderPromissoriasDocxMerged,
+  renderPromissoriasPdfMerged,
+  type PromissoriaPageVars,
+} from "./promissoriaRender.js";
 
 type OutputFormat = "pdf" | "docx";
 
@@ -19,6 +24,8 @@ type GenerateBody = {
     filename: string;
     entries: { filename: string; vars: Record<string, string> }[];
   };
+  /** Promissórias: uma página do modelo (3 slots) por item; mescladas no servidor. */
+  promissoriaPages?: PromissoriaPageVars[];
 };
 
 const DOCX_MIME =
@@ -48,9 +55,12 @@ function isTemplateId(v: unknown): v is DocumentTemplateId {
   return v === "contrato" || v === "promissoria";
 }
 
-function isVarsRecord(v: unknown): v is Record<string, string> {
-  if (!v || typeof v !== "object") return false;
-  return Object.values(v).every((x) => typeof x === "string" || x == null);
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return Boolean(v) && typeof v === "object" && !Array.isArray(v);
+}
+
+function isVarsRecord(v: unknown): v is Record<string, unknown> {
+  return isPlainObject(v);
 }
 
 function parseFormat(v: unknown): OutputFormat {
@@ -148,6 +158,33 @@ export async function handleGenerateDocument(
       res.end(JSON.stringify({ ok: false, error: "invalid_template" }));
       return;
     }
+
+    if (
+      template === "promissoria" &&
+      Array.isArray(body.promissoriaPages) &&
+      body.promissoriaPages.length > 0
+    ) {
+      const pages = body.promissoriaPages.filter((p) => isPlainObject(p));
+      const filename = filenameForFormat(
+        body.filename || (format === "docx" ? "promissorias.docx" : "promissorias.pdf"),
+        format,
+      );
+      if (format === "docx") {
+        const docx = await renderPromissoriasDocxMerged(pages);
+        res.statusCode = 200;
+        res.setHeader("Content-Type", DOCX_MIME);
+        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+        res.end(docx);
+        return;
+      }
+      const pdf = await renderPromissoriasPdfMerged(pages);
+      res.statusCode = 200;
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.end(pdf);
+      return;
+    }
+
     if (!isVarsRecord(body.vars)) {
       res.statusCode = 400;
       res.setHeader("Content-Type", "application/json");

@@ -1,0 +1,70 @@
+Modelo: api/_lib/templates/promissoria.docx
+Formato docxtemplater: {nome_da_variavel} (chaves sem espaços)
+
+O arquivo tem 3 promissórias por página. Use prefixos:
+  s1_ = 1ª promissória da página
+  s2_ = 2ª promissória da página
+  s3_ = 3ª promissória da página
+
+Repita o mesmo bloco de tags na 2ª e 3ª promissória trocando s1 → s2 → s3.
+
+Opcional (ocultar 2ª/3ª se não houver parcela na página):
+  Envolva só a 2ª promissória com {#slot2} ... {/slot2}
+  Envolva só a 3ª promissória com {#slot3} ... {/slot3}
+
+================================================================================
+CAMPOS (substitua o texto em azul por estas tags)
+================================================================================
+
+Abaixo de "NOTA PROMISSÓRIA"
+  {s1_parcela_label}          Ex.: N. #1/12#
+
+Canto superior direito — vencimento
+  {s1_vencimento_extenso}     Ex.: 10 de junho de 2026  (data da parcela no sistema)
+
+Ao lado de "R$" (só o número)
+  {s1_valor_parcela_numero}   Ex.: 186,15
+
+Corpo — "No dia ... pagarei ... a quantia de"
+  {s1_mes_pagamento_extenso}  Ex.: DEZ de JUNHO de DOIS MIL E VINTE E SEIS
+
+Corpo — valor por extenso (maiúsculas)
+  {s1_valor_parcela_extenso_upper}  Ex.: CENTO E OITENTA E SEIS REAIS E QUINZE CENTAVOS
+
+Local de pagamento
+  {s1_local_pagamento}        Ex.: Buriti Alegre GO
+
+Nome do emitente
+  {s1_nome_cliente}
+
+CPF
+  {s1_cpf}                    Ex.: 025.233.061-74
+
+Endereço
+  {s1_endereco}
+
+Data de emissão (opcional)
+  {s1_data_emissao}           Ex.: 12/05/2026
+
+================================================================================
+Mesmas tags para 2ª e 3ª promissória na página: s2_... e s3_...
+================================================================================
+
+Exemplos:
+  {s2_parcela_label}
+  {s2_vencimento_extenso}
+  {s2_valor_parcela_numero}
+  {s2_mes_pagamento_extenso}
+  {s2_valor_parcela_extenso_upper}
+  {s2_local_pagamento}
+  {s2_nome_cliente}
+  {s2_cpf}
+  {s2_endereco}
+
+  {s3_parcela_label}
+  ... (idem com prefixo s3_)
+
+================================================================================
+Script para ajudar a trocar textos de exemplo (feche o Word antes):
+  node scripts/prepare-promissoria-3up.mjs
+================================================================================

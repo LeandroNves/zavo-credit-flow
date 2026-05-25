@@ -15,6 +15,7 @@ import type {
   Parcela,
 } from "@/data/mockData";
 import { emptyContractProductFields } from "@/data/mockData";
+import { normalizeContractProductsList } from "@/lib/contractProducts";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import {
   loadClientesFromLocalStorage,
@@ -77,7 +78,8 @@ export type CreateContractInput = {
   status: ContractStatus;
   /** Se preenchido, sobrescreve o vencimento (automático) de cada parcela por ISO yyyy-MM-dd. */
   vencimentosPorParcelaIso?: string[];
-} & ContractProductFields;
+  produtos: ContractProductFields[];
+};
 
 type DataSource = "supabase" | "local";
 
@@ -246,6 +248,8 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       const valorParcela =
         Math.round((input.valorTotal / input.parcelasCount) * 100) / 100;
 
+      const produtos = normalizeContractProductsList(input.produtos);
+
       const newContrato: Contrato = {
         id: contractId,
         numero,
@@ -254,13 +258,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
         valorParcela,
         status: input.status,
         listaParcelas,
-        produtoCategoria: (input.produtoCategoria ?? "").trim(),
-        produtoModelo: (input.produtoModelo ?? "").trim(),
-        produtoCor: (input.produtoCor ?? "").trim(),
-        produtoSerie: (input.produtoSerie ?? "").trim(),
-        produtoImei: (input.produtoImei ?? "").trim(),
-        produtoEstado: (input.produtoEstado ?? "").trim(),
-        produtoAcessorios: (input.produtoAcessorios ?? "").trim(),
+        produtos,
       };
 
       const filesByNum = new Map<number, File>();
@@ -623,22 +621,17 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
         toast.error("Já existe um contrato com essa identificação neste cliente.");
         return false;
       }
+      const produtos = normalizeContractProductsList(input.produtos);
       const patch: Contrato = {
         ...atual,
         numero,
-        produtoCategoria: input.produtoCategoria.trim(),
-        produtoModelo: input.produtoModelo.trim(),
-        produtoCor: input.produtoCor.trim(),
-        produtoSerie: input.produtoSerie.trim(),
-        produtoImei: input.produtoImei.trim(),
-        produtoEstado: input.produtoEstado.trim(),
-        produtoAcessorios: input.produtoAcessorios.trim(),
+        produtos,
       };
       try {
         if (dataSource === "supabase" && supabase) {
           await supabaseUpdateContractDetails(supabase, contractId, {
             numero,
-            ...patch,
+            produtos,
           });
           await reload();
         } else {
