@@ -79,7 +79,9 @@ export async function downloadPromissoriasBatch(input: {
   filename: string;
   paginas: Record<string, string | boolean>[];
 }): Promise<void> {
-  const format = input.format ?? "pdf";
+  const format =
+    input.format ??
+    (input.filename.toLowerCase().endsWith(".docx") ? "docx" : "pdf");
   const res = await fetch("/api/admin/generate-document", {
     method: "POST",
     credentials: "include",
@@ -115,7 +117,9 @@ export async function downloadGeneratedZip(input: {
   zipFilename: string;
   entries: { filename: string; vars: GenerateDocumentVars }[];
 }): Promise<void> {
-  const format = input.format ?? "pdf";
+  const format =
+    input.format ??
+    (input.filename.toLowerCase().endsWith(".docx") ? "docx" : "pdf");
   const res = await fetch("/api/admin/generate-document", {
     method: "POST",
     credentials: "include",

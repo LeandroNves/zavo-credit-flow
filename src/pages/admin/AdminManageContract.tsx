@@ -156,6 +156,7 @@ export default function AdminManageContract() {
       const safeNum = contrato.numero.replace(/[^\w.-]+/g, "_");
       const batchVars = buildPromissoriasPaginasData(cliente, contrato, parcelas);
       await downloadPromissoriasBatch({
+        format: "docx",
         filename: `promissorias-${safeNum}-todas-${parcelas.length}parc.docx`,
         paginas: batchVars.paginas,
       });
