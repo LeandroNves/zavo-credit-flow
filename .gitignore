@@ -7,13 +7,23 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies & build
 node_modules
 dist
 dist-ssr
+
+# Secrets (nunca commitar valores reais)
 .env
+.env.*
+!.env.example
 *.local
 
-# Editor directories and files
+# Artefatos locais de debug / testes de documento
+_promissoria_extract*.txt
+_test-merged.docx
+*.extract.txt
+
+# Editor
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -23,3 +33,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
