@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, Pencil, Trash2, Barcode, QrCode, FileText, Download } from "lucide-react";
+import { ArrowLeft, Check, Pencil, Trash2, Barcode, QrCode, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -156,7 +156,6 @@ export default function AdminManageContract() {
       const safeNum = contrato.numero.replace(/[^\w.-]+/g, "_");
       const batchVars = buildPromissoriasPaginasData(cliente, contrato, parcelas);
       await downloadPromissoriasBatch({
-        format: "docx",
         filename: `promissorias-${safeNum}-todas-${parcelas.length}parc.docx`,
         paginas: batchVars.paginas,
       });
@@ -418,17 +417,17 @@ export default function AdminManageContract() {
             onClick={() => void handleGerarContratoWord()}
           >
             <FileText className="h-3 w-3" />
-            Contrato Word
+            {generatingDoc ? "Gerando…" : "Contrato Word"}
           </Button>
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             className="gap-1"
             disabled={generatingDoc || parcelas.length === 0}
             onClick={() => void handleGerarPromissorias()}
           >
-            <Download className="h-3 w-3" />
+            <FileText className="h-3 w-3" />
             {generatingDoc ? "Gerando…" : "Promissórias Word"}
           </Button>
         </div>

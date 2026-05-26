@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
-import { docxBufferToPdf } from "./docxToPdf.js";
+import { sanitizeContratoDocumentXml } from "./contratoDocxSanitize.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -61,7 +61,6 @@ export function renderDocxBuffer(
   const content = fs.readFileSync(filePath);
   const zip = new PizZip(content);
   const doc = new Docxtemplater(zip, {
-    // Contrato: evita duplicar parágrafos extras. Promissória: páginas mescladas no servidor.
     paragraphLoop: false,
     linebreaks: true,
     delimiters: { start: "{", end: "}" },
@@ -72,20 +71,21 @@ export function renderDocxBuffer(
   } catch (err) {
     throw new Error(formatDocxError(err));
   }
+  if (templateId === "contrato") {
+    const xmlPath = "word/document.xml";
+    const file = doc.getZip().file(xmlPath);
+    if (file) {
+      doc
+        .getZip()
+        .file(xmlPath, sanitizeContratoDocumentXml(file.asText()));
+    }
+  }
   return doc.getZip().generate({
     type: "nodebuffer",
     compression: "DEFLATE",
   }) as Buffer;
 }
 
-export async function renderPdfBuffer(
-  templateId: DocumentTemplateId,
-  vars: Record<string, unknown>,
-): Promise<Buffer> {
-  const docx = renderDocxBuffer(templateId, vars);
-  return docxBufferToPdf(docx);
-}
-
 export function sanitizeDownloadFilename(name: string): string {
-  return name.replace(/[^\w.\- ()[\]]+/g, "_").slice(0, 120) || "documento.pdf";
+  return name.replace(/[^\w.\- ()[\]]+/g, "_").slice(0, 120) || "documento.docx";
 }

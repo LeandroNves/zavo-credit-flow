@@ -231,7 +231,7 @@ export default function AdminCreateContract() {
         <div className="bg-card rounded-lg border p-6 space-y-4">
           <h2 className="font-semibold text-primary">Produtos vendidos</h2>
           <p className="text-sm text-muted-foreground">
-            Inclua todos os itens desta venda. Os dados entram no contrato em PDF/Word.
+            Inclua todos os itens desta venda. Os dados entram no contrato Word.
           </p>
           <ContractProductsEditor
             value={produtos}

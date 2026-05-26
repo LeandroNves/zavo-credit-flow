@@ -16,7 +16,7 @@ export interface Parcela {
   pixCode?: string | null;
 }
 
-/** Dados do produto vendido no contrato (documentos PDF). */
+/** Dados do produto vendido no contrato (documento Word). */
 export type ContractProductFields = {
   produtoCategoria: string;
   produtoModelo: string;
