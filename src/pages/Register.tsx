@@ -21,7 +21,7 @@ import {
   type RegistrationCartSnapshot,
 } from "@/lib/registrationInterest";
 
-const steps = ["Produtos", "Dados Pessoais", "Endereço", "Financeiro", "Criar Senha"];
+const steps = ["Dados Pessoais", "Endereço", "Financeiro", "Criar Senha"];
 
 export type RegisterFormState = {
   interesseTipo: "produto";
@@ -75,13 +75,6 @@ function isNonEmpty(s: string) {
 
 function isValidEmail(s: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
-}
-
-function validateStepObjective(f: RegisterFormState): string | null {
-  if (!f.interesseCarrinho || f.interesseCarrinho.items.length === 0) {
-    return "Escolha um ou mais produtos antes de continuar com o cadastro.";
-  }
-  return null;
 }
 
 function validateStepPersonal(f: RegisterFormState): string | null {
@@ -269,10 +262,9 @@ export default function Register() {
 
   function goNext(fromStep: number) {
     let err: string | null = null;
-    if (fromStep === 0) err = validateStepObjective(form);
-    else if (fromStep === 1) err = validateStepPersonal(form);
-    else if (fromStep === 2) err = validateStepAddress(form);
-    else if (fromStep === 3) err = validateStepFinancial(form);
+    if (fromStep === 0) err = validateStepPersonal(form);
+    else if (fromStep === 1) err = validateStepAddress(form);
+    else if (fromStep === 2) err = validateStepFinancial(form);
     if (err) {
       toast.error(err);
       return;
@@ -338,52 +330,6 @@ export default function Register() {
 
         <div className="bg-card rounded-lg border shadow-sm p-6 md:p-8">
           {step === 0 && (
-            <div className="space-y-5">
-              <h2 className="text-xl font-bold text-primary">Escolha seus produtos</h2>
-              <p className="text-sm text-muted-foreground">
-                Selecione um ou mais produtos para continuar com o cadastro.
-              </p>
-
-              <div className="rounded-lg border bg-background p-4 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-semibold text-primary">Produtos selecionados</p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate({ pathname: "/", hash: "#produtos" })}
-                  >
-                    Escolher produtos
-                  </Button>
-                </div>
-
-                {form.interesseCarrinho?.items?.length ? (
-                  <div className="space-y-2">
-                    {form.interesseCarrinho.items.map((it, idx) => (
-                      <div key={idx} className="text-sm text-muted-foreground">
-                        <span className="font-medium text-primary">{it.qty}x</span>{" "}
-                        {it.name}
-                        {it.color ? ` (${it.color})` : ""} —{" "}
-                        <span className="font-medium text-primary">{it.months}x</span>{" "}
-                        de{" "}
-                        <span className="font-medium text-primary">{it.perInstallmentBRL}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Você ainda não selecionou produtos. Clique em “Escolher produtos”.
-                  </p>
-                )}
-              </div>
-
-              <Button type="button" className="w-full" onClick={() => goNext(0)}>
-                Próximo
-              </Button>
-            </div>
-          )}
-
-          {step === 1 && (
             <div className="space-y-5">
               <h2 className="text-xl font-bold text-primary">Dados Pessoais</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -506,14 +452,14 @@ export default function Register() {
               <Button
                 type="button"
                 className="w-full"
-                onClick={() => goNext(1)}
+                onClick={() => goNext(0)}
               >
                 Próximo
               </Button>
             </div>
           )}
 
-          {step === 2 && (
+          {step === 1 && (
             <div className="space-y-5">
               <h2 className="text-xl font-bold text-primary">Endereço</h2>
               <div className="space-y-4">
@@ -557,14 +503,14 @@ export default function Register() {
                   type="button"
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setStep(1)}
+                  onClick={() => setStep(0)}
                 >
                   Voltar
                 </Button>
                 <Button
                   type="button"
                   className="flex-1"
-                  onClick={() => goNext(2)}
+                  onClick={() => goNext(1)}
                 >
                   Próximo
                 </Button>
@@ -572,7 +518,7 @@ export default function Register() {
             </div>
           )}
 
-          {step === 3 && (
+          {step === 2 && (
             <div className="space-y-5">
               <h2 className="text-xl font-bold text-primary">Dados financeiros</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -617,14 +563,14 @@ export default function Register() {
                   type="button"
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setStep(2)}
+                  onClick={() => setStep(1)}
                 >
                   Voltar
                 </Button>
                 <Button
                   type="button"
                   className="flex-1"
-                  onClick={() => goNext(3)}
+                  onClick={() => goNext(2)}
                 >
                   Próximo
                 </Button>
@@ -632,7 +578,7 @@ export default function Register() {
             </div>
           )}
 
-          {step === 4 && (
+          {step === 3 && (
             <div className="space-y-5">
               <h2 className="text-xl font-bold text-primary">Criar senha</h2>
               <div className="space-y-4">
@@ -692,7 +638,7 @@ export default function Register() {
                   type="button"
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setStep(3)}
+                  onClick={() => setStep(2)}
                 >
                   Voltar
                 </Button>
