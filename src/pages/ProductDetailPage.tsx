@@ -48,7 +48,7 @@ import {
 } from "@/components/product/ProductPaymentPanel";
 import { DueDayDialog } from "@/components/product/DueDayDialog";
 import { toast } from "sonner";
-import logo from "@/assets/logo-zavo-2026.PNG";
+import logo from "@/assets/logo-zavo-2026.png";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

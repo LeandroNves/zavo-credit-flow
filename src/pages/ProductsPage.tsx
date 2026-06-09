@@ -15,7 +15,7 @@ import {
   getProductPriceCentsByModel,
 } from "@/lib/productsStore";
 import { CART_UPDATED_EVENT, loadCart, saveCart } from "@/lib/cartStore";
-import logo from "@/assets/logo-zavo-2026.PNG";
+import logo from "@/assets/logo-zavo-2026.png";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 

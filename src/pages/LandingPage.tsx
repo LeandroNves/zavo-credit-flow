@@ -45,9 +45,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import logo from "@/assets/Logo-ZAVO-2026.PNG";
+import logo from "@/assets/logo-zavo-2026.png";
 import mascote from "@/assets/mascote.png";
-import heroImage from "@/assets/IMAGEM-ZAVO-INICIAL.PNG";
+import heroImage from "@/assets/imagem-zavo-inicial.png";
 import {
   ALL_INSTALLMENTS,
   type LandingProduct,
