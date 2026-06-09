@@ -45,9 +45,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo-zavo-2026.png";
 import mascote from "@/assets/mascote.png";
-import heroIphone from "@/assets/iphone17azul.png";
+import heroImage from "@/assets/imagem-zavo-inicial.png";
 import {
   ALL_INSTALLMENTS,
   type LandingProduct,
@@ -218,6 +218,14 @@ export default function LandingPage() {
 
   const cartCount = cartItems.reduce((sum, it) => sum + it.qty, 0);
 
+  const scrollToHero = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (location.pathname === "/") {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setMobileMenu(false);
+    }
+  };
+
   useEffect(() => {
     if (location.hash !== "#produtos") return;
     const timer = window.setTimeout(() => {
@@ -335,9 +343,14 @@ export default function LandingPage() {
       {/* ─── NAVBAR ─── */}
       <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-border/40">
         <div className="max-w-7xl mx-auto flex items-center justify-between h-16 px-4 lg:px-8">
-          <div className="flex items-center gap-2">
-            <img src={logo} alt="Zavo" className="h-36" />
-          </div>
+          <Link
+            to="/"
+            onClick={scrollToHero}
+            className="flex h-full items-center shrink-0 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+            aria-label="Voltar ao início"
+          >
+            <img src={logo} alt="Zavo" className="h-11 md:h-12 w-auto object-contain" />
+          </Link>
 
           {/* Desktop links */}
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-foreground/70">
@@ -578,7 +591,14 @@ export default function LandingPage() {
                   >
                     Finalizar compra
                   </Button>
-                  <Button variant="outline" className="w-full rounded-full" onClick={clearCart}>
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-full border-secondary text-secondary"
+                    onClick={() => setCartOpen(false)}
+                  >
+                    Continuar comprando
+                  </Button>
+                  <Button variant="ghost" className="w-full rounded-full text-muted-foreground" onClick={clearCart}>
                     Limpar carrinho
                   </Button>
                 </div>
@@ -589,9 +609,15 @@ export default function LandingPage() {
       </Sheet>
 
       {/* ─── HERO ─── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-white via-background to-accent/30">
-        <div ref={heroRef} className="max-w-7xl mx-auto px-4 lg:px-8 py-16 md:py-12 lg:py-32 flex flex-col md:flex-row items-center gap-8 lg:gap-16">
-          <div className="flex-1 space-y-6 text-center md:text-left">
+      <section
+        id="inicio"
+        className="relative overflow-hidden bg-gradient-to-br from-white via-background to-accent/30"
+      >
+        <div
+          ref={heroRef}
+          className="max-w-7xl mx-auto px-4 lg:px-8 pt-4 pb-8 md:pt-6 md:pb-10 lg:pt-8 lg:pb-14 flex flex-col md:flex-row items-center gap-5 md:gap-8 lg:gap-12"
+        >
+          <div className="flex-1 space-y-4 md:space-y-6 text-center md:text-left">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-secondary/10 text-secondary text-sm font-medium">
               <Zap className="h-3.5 w-3.5" /> Novidade disponível!
             </div>
@@ -613,11 +639,9 @@ export default function LandingPage() {
           <div className="flex-1 flex justify-center relative">
             <div className="absolute inset-0 bg-gradient-to-br from-secondary/10 to-accent/20 rounded-full blur-3xl scale-75" />
             <img
-              src={heroIphone}
-              alt="iPhone 17 Pro"
-              className="relative w-[22.464rem] md:w-[24.96rem] lg:w-[32.76rem] drop-shadow-2xl"
-              width={1024}
-              height={1024}
+              src={heroImage}
+              alt="Zavo — crédito e eletrônicos"
+              className="relative w-full max-w-sm md:max-w-md lg:max-w-lg drop-shadow-2xl object-contain"
             />
           </div>
         </div>
@@ -954,7 +978,9 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-5 gap-10">
             {/* Brand */}
             <div className="md:col-span-2 space-y-4">
-              <img src={logo} alt="Zavo" className="h-32" />
+              <Link to="/" onClick={scrollToHero} className="inline-block rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary">
+                <img src={logo} alt="Zavo" className="h-24 md:h-28 w-auto object-contain" />
+              </Link>
               <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
                 Seu eletrônico, do seu jeito de pagar
               </p>
@@ -1005,16 +1031,6 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-
-      {/* ─── WhatsApp FAB ─── */}
-      <a
-        href="https://wa.me/5562994356950"
-        target="_blank"
-        rel="noreferrer"
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center shadow-lg transition-colors"
-      >
-        <MessageCircle className="h-6 w-6 text-white" />
-      </a>
     </div>
   );
 }

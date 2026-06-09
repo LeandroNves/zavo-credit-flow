@@ -64,6 +64,7 @@ export default defineConfig(({ mode }) => {
     );
   }
   return {
+    assetsInclude: ["**/*.PNG"],
     server: {
       host: "::",
       port: 8080,

@@ -4,48 +4,50 @@
 
 @layer base {
   :root {
-    --background: 205 60% 95%; /* #B9DDF6 (aprox) */
-    --foreground: 218 92% 14%; /* #031744 */
+    --background: 205 75% 96%;
+    --foreground: 218 55% 22%;
 
     --card: 0 0% 100%;
-    --card-foreground: 217 70% 28%;
+    --card-foreground: 212 90% 38%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 217 70% 28%;
+    --popover-foreground: 212 90% 38%;
 
-    --primary: 218 92% 14%; /* #031744 */
+    /* Azul vivo (substitui o navy #031B44 / #031744) */
+    --primary: 212 100% 45%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 214 93% 49%; /* #0473F6 */
+    --secondary: 210 100% 52%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 198 70% 92%; /* #B9DDF6 mais suave */
-    --muted-foreground: 217 30% 40%;
+    --muted: 205 70% 93%;
+    --muted-foreground: 218 25% 42%;
 
-    --accent: 170 64% 86%; /* #BEF3ED */
-    --accent-foreground: 218 92% 14%; /* #031744 */
+    --accent: 170 70% 88%;
+    --accent-foreground: 212 100% 38%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 84% 58%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 201 55% 85%;
-    --input: 201 55% 85%;
-    --ring: 214 93% 49%; /* #0473F6 */
+    --border: 205 55% 86%;
+    --input: 205 55% 86%;
+    --ring: 210 100% 52%;
 
     --radius: 0.625rem;
 
-    --sidebar-background: 218 92% 14%;
-    --sidebar-foreground: 205 60% 95%;
-    --sidebar-primary: 214 93% 49%;
+    --sidebar-background: 212 100% 42%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 210 100% 58%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 214 93% 49%;
+    --sidebar-accent: 212 85% 50%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 218 50% 20%;
-    --sidebar-ring: 214 93% 49%;
+    --sidebar-border: 212 70% 48%;
+    --sidebar-ring: 210 100% 58%;
 
-    --success: 167 97% 47%; /* #03EBB1 */
+    /* Verde vivo para descontos e badges */
+    --success: 158 82% 42%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 38 95% 52%;
     --warning-foreground: 0 0% 100%;
   }
 
@@ -56,10 +58,10 @@
     --card-foreground: 207 78% 95%;
     --popover: 217 60% 12%;
     --popover-foreground: 207 78% 95%;
-    --primary: 207 82% 45%;
+    --primary: 210 100% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 217 70% 28%;
-    --secondary-foreground: 207 78% 95%;
+    --secondary: 212 90% 48%;
+    --secondary-foreground: 0 0% 100%;
     --muted: 217 50% 18%;
     --muted-foreground: 207 40% 65%;
     --accent: 217 50% 22%;
@@ -68,15 +70,17 @@
     --destructive-foreground: 0 0% 100%;
     --border: 217 50% 20%;
     --input: 217 50% 20%;
-    --ring: 207 82% 45%;
-    --sidebar-background: 217 70% 6%;
+    --ring: 210 100% 55%;
+    --sidebar-background: 212 85% 28%;
     --sidebar-foreground: 207 78% 95%;
-    --sidebar-primary: 207 82% 45%;
+    --sidebar-primary: 210 100% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 217 60% 15%;
     --sidebar-accent-foreground: 207 78% 95%;
     --sidebar-border: 217 50% 15%;
-    --sidebar-ring: 207 82% 45%;
+    --sidebar-ring: 210 100% 55%;
+    --success: 158 75% 45%;
+    --success-foreground: 0 0% 100%;
   }
 }
 

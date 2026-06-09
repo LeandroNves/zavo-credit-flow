@@ -4,7 +4,9 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RegistrationInterestCard } from "@/components/RegistrationInterestCard";
 import { setClienteAtualId } from "@/lib/clienteSession";
+import { loadRegistrationInterest } from "@/lib/registrationInterest";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
 import { validatePortalPassword } from "@/lib/clientPasswordPolicy";
@@ -17,6 +19,7 @@ export default function Login() {
   const [confirmarNovaSenha, setConfirmarNovaSenha] = useState("");
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [interestCart, setInterestCart] = useState(() => loadRegistrationInterest().cart);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -165,7 +168,7 @@ export default function Login() {
         <ArrowLeft className="h-5 w-5" />
       </Button>
       <div className="w-full max-w-md">
-        <div className="text-center mb-8" />
+        <RegistrationInterestCard cart={interestCart} className="mb-6" />
         <div className="bg-card rounded-lg shadow-sm border p-8 space-y-6">
           <h1 className="text-2xl font-bold text-primary text-center">
             {recoveryMode ? "Redefinir senha" : "Acesse sua conta"}

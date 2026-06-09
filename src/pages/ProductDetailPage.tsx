@@ -9,7 +9,11 @@ import {
   Minus,
   Plus,
   Trash2,
-  WalletCards,
+  Shield,
+  Truck,
+  Zap,
+  Headphones,
+  Lock,
   X as XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,8 +42,13 @@ import {
 } from "@/lib/cartStore";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { RotatingProductImage } from "@/components/product/RotatingProductImage";
+import {
+  ProductPaymentPanel,
+  ProductPaymentStickyBar,
+} from "@/components/product/ProductPaymentPanel";
+import { DueDayDialog } from "@/components/product/DueDayDialog";
 import { toast } from "sonner";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo-zavo-2026.png";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -61,6 +70,7 @@ export default function ProductDetailPage() {
   const [cartItems, setCartItems] = useState(() => loadCart());
   const [cartCount, setCartCount] = useState(() => loadCart().reduce((sum, it) => sum + it.qty, 0));
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [buyNowDialogOpen, setBuyNowDialogOpen] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogCategory, setCatalogCategory] = useState<"Todos" | (typeof PRODUCT_CATEGORIES)[number]>("Todos");
   const [catalogSort, setCatalogSort] = useState<"mais-vendidos" | "menor-preco" | "maior-preco" | "promocoes">("mais-vendidos");
@@ -179,7 +189,7 @@ export default function ProductDetailPage() {
   if (!product && products.length > 0) return <Navigate to="/produtos" replace />;
   if (!product) {
     return (
-      <div className="min-h-screen bg-[#eaf3ff] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         {isLoading ? (
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -211,9 +221,6 @@ export default function ProductDetailPage() {
       ...calc,
     };
   });
-  const selectedPlan = paymentPlans.find((x) => x.months === effectiveSelectedMonths) ?? paymentPlans[0];
-  const originalMonthlyCents = calculateInstallmentCents(selectedPriceCents, effectiveSelectedMonths);
-
   const addCurrentProductToCart = (forcedMonths?: 1 | 6 | 12 | 18 | 24) => {
     const months = forcedMonths ?? effectiveSelectedMonths ?? pickDefaultMonths(product);
     const effectiveModel = selectedModel || getDefaultProductModel(product);
@@ -260,12 +267,48 @@ export default function ProductDetailPage() {
     toast.success("Produto adicionado ao carrinho.");
   };
 
+  const goBuyNow = (dueDay: number) => {
+    const effectiveModel = selectedModel || getDefaultProductModel(product);
+    const colorOptions = parseProductColors(product.color);
+    const item: CartItem = {
+      id: makeCartItemId(),
+      productId: product.id,
+      selectedModel: effectiveModel,
+      selectedDownPayment: selectedDownPayment,
+      dueDay: Math.max(1, Math.min(31, Math.round(dueDay))),
+      months: effectiveSelectedMonths,
+      qty: 1,
+      selectedColors: colorOptions.slice(0, 2),
+      addedAt: new Date().toISOString(),
+    };
+    saveRegistrationInterest({
+      interestType: "produto",
+      cart: buildCartSnapshot({ cartItems: [item], products }),
+    });
+    navigate("/login");
+  };
+
+  const openBuyNowDialog = () => setBuyNowDialogOpen(true);
+
+  const trustItems = [
+    { icon: Shield, text: "Seu produto é seu desde o início" },
+    { icon: Zap, text: "Processo simples, rápido e 100% online" },
+    { icon: Headphones, text: "Atendimento próximo e humanizado" },
+    { icon: Lock, text: "Compra segura e protegida" },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#eaf3ff]">
+    <div className="min-h-screen bg-background pb-20 md:pb-8">
+      <DueDayDialog
+        open={buyNowDialogOpen}
+        onOpenChange={setBuyNowDialogOpen}
+        onConfirm={goBuyNow}
+        description="Informe o dia do mês para vencimento das parcelas, como no carrinho."
+      />
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-border/40">
-        <div className="max-w-7xl mx-auto flex items-center justify-between h-16 px-4 lg:px-8">
+        <div className="max-w-7xl mx-auto flex items-center justify-between h-14 md:h-16 px-3 md:px-4 lg:px-8">
           <div className="flex items-center gap-2">
-            <img src={logo} alt="Zavo" className="h-32" />
+            <img src={logo} alt="Zavo" className="h-16 md:h-32" />
           </div>
 
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-foreground/70">
@@ -367,7 +410,7 @@ export default function ProductDetailPage() {
                       downPaymentOptionId: it.selectedDownPayment ?? "none",
                     }).perInstallmentCents;
                     return (
-                      <div key={it.id} className="border rounded-xl p-3 bg-background">
+                      <div key={it.id} className="border rounded-xl p-3 bg-white">
                         <div className="flex gap-3">
                           <div className="w-16 h-16 rounded-lg border bg-white flex items-center justify-center overflow-hidden">
                             <img src={(p.imageSrcs?.[0] ?? p.imageSrc)} alt={p.name} className="h-14 object-contain" />
@@ -512,7 +555,14 @@ export default function ProductDetailPage() {
                   >
                     Finalizar compra
                   </Button>
-                  <Button variant="outline" className="w-full rounded-full" onClick={clearCart}>
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-full border-secondary text-secondary"
+                    onClick={() => setCartOpen(false)}
+                  >
+                    Continuar comprando
+                  </Button>
+                  <Button variant="ghost" className="w-full rounded-full text-muted-foreground" onClick={clearCart}>
                     Limpar carrinho
                   </Button>
                 </div>
@@ -522,10 +572,10 @@ export default function ProductDetailPage() {
         </SheetContent>
       </Sheet>
 
-      <main className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
-        <div className="space-y-6">
+      <main className="max-w-7xl mx-auto px-3 md:px-4 lg:px-8 py-4 md:py-8">
+        <div className="space-y-3 md:space-y-6">
           <div className="flex items-center">
-            <Button asChild variant="ghost" size="sm" className="gap-2">
+            <Button asChild variant="ghost" size="sm" className="gap-2 h-8 text-xs md:text-sm md:h-9">
               <Link to="/produtos">
                 <ArrowLeft className="h-4 w-4" />
                 Voltar para produtos
@@ -533,19 +583,29 @@ export default function ProductDetailPage() {
             </Button>
           </div>
 
-          <section className="bg-white rounded-2xl p-4 md:p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr_420px] gap-6">
-              <div className="space-y-3">
-                <div className="rounded-xl bg-white min-h-[320px] flex items-center justify-center p-4">
-                  {mainImage && <img src={mainImage} alt={product.name} className="max-h-[360px] object-contain" />}
+          <section className="p-0 md:p-2">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8 bg-white rounded-xl md:rounded-2xl p-3 md:p-6 shadow-sm border border-border/40">
+              <div className="space-y-2 md:space-y-3">
+                <div className="rounded-lg md:rounded-xl bg-white min-h-[160px] md:min-h-[280px] flex items-center justify-center p-2 md:p-4 border border-border/30">
+                  {mainImage && (
+                    <img
+                      src={mainImage}
+                      alt={product.name}
+                      className="max-h-[160px] md:max-h-[340px] object-contain"
+                    />
+                  )}
                 </div>
-                <div className="flex items-center gap-2 overflow-auto pb-1">
+                <div className="flex items-center gap-1.5 md:gap-2 overflow-auto pb-0.5">
                   {images.map((src, idx) => (
                     <button
                       key={`${src}-${idx}`}
                       type="button"
                       onClick={() => setMainImageIndex(idx)}
-                      className={`w-14 h-14 rounded-md overflow-hidden bg-white flex-shrink-0 ${idx === mainImageIndex ? "ring-2 ring-blue-500" : "opacity-90 hover:opacity-100"}`}
+                      className={`w-11 h-11 md:w-14 md:h-14 rounded-md md:rounded-lg overflow-hidden bg-white flex-shrink-0 border-2 transition-all ${
+                        idx === mainImageIndex
+                          ? "border-secondary ring-2 ring-secondary/20"
+                          : "border-transparent opacity-80 hover:opacity-100"
+                      }`}
                     >
                       <img src={src} alt={`${product.name} ${idx + 1}`} className="w-full h-full object-contain" />
                     </button>
@@ -553,21 +613,27 @@ export default function ProductDetailPage() {
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-5">
                 <div>
-                  <h2 className="text-4xl font-bold text-primary">{product.name}</h2>
+                  <h1 className="text-xl md:text-3xl font-bold text-primary leading-tight">{product.name}</h1>
+                  {selectedModel && (
+                    <p className="text-xs md:text-sm text-muted-foreground mt-0.5">{selectedModel}</p>
+                  )}
                 </div>
 
                 {!!getProductModelOptions(product).length && (
                   <div>
-                    <p className="text-sm font-semibold text-primary mb-1.5">Modelo</p>
-                    <div className="flex flex-wrap gap-2">
+                    <p className="text-xs md:text-sm font-semibold text-primary mb-1.5 md:mb-2">Modelo</p>
+                    <div className="flex flex-wrap gap-1.5 md:gap-2">
                       {getProductModelOptions(product).map((opt) => (
                         <Button
                           key={`${product.id}-${opt.model}`}
                           type="button"
+                          size="sm"
                           variant={selectedModel === opt.model ? "default" : "outline"}
-                          className="rounded-full"
+                          className={`rounded-full px-3 h-8 text-xs md:px-4 md:h-9 md:text-sm ${
+                            selectedModel !== opt.model ? "border-secondary/40 text-primary hover:bg-secondary/5" : ""
+                          }`}
                           onClick={() => setSelectedModel(opt.model)}
                         >
                           {opt.model}
@@ -579,14 +645,17 @@ export default function ProductDetailPage() {
 
                 {!!colors.length && (
                   <div>
-                    <p className="text-sm font-semibold text-primary mb-1.5">Cores</p>
-                    <div className="flex flex-wrap gap-2">
+                    <p className="text-xs md:text-sm font-semibold text-primary mb-1.5 md:mb-2">Cores</p>
+                    <div className="flex flex-wrap gap-1.5 md:gap-2">
                       {colors.map((color, idx) => (
                         <Button
                           key={`${product.id}-${color}-${idx}`}
                           type="button"
+                          size="sm"
                           variant={idx === mainImageIndex ? "default" : "outline"}
-                          className="rounded-full"
+                          className={`rounded-full px-3 h-8 text-xs md:px-4 md:h-9 md:text-sm ${
+                            idx !== mainImageIndex ? "border-secondary/40 text-primary hover:bg-secondary/5" : ""
+                          }`}
                           onClick={() => setMainImageIndex(Math.min(idx, images.length - 1))}
                         >
                           {color}
@@ -596,128 +665,52 @@ export default function ProductDetailPage() {
                   </div>
                 )}
 
-                {!!product.description && (
-                  <div>
-                    <p className="text-sm font-semibold text-primary mb-1.5">Descrição</p>
-                    <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">{product.description}</p>
-                  </div>
-                )}
-
                 {!!product.deliveryTime && (
-                  <div>
-                    <p className="text-sm font-semibold text-primary mb-1.5">Prazo de entrega</p>
-                    <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">{product.deliveryTime}</p>
+                  <div className="flex items-start gap-2 rounded-lg md:rounded-xl border border-border/50 bg-muted/30 px-2.5 py-2 md:px-3 md:py-2.5">
+                    <Truck className="h-3.5 w-3.5 md:h-4 md:w-4 text-secondary mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs md:text-sm font-medium text-primary">Entrega para todo o Brasil</p>
+                      <p className="text-[11px] md:text-xs text-muted-foreground">{product.deliveryTime}</p>
+                    </div>
                   </div>
                 )}
-              </div>
 
-              <div className="rounded-2xl border bg-[#fafafa] p-4 md:p-5 h-fit lg:sticky lg:top-24">
-                <p className="text-xs md:text-sm font-semibold tracking-[0.08em] text-primary uppercase">Preço/mês</p>
-                <p className="text-sm text-muted-foreground">No Pix ou boleto parcelado</p>
-                <div className="mt-2 flex items-end justify-between gap-3">
-                  <p className="text-4xl font-bold text-primary">
-                    {formatBRLFromCents(selectedPlan?.perInstallmentCents ?? 0)}
+                {!!product.description && (
+                  <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed hidden md:block">
+                    {product.description}
                   </p>
-                  {originalMonthlyCents > (selectedPlan?.perInstallmentCents ?? 0) && (
-                    <p className="text-xl text-muted-foreground line-through">{formatBRLFromCents(originalMonthlyCents)}</p>
-                  )}
-                </div>
-                <div className="mt-2 rounded-xl bg-[#03EBB1]/15 p-2.5">
-                  <p className="text-xs font-semibold text-[#047857]">Pagamento até o vencimento</p>
-                  <p className="text-lg font-bold text-[#047857]">
-                    {formatBRLFromCents(selectedPlan?.earlyPaymentPerInstallmentCents ?? 0)}
-                    <span className="text-sm font-medium"> /mês</span>
-                  </p>
-                </div>
-                <div className="mt-2 rounded-xl border bg-white p-2.5">
-                  <p className="text-xs font-semibold text-primary">Valor da entrada</p>
-                  <p className="text-lg font-bold text-primary">
-                    {formatBRLFromCents(selectedPlan?.downPaymentCents ?? 0)}
-                  </p>
-                </div>
+                )}
 
-                <div className="my-4 border-t" />
+                <ProductPaymentPanel
+                  paymentPlans={paymentPlans}
+                  selectedMonths={effectiveSelectedMonths}
+                  onSelectMonths={setSelectedMonths}
+                  selectedDownPayment={selectedDownPayment}
+                  onSelectDownPayment={setSelectedDownPayment}
+                  onAddToCart={() => addCurrentProductToCart()}
+                  onBuyNow={openBuyNowDialog}
+                />
 
-                <p className="text-xs md:text-sm font-semibold tracking-[0.08em] text-primary uppercase">Forma de entrada</p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {DOWN_PAYMENT_OPTIONS.map((entry) => (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      onClick={() => setSelectedDownPayment(entry.id)}
-                      className={`rounded-xl border px-3 py-2 text-sm font-medium text-left transition-colors ${
-                        selectedDownPayment === entry.id
-                          ? "bg-[#0b2a6f] text-white border-[#0b2a6f]"
-                          : "bg-white text-primary border-border hover:bg-muted"
-                      }`}
+                <div className="hidden md:grid grid-cols-2 gap-2">
+                  {trustItems.map(({ icon: Icon, text }) => (
+                    <div
+                      key={text}
+                      className="flex flex-col items-center gap-1.5 rounded-xl border border-border/50 bg-muted/20 px-2 py-3 text-center"
                     >
-                      {entry.label}
-                    </button>
+                      <Icon className="h-4 w-4 text-secondary" />
+                      <span className="text-[11px] font-medium text-primary leading-snug">{text}</span>
+                    </div>
                   ))}
                 </div>
-
-                <div className="my-4 border-t" />
-
-                <p className="text-xs md:text-sm font-semibold tracking-[0.08em] text-primary uppercase">Escolha o tempo de contrato</p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {paymentPlans.map((plan) => (
-                    <button
-                      key={plan.months}
-                      type="button"
-                      onClick={() => setSelectedMonths(plan.months)}
-                      className={`relative rounded-xl border p-3 text-left transition-colors ${
-                        effectiveSelectedMonths === plan.months
-                          ? "bg-[#0b2a6f] text-white border-[#0b2a6f]"
-                          : "bg-white text-primary border-border hover:bg-muted"
-                      }`}
-                    >
-                      {plan.months === 6 && (
-                        <span className={`absolute -top-2 left-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                          effectiveSelectedMonths === plan.months ? "bg-[#03EBB1] text-[#064e3b]" : "bg-[#d1fae5] text-[#065f46]"
-                        }`}>
-                          Mais econômico
-                        </span>
-                      )}
-                      <p className="text-2xl font-bold leading-none">{plan.months} meses</p>
-                      <p className={`text-sm mt-1 ${effectiveSelectedMonths === plan.months ? "text-white/90" : "text-muted-foreground"}`}>
-                        {formatBRLFromCents(plan.perInstallmentCents)}/mês
-                      </p>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="mt-4 space-y-2">
-                  <Button className="w-full h-12 rounded-xl gap-2 text-base" onClick={() => addCurrentProductToCart()}>
-                    <ShoppingCart className="h-4 w-4" />
-                    Adicionar ao carrinho ({effectiveSelectedMonths}x)
-                  </Button>
-                  <Button
-                    className="w-full h-12 rounded-xl text-base font-bold text-primary"
-                    style={{ backgroundColor: "#03EBB1" }}
-                    onClick={() => addCurrentProductToCart(1)}
-                  >
-                    Comprar à vista (1x)
-                  </Button>
-                </div>
               </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-              {[
-                "Pague em dia e garanta desconto na sua parcela",
-                "Seu produto é seu desde o início",
-                "Processo simples, rápido e 100% online",
-                "Atendimento próximo e humanizado",
-              ].map((text) => (
-                <div
-                  key={text}
-                  className="rounded-xl border bg-gradient-to-r from-[#eef7ff] to-[#f3fff9] px-3 py-2.5 text-xs text-[#0b2a6f] font-medium"
-                >
-                  {text}
-                </div>
-              ))}
             </div>
           </section>
+
+          <ProductPaymentStickyBar
+            selectedMonths={effectiveSelectedMonths}
+            onAddToCart={() => addCurrentProductToCart()}
+            onBuyNow={openBuyNowDialog}
+          />
 
           {otherProducts.length > 0 && (
             <section className="bg-white rounded-2xl p-4 md:p-5">
@@ -753,7 +746,7 @@ export default function ProductDetailPage() {
                           {p.priceCents > 0 ? (
                             <>
                               <p className="text-xs text-muted-foreground mt-1">A partir de 6x de</p>
-                              <p className="text-2xl font-bold text-blue-600 leading-none mt-1">{formatBRLFromCents(per6)}</p>
+                              <p className="text-2xl font-bold text-secondary leading-none mt-1">{formatBRLFromCents(per6)}</p>
                             </>
                           ) : (
                             <p className="text-xs text-muted-foreground mt-2">Consulte valores</p>
@@ -773,7 +766,7 @@ export default function ProductDetailPage() {
                 </Button>
               </div>
 
-              <div className="mt-6 rounded-2xl bg-gradient-to-r from-blue-700 via-blue-800 to-cyan-700 text-white p-5 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm shadow-lg">
+              <div className="mt-6 rounded-2xl bg-gradient-to-r from-primary via-secondary to-secondary text-primary-foreground p-5 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm shadow-lg">
                 {[
                   "Parcela que cabe no seu bolso",
                   "Desconto por pagamento em dia",
@@ -781,7 +774,7 @@ export default function ProductDetailPage() {
                   "Compra segura e transparente",
                 ].map((text) => (
                   <div key={text} className="flex items-center gap-2.5">
-                    <WalletCards className="h-5 w-5 text-cyan-300 flex-shrink-0" />
+                    <Shield className="h-5 w-5 text-primary-foreground/80 flex-shrink-0" />
                     <span>{text}</span>
                   </div>
                 ))}

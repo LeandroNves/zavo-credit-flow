@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AppWhatsAppFab } from "@/components/WhatsAppFloatingButton";
 
 import { ContractsDataProvider } from "./contexts/ContractsDataContext";
 import LandingPage from "./pages/LandingPage";
@@ -43,6 +44,7 @@ const App = () => (
       <Sonner />
       <ContractsDataProvider>
       <BrowserRouter>
+        <AppWhatsAppFab />
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/produtos" element={<ProductsPage />} />

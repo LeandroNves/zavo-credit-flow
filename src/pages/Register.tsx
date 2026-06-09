@@ -20,6 +20,7 @@ import {
   loadRegistrationInterest,
   type RegistrationCartSnapshot,
 } from "@/lib/registrationInterest";
+import { RegistrationInterestCard } from "@/components/RegistrationInterestCard";
 
 const steps = ["Dados Pessoais", "Endereço", "Financeiro", "Criar Senha"];
 
@@ -312,6 +313,10 @@ export default function Register() {
             Etapa {step + 1} de {steps.length}
           </span>
         </div>
+
+        {form.interesseCarrinho && (
+          <RegistrationInterestCard cart={form.interesseCarrinho} className="mb-6" />
+        )}
 
         <div className="flex gap-2 mb-8">
           {steps.map((s, i) => (

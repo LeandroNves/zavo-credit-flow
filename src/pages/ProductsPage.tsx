@@ -15,7 +15,7 @@ import {
   getProductPriceCentsByModel,
 } from "@/lib/productsStore";
 import { CART_UPDATED_EVENT, loadCart, saveCart } from "@/lib/cartStore";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo-zavo-2026.png";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -242,15 +242,19 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background/40">
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-border/40">
+    <div className="min-h-screen bg-background">
+      <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-border/40">
         <div className="max-w-7xl mx-auto flex items-center justify-between h-16 px-4 lg:px-8">
-          <div className="flex items-center gap-2">
-            <img src={logo} alt="Zavo" className="h-32" />
-          </div>
+          <Link
+            to="/"
+            className="flex h-full items-center shrink-0 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+            aria-label="Voltar ao início"
+          >
+            <img src={logo} alt="Zavo" className="h-11 md:h-12 w-auto object-contain" />
+          </Link>
 
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-foreground/70">
-            <Link to="/" className="hover:text-secondary transition-colors">Início</Link>
+            <a href="/#sobre" className="hover:text-secondary transition-colors">Sobre</a>
             <Link to="/produtos" className="hover:text-secondary transition-colors">Produtos</Link>
             <a href="/#servicos" className="hover:text-secondary transition-colors">Serviços</a>
             <a href="/#diferenciais" className="hover:text-secondary transition-colors">Diferenciais</a>
@@ -261,7 +265,7 @@ export default function ProductsPage() {
               type="button"
               onClick={() => setCartOpen(true)}
               className="relative rounded-full p-2 text-foreground/70 hover:text-foreground transition-colors"
-              aria-label="Carrinho"
+              aria-label="Abrir carrinho"
             >
               <ShoppingCart className="h-5 w-5" />
               {cartCount > 0 && (
@@ -278,16 +282,11 @@ export default function ProductsPage() {
           </div>
 
           <div className="md:hidden flex items-center gap-1">
-            <Link to="/login">
-              <Button variant="outline" size="sm" className="h-8 rounded-full px-3 text-xs">
-                Entrar
-              </Button>
-            </Link>
             <button
               type="button"
               onClick={() => setCartOpen(true)}
               className="relative rounded-full p-2 text-foreground/70 hover:text-foreground transition-colors"
-              aria-label="Carrinho"
+              aria-label="Abrir carrinho"
             >
               <ShoppingCart className="h-5 w-5" />
               {cartCount > 0 && (
@@ -301,15 +300,22 @@ export default function ProductsPage() {
             </button>
           </div>
         </div>
+
         {mobileMenu && (
           <div className="md:hidden bg-white border-t px-4 py-4 space-y-3 animate-fade-in">
-            <Link to="/" className="block text-sm font-medium text-foreground/70" onClick={() => setMobileMenu(false)}>Início</Link>
-            <Link to="/produtos" className="block text-sm font-medium text-foreground/70" onClick={() => setMobileMenu(false)}>Produtos</Link>
+            <a href="/#sobre" className="block text-sm font-medium text-foreground/70" onClick={() => setMobileMenu(false)}>Sobre</a>
+            <a href="/#produtos" className="block text-sm font-medium text-foreground/70" onClick={() => setMobileMenu(false)}>Produtos</a>
+            <Link to="/produtos" className="block text-sm font-medium text-foreground/70" onClick={() => setMobileMenu(false)}>Ver todos</Link>
             <a href="/#servicos" className="block text-sm font-medium text-foreground/70" onClick={() => setMobileMenu(false)}>Serviços</a>
             <a href="/#diferenciais" className="block text-sm font-medium text-foreground/70" onClick={() => setMobileMenu(false)}>Diferenciais</a>
+            <div className="flex flex-col gap-2 pt-2">
+              <Link to="/login" onClick={() => setMobileMenu(false)}>
+                <Button variant="outline" className="w-full">Entrar</Button>
+              </Link>
+            </div>
           </div>
         )}
-      </header>
+      </nav>
 
       <Sheet open={cartOpen} onOpenChange={setCartOpen}>
         <SheetContent side="left" className="w-full sm:max-w-md">
@@ -327,7 +333,7 @@ export default function ProductsPage() {
                     if (!p) return null;
                     return (
                       <div key={it.id} className="rounded-xl border p-3 bg-white flex items-center gap-3">
-                        <div className="w-14 h-14 rounded-md bg-background overflow-hidden flex items-center justify-center">
+                        <div className="w-14 h-14 rounded-md bg-white overflow-hidden flex items-center justify-center">
                           <img src={(p.imageSrcs?.[0] ?? p.imageSrc)} alt={p.name} className="h-12 object-contain" />
                         </div>
                         <div className="flex-1 min-w-0">
