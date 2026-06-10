@@ -337,7 +337,7 @@ export default function Register() {
           {step === 0 && (
             <div className="space-y-5">
               <h2 className="text-xl font-bold text-primary">Dados Pessoais</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="nome">
                     Nome completo <span className="text-destructive">*</span>
@@ -360,9 +360,17 @@ export default function Register() {
                     onChange={(e) => patch({ cpf: formatCPF(e.target.value) })}
                   />
                 </div>
+                <MultiFileUpload
+                  label="RG ou CNH"
+                  hint="Envie uma foto ou PDF da frente e outra do verso (pode selecionar vários arquivos de uma vez ou adicionar em cliques separados)."
+                  required
+                  id="rg"
+                  files={form.rg}
+                  onChange={(f) => patch({ rg: f })}
+                />
                 <div className="space-y-2">
                   <Label htmlFor="email">
-                    Email <span className="text-destructive">*</span>
+                    E-mail <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="email"
@@ -383,6 +391,14 @@ export default function Register() {
                     onChange={(e) => patch({ telefone: formatTelefoneBR(e.target.value) })}
                   />
                 </div>
+                <MultiFileUpload
+                  label="Selfie com documento"
+                  hint="Inclua imagem nítida com a foto do documento ao lado do rosto (apenas um lado)."
+                  required
+                  id="selfie"
+                  files={form.selfie}
+                  onChange={(f) => patch({ selfie: f })}
+                />
                 <div className="space-y-2">
                   <Label>
                     Estado civil <span className="text-destructive">*</span>
@@ -403,31 +419,13 @@ export default function Register() {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <MultiFileUpload
-                  label="RG ou CNH — frente e verso"
-                  hint="Envie uma foto ou PDF da frente e outra do verso (pode selecionar vários arquivos de uma vez ou adicionar em cliques separados)."
-                  required
-                  id="rg"
-                  files={form.rg}
-                  onChange={(f) => patch({ rg: f })}
-                />
-                <MultiFileUpload
-                  label="Selfie com documento — Frente ao lado da foto"
-                  hint="Inclua imagem nítida com a foto do documento ao lado do rosto (apenas um lado)."
-                  required
-                  id="selfie"
-                  files={form.selfie}
-                  onChange={(f) => patch({ selfie: f })}
-                />
-              </div>
               <h3 className="font-semibold text-primary pt-2">
                 Contatos de confiança{" "}
                 <span className="text-destructive">*</span>
               </h3>
-              <h4 className="text-sm text-muted-foreground">
-              Os contatos devem ser de pessoas próximas de você!
-              </h4>
+              <p className="text-sm text-muted-foreground">
+                Os contatos devem ser de pessoas próximas de você!
+              </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="contato1">

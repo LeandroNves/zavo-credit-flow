@@ -73,14 +73,6 @@ function ProductSpecs({ produto }: { produto: ContractProductFields }) {
       value: produto.produtoEstado || "—",
     },
     {
-      icon: <HardDrive className="h-4 w-4" />,
-      label: "Série / IMEI",
-      value:
-        [produto.produtoSerie, produto.produtoImei, produto.produtoImei2]
-          .filter(Boolean)
-          .join(" • ") || "—",
-    },
-    {
       icon: <Package className="h-4 w-4" />,
       label: "Acessórios",
       value: produto.produtoAcessorios || "—",
@@ -102,6 +94,38 @@ function ProductSpecs({ produto }: { produto: ContractProductFields }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function SerieImeiRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border bg-muted/20 px-3 py-2.5 sm:px-4 sm:py-3">
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className="mt-1 font-mono text-sm font-semibold text-foreground break-all leading-relaxed">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function ProductSerieImei({ produto }: { produto: ContractProductFields }) {
+  const serie = produto.produtoSerie.trim();
+  const imei = produto.produtoImei.trim();
+  const imei2 = produto.produtoImei2.trim();
+  const hasAny = Boolean(serie || imei || imei2);
+
+  if (!hasAny) {
+    return (
+      <p className="text-sm text-muted-foreground">Nenhuma informação cadastrada.</p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {serie ? <SerieImeiRow label="Número de série" value={serie} /> : null}
+      {imei ? <SerieImeiRow label="IMEI" value={imei} /> : null}
+      {imei2 ? <SerieImeiRow label="IMEI 2" value={imei2} /> : null}
     </div>
   );
 }
@@ -265,6 +289,22 @@ export function ContratoDetailView({
                 </p>
               ) : null}
               <ProductSpecs produto={p} />
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      {/* Série / IMEI */}
+      <SectionCard icon={<HardDrive className="h-4 w-4" />} title="Série / IMEI">
+        <div className="space-y-6">
+          {produtos.map((p, i) => (
+            <div key={i}>
+              {produtos.length > 1 ? (
+                <p className="mb-3 text-xs font-medium text-muted-foreground">
+                  Item {i + 1}
+                </p>
+              ) : null}
+              <ProductSerieImei produto={p} />
             </div>
           ))}
         </div>
