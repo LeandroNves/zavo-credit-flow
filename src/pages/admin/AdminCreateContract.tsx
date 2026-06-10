@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
-import { ArrowLeft, Upload } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,8 +20,11 @@ import {
   splitTotalAcrossInstallments,
 } from "@/lib/parcelSchedule";
 import { ContractProductsEditor } from "@/components/admin/ContractProductsEditor";
+import { ContractPaymentLinksEditor } from "@/components/contracts/ContractPaymentLinksEditor";
 import { emptyContractProductFields } from "@/data/mockData";
 import type { ContractProductFields } from "@/data/mockData";
+import { emptyPaymentLink } from "@/lib/contractPaymentLinks";
+import type { ContractPaymentLink } from "@/lib/contractPaymentLinks";
 
 export default function AdminCreateContract() {
   const { id } = useParams();
@@ -37,6 +40,8 @@ export default function AdminCreateContract() {
 
   const [numeroContrato, setNumeroContrato] = useState("");
   const [valorTotal, setValorTotal] = useState("");
+  const [valorEntrada, setValorEntrada] = useState("");
+  const [instituicaoFinanceira, setInstituicaoFinanceira] = useState("");
   const [qtdParcelas, setQtdParcelas] = useState("12");
   const [statusContrato, setStatusContrato] = useState<ContractStatus>("ativo");
   const [diaVencimento, setDiaVencimento] = useState("10");
@@ -44,9 +49,9 @@ export default function AdminCreateContract() {
   const [primeiroMes, setPrimeiroMes] = useState(() =>
     format(new Date(), "yyyy-MM"),
   );
-  const [arquivos, setArquivos] = useState<(File | null)[]>(() =>
-    Array.from({ length: 12 }, () => null),
-  );
+  const [paymentLinks, setPaymentLinks] = useState<ContractPaymentLink[]>([
+    emptyPaymentLink(),
+  ]);
   const [submitting, setSubmitting] = useState(false);
   const [produtos, setProdutos] = useState<ContractProductFields[]>([
     emptyContractProductFields(),
@@ -55,6 +60,7 @@ export default function AdminCreateContract() {
   const nParcelas = Math.max(1, parseInt(qtdParcelas, 10) || 1);
   const dia = Math.min(31, Math.max(1, parseInt(diaVencimento, 10) || 10));
   const valorNum = parseFloat(valorTotal.replace(",", ".")) || 0;
+  const entradaNum = parseFloat(valorEntrada.replace(",", ".")) || 0;
 
   useEffect(() => {
     setVencimentosOverrideIso((prev) => {
@@ -76,20 +82,6 @@ export default function AdminCreateContract() {
     }));
   }, [valorNum, nParcelas, primeiroMes, dia]);
 
-  function syncArquivosLength(len: number) {
-    setArquivos((prev) => {
-      const next = prev.slice(0, len);
-      while (next.length < len) next.push(null);
-      return next;
-    });
-  }
-
-  const handleQtdParcelasChange = (v: string) => {
-    setQtdParcelas(v);
-    const n = Math.max(1, parseInt(v, 10) || 1);
-    syncArquivosLength(n);
-  };
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!id || !cliente || submitting) return;
@@ -103,9 +95,11 @@ export default function AdminCreateContract() {
         status: statusContrato,
         diaVencimento: dia,
         primeiroVencimentoYm: primeiroMes,
-        arquivosPorParcela: arquivos.slice(0, nParcelas),
         vencimentosPorParcelaIso: vencimentosOverrideIso.slice(0, nParcelas),
         produtos,
+        paymentLinks,
+        valorEntrada: entradaNum > 0 ? entradaNum : null,
+        instituicaoFinanceira,
       });
       navigate(`/admin/cliente/${id}`);
     } finally {
@@ -173,6 +167,25 @@ export default function AdminCreateContract() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="entrada">Entrada (R$)</Label>
+              <Input
+                id="entrada"
+                inputMode="decimal"
+                placeholder="Opcional"
+                value={valorEntrada}
+                onChange={(e) => setValorEntrada(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="instituicao">Instituição financeira</Label>
+              <Input
+                id="instituicao"
+                placeholder="Ex.: Banco do Brasil"
+                value={instituicaoFinanceira}
+                onChange={(e) => setInstituicaoFinanceira(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="parcelas">Número de parcelas</Label>
               <Input
                 id="parcelas"
@@ -180,7 +193,7 @@ export default function AdminCreateContract() {
                 min={1}
                 max={120}
                 value={qtdParcelas}
-                onChange={(e) => handleQtdParcelasChange(e.target.value)}
+                onChange={(e) => setQtdParcelas(e.target.value)}
                 required
               />
             </div>
@@ -224,14 +237,16 @@ export default function AdminCreateContract() {
           </div>
           <p className="text-xs text-muted-foreground">
             As parcelas serão geradas em meses consecutivos, no dia escolhido
-            (ajustado ao último dia do mês quando necessário).
+            (ajustado ao último dia do mês quando necessário). Os links do Asaas
+            substituem o envio de boletos por parcela.
           </p>
         </div>
 
         <div className="bg-card rounded-lg border p-6 space-y-4">
           <h2 className="font-semibold text-primary">Produtos vendidos</h2>
           <p className="text-sm text-muted-foreground">
-            Inclua todos os itens desta venda. Os dados entram no contrato Word.
+            Inclua todos os itens desta venda. Os dados entram no contrato Word e
+            na área do cliente.
           </p>
           <ContractProductsEditor
             value={produtos}
@@ -240,15 +255,22 @@ export default function AdminCreateContract() {
           />
         </div>
 
+        <div className="bg-card rounded-lg border p-6">
+          <ContractPaymentLinksEditor
+            value={paymentLinks}
+            onChange={setPaymentLinks}
+            disabled={submitting}
+            idPrefix="novo-link"
+          />
+        </div>
+
         {preview.length > 0 && (
           <div className="bg-card rounded-lg border overflow-hidden">
             <div className="p-4 border-b">
-              <h2 className="font-semibold text-primary">
-                Parcelas e boletos (opcional por parcela)
-              </h2>
+              <h2 className="font-semibold text-primary">Prévia das parcelas</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Os arquivos ficam disponíveis para o cliente em “Pagar” na área
-                do cliente.
+                Usado no resumo do contrato e na geração de promissórias. Pagamento
+                pelo link do Asaas acima.
               </p>
             </div>
             <div className="overflow-x-auto">
@@ -258,7 +280,6 @@ export default function AdminCreateContract() {
                     <th className="px-4 py-3 font-medium">Parcela</th>
                     <th className="px-4 py-3 font-medium">Vencimento</th>
                     <th className="px-4 py-3 font-medium">Valor</th>
-                    <th className="px-4 py-3 font-medium">Boleto (PDF/imagem)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -289,28 +310,6 @@ export default function AdminCreateContract() {
                       </td>
                       <td className="px-4 py-3">
                         R$ {row.valor.toFixed(2).replace(".", ",")}
-                      </td>
-                      <td className="px-4 py-3">
-                        <label className="inline-flex items-center gap-2 cursor-pointer text-secondary hover:underline">
-                          <Upload className="h-4 w-4" />
-                          <span className="text-xs">
-                            {arquivos[row.n - 1]?.name ?? "Anexar arquivo"}
-                          </span>
-                          <input
-                            type="file"
-                            className="sr-only"
-                            accept=".pdf,image/*"
-                            onChange={(e) => {
-                              const f = e.target.files?.[0] ?? null;
-                              setArquivos((prev) => {
-                                const next = [...prev];
-                                while (next.length < preview.length) next.push(null);
-                                next[row.n - 1] = f;
-                                return next;
-                              });
-                            }}
-                          />
-                        </label>
                       </td>
                     </tr>
                   ))}

@@ -774,10 +774,9 @@ export default function LandingPage() {
           <div className="text-center mb-14">
             <span className="text-secondary font-semibold text-sm uppercase tracking-wider">Por que parcelar?</span>
             <h2 className="text-3xl lg:text-4xl font-bold text-primary mt-3">
-              Comprar do seu jeito é melhor do que se limitar as
+              Comprar do seu jeito é melhor do que se limitar as opções tradicionais
               <br className="hidden sm:block" />
-              opções tradicionais
-            </h2>
+              </h2>
           </div>
 
           <div className="space-y-4">

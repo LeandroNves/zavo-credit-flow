@@ -1,8 +1,8 @@
 import { MessageCircle } from "lucide-react";
 import { useLocation } from "react-router-dom";
+import { WHATSAPP_URL } from "@/lib/whatsapp";
 
-/** Número oficial Zavo (62) 99435-6950 */
-export const WHATSAPP_URL = "https://wa.me/5562994356950";
+export { WHATSAPP_URL, buildWhatsAppUrl } from "@/lib/whatsapp";
 
 export function WhatsAppFloatingButton() {
   return (

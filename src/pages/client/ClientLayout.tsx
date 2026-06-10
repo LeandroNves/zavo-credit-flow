@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { User, FileText, LogOut, Menu, ShoppingBag, X } from "lucide-react";
+import { User, FileText, LogOut, Menu, ShoppingBag, X, Bell } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
@@ -169,18 +169,38 @@ export default function ClientLayout() {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 flex items-center px-4 border-b bg-card md:hidden">
+        <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b bg-card px-2 md:hidden">
           <Button
             variant="ghost"
             size="icon"
             type="button"
             onClick={() => setMobileOpen(true)}
+            aria-label="Abrir menu"
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="ml-3 font-semibold text-primary">Zavo</span>
+          <span className="font-semibold text-primary">Zavo</span>
+          <div className="flex items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              type="button"
+              className="relative text-muted-foreground"
+              aria-label="Comunicados"
+              disabled
+              title="Em breve"
+            >
+              <Bell className="h-5 w-5" />
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-destructive" />
+            </Button>
+            <Link to="/cliente/dados">
+              <Button variant="ghost" size="icon" type="button" aria-label="Meus dados">
+                <User className="h-5 w-5 text-primary" />
+              </Button>
+            </Link>
+          </div>
         </header>
-        <main className="flex-1 p-4 md:p-8 overflow-auto">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-muted/30 px-2.5 py-3 md:bg-background md:p-8">
           <Outlet />
         </main>
       </div>

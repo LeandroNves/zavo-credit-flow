@@ -1,4 +1,5 @@
 import type { ContractStatus } from "@/lib/contractStatus";
+import type { ContractPaymentLink } from "@/lib/contractPaymentLinks";
 
 export interface Parcela {
   numero: number;
@@ -50,6 +51,15 @@ export interface Contrato {
   listaParcelas: Parcela[];
   /** Um ou mais produtos vendidos neste contrato. */
   produtos: ContractProductFields[];
+  /** Links Asaas exibidos em "Para pagar" (nome + URL). */
+  paymentLinks: ContractPaymentLink[];
+  /** PDF do contrato assinado (cliente baixa; admin envia). */
+  contractDocumentUrl?: string | null;
+  contractDocumentPath?: string | null;
+  valorEntrada?: number | null;
+  instituicaoFinanceira?: string | null;
+  /** Data de criação do contrato (ISO ou exibição). */
+  criadoEm?: string | null;
 }
 
 export interface Cliente {
@@ -141,6 +151,7 @@ export const mockClientes: Cliente[] = [
         valorParcela: 540,
         status: "ativo",
         produtos: [emptyContractProductFields()],
+        paymentLinks: [],
         listaParcelas: mockParcelas1,
       },
     ],
@@ -175,6 +186,7 @@ export const mockClientes: Cliente[] = [
         valorParcela: 375,
         status: "ativo",
         produtos: [emptyContractProductFields()],
+        paymentLinks: [],
         listaParcelas: mockParcelas2,
       },
     ],
@@ -232,6 +244,7 @@ export const mockClientes: Cliente[] = [
         valorParcela: 600,
         status: "finalizado",
         produtos: [emptyContractProductFields()],
+        paymentLinks: [],
         listaParcelas: [
           { numero: 1, total: 3, valor: 600, vencimento: "15/08/2025", status: "pago" },
           { numero: 2, total: 3, valor: 600, vencimento: "15/09/2025", status: "pago" },

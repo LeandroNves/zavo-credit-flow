@@ -7,13 +7,27 @@ function deepCloneClientes(list: Cliente[]): Cliente[] {
   return JSON.parse(JSON.stringify(list)) as Cliente[];
 }
 
+function hydrateCliente(c: Cliente): Cliente {
+  return {
+    ...c,
+    contratos: (c.contratos ?? []).map((k) => ({
+      ...k,
+      paymentLinks: k.paymentLinks ?? [],
+      listaParcelas: k.listaParcelas ?? [],
+      produtos: k.produtos ?? [],
+    })),
+  };
+}
+
 export function loadClientesFromLocalStorage(): Cliente[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return deepCloneClientes(mockClientes);
+    if (!raw) return deepCloneClientes(mockClientes).map(hydrateCliente);
     const parsed = JSON.parse(raw) as Cliente[];
-    if (!Array.isArray(parsed) || parsed.length === 0) return deepCloneClientes(mockClientes);
-    return parsed;
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return deepCloneClientes(mockClientes).map(hydrateCliente);
+    }
+    return parsed.map(hydrateCliente);
   } catch {
     return deepCloneClientes(mockClientes);
   }

@@ -44,7 +44,13 @@ import {
   supabaseUpdateInstallmentValorVencimento,
   supabaseUploadInstallmentBoleto,
   supabaseUpdateInstallmentPaymentCodes,
+  supabaseUploadContractDocument,
 } from "@/lib/contractsSupabase";
+import {
+  isValidPaymentUrl,
+  paymentLinksForSave,
+  type ContractPaymentLink,
+} from "@/lib/contractPaymentLinks";
 import { validatePortalPassword } from "@/lib/clientPasswordPolicy";
 import { deriveClienteStatus } from "@/lib/deriveClienteStatus";
 import {
@@ -74,11 +80,13 @@ export type CreateContractInput = {
   parcelasCount: number;
   diaVencimento: number;
   primeiroVencimentoYm: string;
-  arquivosPorParcela: (File | null | undefined)[];
   status: ContractStatus;
   /** Se preenchido, sobrescreve o vencimento (automático) de cada parcela por ISO yyyy-MM-dd. */
   vencimentosPorParcelaIso?: string[];
   produtos: ContractProductFields[];
+  paymentLinks: ContractPaymentLink[];
+  valorEntrada?: number | null;
+  instituicaoFinanceira?: string;
 };
 
 type DataSource = "supabase" | "local";
@@ -129,6 +137,11 @@ type ContractsContextValue = {
     contractId: string,
     input: UpdateContractDetailsInput,
   ) => Promise<boolean>;
+  uploadContractDocument: (
+    clientId: string,
+    contractId: string,
+    file: File,
+  ) => Promise<void>;
   deleteContract: (clientId: string, contractId: string) => Promise<boolean>;
   /**
    * Cria cliente manual (só nome obrigatório).
@@ -249,6 +262,17 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
         Math.round((input.valorTotal / input.parcelasCount) * 100) / 100;
 
       const produtos = normalizeContractProductsList(input.produtos);
+      const paymentLinks = paymentLinksForSave(input.paymentLinks);
+      for (const link of paymentLinks) {
+        if (!isValidPaymentUrl(link.url)) {
+          toast.error(`Link inválido: ${link.label || link.url}`);
+          return;
+        }
+      }
+      const valorEntrada =
+        input.valorEntrada != null && input.valorEntrada > 0
+          ? Math.round(input.valorEntrada * 100) / 100
+          : null;
 
       const newContrato: Contrato = {
         id: contractId,
@@ -259,12 +283,11 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
         status: input.status,
         listaParcelas,
         produtos,
+        paymentLinks,
+        valorEntrada,
+        instituicaoFinanceira: (input.instituicaoFinanceira ?? "").trim() || null,
+        criadoEm: new Date().toISOString(),
       };
-
-      const filesByNum = new Map<number, File>();
-      input.arquivosPorParcela.forEach((f, idx) => {
-        if (f) filesByNum.set(idx + 1, f);
-      });
 
       try {
         if (dataSource === "supabase" && supabase) {
@@ -273,28 +296,11 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
             clientId,
             newContrato,
             listaParcelas,
-            filesByNum,
           );
           await reload();
         } else {
-          const updatedParcelas = [...listaParcelas];
-          for (const [num, file] of filesByNum) {
-            if (file.size > MAX_LOCAL_FILE_BYTES) {
-              toast.error(
-                `Arquivo da parcela ${num} excede 2MB (modo local).`,
-              );
-              return;
-            }
-            const dataUrl = await fileToDataUrl(file);
-            const pi = updatedParcelas.findIndex((p) => p.numero === num);
-            if (pi >= 0) {
-              updatedParcelas[pi] = { ...updatedParcelas[pi], boletoUrl: dataUrl };
-            }
-          }
-
           const contratoFinal = {
             ...newContrato,
-            listaParcelas: updatedParcelas,
           };
           const nextClientes = clientes.map((c) => {
             if (c.id !== clientId) return c;
@@ -622,16 +628,45 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
         return false;
       }
       const produtos = normalizeContractProductsList(input.produtos);
+      if (input.paymentLinks) {
+        const saved = paymentLinksForSave(input.paymentLinks);
+        for (const link of saved) {
+          if (!isValidPaymentUrl(link.url)) {
+            toast.error(`Link inválido: ${link.label || link.url}`);
+            return false;
+          }
+        }
+      }
+      const valorEntrada =
+        input.valorEntrada !== undefined
+          ? input.valorEntrada != null && input.valorEntrada > 0
+            ? Math.round(input.valorEntrada * 100) / 100
+            : null
+          : atual.valorEntrada;
+      const instituicaoFinanceira =
+        input.instituicaoFinanceira !== undefined
+          ? (input.instituicaoFinanceira ?? "").trim() || null
+          : atual.instituicaoFinanceira;
+      const paymentLinks =
+        input.paymentLinks !== undefined
+          ? paymentLinksForSave(input.paymentLinks)
+          : atual.paymentLinks;
       const patch: Contrato = {
         ...atual,
         numero,
         produtos,
+        paymentLinks,
+        valorEntrada,
+        instituicaoFinanceira,
       };
       try {
         if (dataSource === "supabase" && supabase) {
           await supabaseUpdateContractDetails(supabase, contractId, {
             numero,
             produtos,
+            paymentLinks: input.paymentLinks ? paymentLinks : undefined,
+            valorEntrada,
+            instituicaoFinanceira,
           });
           await reload();
         } else {
@@ -653,6 +688,41 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
         console.error(e);
         toast.error("Falha ao atualizar contrato.");
         return false;
+      }
+    },
+    [clientes, dataSource, persistLocal, reload],
+  );
+
+  const uploadContractDocument = useCallback(
+    async (clientId: string, contractId: string, file: File) => {
+      if (file.size > MAX_LOCAL_FILE_BYTES && dataSource !== "supabase") {
+        toast.error("Arquivo excede 2MB (modo local).");
+        return;
+      }
+      try {
+        if (dataSource === "supabase" && supabase) {
+          await supabaseUploadContractDocument(supabase, clientId, contractId, file);
+          await reload();
+        } else {
+          const dataUrl = await fileToDataUrl(file);
+          const next = clientes.map((c) => {
+            if (c.id !== clientId) return c;
+            return {
+              ...c,
+              contratos: c.contratos.map((k) =>
+                k.id === contractId
+                  ? { ...k, contractDocumentUrl: dataUrl }
+                  : k,
+              ),
+            };
+          });
+          setClientes(next);
+          persistLocal(next);
+        }
+        toast.success("Contrato enviado com sucesso.");
+      } catch (e) {
+        console.error(e);
+        toast.error("Falha ao enviar o contrato.");
       }
     },
     [clientes, dataSource, persistLocal, reload],
@@ -893,6 +963,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       finalizeContract,
       updateContractStatus,
       updateContractDetails,
+      uploadContractDocument,
       deleteContract,
       deleteCliente,
       createClienteManual,
@@ -915,6 +986,7 @@ export function ContractsDataProvider({ children }: { children: ReactNode }) {
       finalizeContract,
       updateContractStatus,
       updateContractDetails,
+      uploadContractDocument,
       deleteContract,
       deleteCliente,
       createClienteManual,

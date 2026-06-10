@@ -20,6 +20,11 @@ import {
   parseProdutosFromContractRow,
   productFieldsToLegacyRow,
 } from "@/lib/contractProducts";
+import {
+  normalizePaymentLinks,
+  paymentLinksForSave,
+  type ContractPaymentLink,
+} from "@/lib/contractPaymentLinks";
 
 type ClientRow = {
   id: string;
@@ -60,6 +65,11 @@ type ContractRow = {
   produto_estado?: string | null;
   produto_acessorios?: string | null;
   produtos?: unknown;
+  payment_links?: unknown;
+  contract_document_path?: string | null;
+  valor_entrada?: number | null;
+  instituicao_financeira?: string | null;
+  created_at?: string | null;
 };
 
 type InstallmentRow = {
@@ -574,6 +584,13 @@ export async function fetchClientesFromSupabase(sb: SupabaseClient): Promise<Cli
 
     const statusRaw = String(k.status ?? "").toLowerCase();
     const status: ContractStatus = isContractStatus(statusRaw) ? statusRaw : "ativo";
+    let contractDocumentUrl: string | null = null;
+    if (k.contract_document_path) {
+      const { data } = sb.storage
+        .from("boletos")
+        .getPublicUrl(k.contract_document_path);
+      contractDocumentUrl = data.publicUrl;
+    }
     const contrato: Contrato = {
       id: k.id,
       numero: k.numero,
@@ -583,6 +600,15 @@ export async function fetchClientesFromSupabase(sb: SupabaseClient): Promise<Cli
       status,
       listaParcelas,
       produtos: parseProdutosFromContractRow(k),
+      paymentLinks: normalizePaymentLinks(k.payment_links).filter(
+        (l) => l.label && l.url,
+      ),
+      contractDocumentUrl,
+      contractDocumentPath: k.contract_document_path ?? null,
+      valorEntrada:
+        k.valor_entrada != null ? Number(k.valor_entrada) : null,
+      instituicaoFinanceira: k.instituicao_financeira ?? null,
+      criadoEm: k.created_at ?? null,
     };
 
     const list = contractsByClient.get(k.client_id) || [];
@@ -620,7 +646,6 @@ export async function supabaseCreateContractWithInstallments(
   clientId: string,
   contrato: Contrato,
   parcelas: Parcela[],
-  filesByParcelaNum: Map<number, File>,
 ): Promise<void> {
   const { error: e1 } = await sb.from("contracts").insert({
     id: contrato.id,
@@ -630,6 +655,9 @@ export async function supabaseCreateContractWithInstallments(
     parcelas_count: contrato.parcelas,
     valor_parcela: contrato.valorParcela,
     status: contrato.status,
+    payment_links: paymentLinksForSave(contrato.paymentLinks),
+    valor_entrada: contrato.valorEntrada ?? null,
+    instituicao_financeira: emptyToNull(contrato.instituicaoFinanceira ?? ""),
     ...contractProductsToRow(contrato.produtos),
   });
   if (e1) throw e1;
@@ -646,21 +674,28 @@ export async function supabaseCreateContractWithInstallments(
     if (e2) throw e2;
   }
 
-  for (const [num, file] of filesByParcelaNum) {
-    const path = `${clientId}/${contrato.id}/${num}_${sanitizeFileName(file.name)}`;
-    const { error: up } = await sb.storage
-      .from("boletos")
-      .upload(path, file, { upsert: true });
-    if (up) throw up;
-    const { error: upRow } = await sb
-      .from("installments")
-      .update({ boleto_storage_path: path })
-      .eq("contract_id", contrato.id)
-      .eq("numero", num);
-    if (upRow) throw upRow;
-  }
-
   await recomputeClientRowStatus(sb, clientId);
+}
+
+export async function supabaseUploadContractDocument(
+  sb: SupabaseClient,
+  clientId: string,
+  contractId: string,
+  file: File,
+): Promise<string> {
+  const path = `contracts/${clientId}/${contractId}/${sanitizeFileName(file.name)}`;
+  const { error: up } = await sb.storage
+    .from("boletos")
+    .upload(path, file, { upsert: true });
+  if (up) throw up;
+  const { error: rowErr } = await sb
+    .from("contracts")
+    .update({ contract_document_path: path })
+    .eq("id", contractId)
+    .eq("client_id", clientId);
+  if (rowErr) throw rowErr;
+  const { data } = sb.storage.from("boletos").getPublicUrl(path);
+  return data.publicUrl;
 }
 
 export async function supabaseUpdateInstallmentStatus(
@@ -765,6 +800,9 @@ export async function supabaseFinalizeContract(
 export type UpdateContractDetailsInput = {
   numero: string;
   produtos: ContractProductFields[];
+  paymentLinks?: ContractPaymentLink[];
+  valorEntrada?: number | null;
+  instituicaoFinanceira?: string | null;
 };
 
 export async function supabaseUpdateContractDetails(
@@ -772,12 +810,22 @@ export async function supabaseUpdateContractDetails(
   contractId: string,
   input: UpdateContractDetailsInput,
 ) {
+  const payload: Record<string, unknown> = {
+    numero: input.numero,
+    ...contractProductsToRow(input.produtos),
+  };
+  if (input.paymentLinks !== undefined) {
+    payload.payment_links = paymentLinksForSave(input.paymentLinks);
+  }
+  if (input.valorEntrada !== undefined) {
+    payload.valor_entrada = input.valorEntrada;
+  }
+  if (input.instituicaoFinanceira !== undefined) {
+    payload.instituicao_financeira = emptyToNull(input.instituicaoFinanceira ?? "");
+  }
   const { error } = await sb
     .from("contracts")
-    .update({
-      numero: input.numero,
-      ...contractProductsToRow(input.produtos),
-    })
+    .update(payload)
     .eq("id", contractId);
   if (error) throw error;
 }
@@ -800,6 +848,13 @@ export async function supabaseDeleteContract(
   clientId: string,
   contractId: string,
 ) {
+  const { data: contractRow, error: cRowErr } = await sb
+    .from("contracts")
+    .select("contract_document_path")
+    .eq("id", contractId)
+    .maybeSingle();
+  if (cRowErr) throw cRowErr;
+
   const { data: rows, error: qErr } = await sb
     .from("installments")
     .select("boleto_storage_path")
@@ -808,6 +863,8 @@ export async function supabaseDeleteContract(
   const paths = (rows || [])
     .map((r) => r.boleto_storage_path as string | null)
     .filter((p): p is string => Boolean(p));
+  const docPath = contractRow?.contract_document_path as string | null | undefined;
+  if (docPath) paths.push(docPath);
   if (paths.length > 0) {
     const { error: rmErr } = await sb.storage.from("boletos").remove(paths);
     if (rmErr) {
