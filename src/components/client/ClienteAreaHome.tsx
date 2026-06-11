@@ -47,7 +47,6 @@ type ClienteAreaHomeProps = {
   topBar?: React.ReactNode;
   /** Ações extras na seção de contratos (ex.: novo contrato) */
   contractsExtra?: React.ReactNode;
-  dadosHref?: string;
   produtosHref?: string;
   /** Visão do cliente: saudação + situação. Admin: ocultar. */
   showClientGreeting?: boolean;
@@ -67,7 +66,6 @@ export function ClienteAreaHome({
   contractActionLabel = "Ver detalhes",
   topBar,
   contractsExtra,
-  dadosHref = "/cliente/dados",
   produtosHref = "/cliente/produtos",
   showClientGreeting = true,
 }: ClienteAreaHomeProps) {
@@ -291,12 +289,6 @@ export function ClienteAreaHome({
             </p>
           </div>
         </div>
-        <Link
-          to={dadosHref}
-          className="mt-2 inline-block text-xs font-medium text-secondary hover:underline sm:mt-4 sm:text-sm"
-        >
-          Atualizar meus dados →
-        </Link>
       </div>
 
       <div id="seus-contratos" className="scroll-mt-4 space-y-2 sm:space-y-3">
@@ -349,9 +341,7 @@ export function ClienteAreaHome({
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground sm:text-sm">
-                      R$ {contrato.valor.toFixed(2).replace(".", ",")} •{" "}
-                      {contrato.parcelas}x de R${" "}
-                      {contrato.valorParcela.toFixed(2).replace(".", ",")}
+                      R$ {contrato.valor.toFixed(2).replace(".", ",")}
                     </p>
                     <span
                       className={cn(

@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import {
   ArrowLeft,
   BadgeCheck,
-  Building2,
   Calendar,
   Clock,
   Download,
@@ -278,38 +277,6 @@ export function ContratoDetailView({
         </div>
       </section>
 
-      {/* Sobre o produto */}
-      <SectionCard icon={<Package className="h-4 w-4" />} title="Sobre o produto">
-        <div className="space-y-6">
-          {produtos.map((p, i) => (
-            <div key={i}>
-              {produtos.length > 1 ? (
-                <p className="mb-3 text-xs font-medium text-muted-foreground">
-                  Item {i + 1}
-                </p>
-              ) : null}
-              <ProductSpecs produto={p} />
-            </div>
-          ))}
-        </div>
-      </SectionCard>
-
-      {/* Série / IMEI */}
-      <SectionCard icon={<HardDrive className="h-4 w-4" />} title="Série / IMEI">
-        <div className="space-y-6">
-          {produtos.map((p, i) => (
-            <div key={i}>
-              {produtos.length > 1 ? (
-                <p className="mb-3 text-xs font-medium text-muted-foreground">
-                  Item {i + 1}
-                </p>
-              ) : null}
-              <ProductSerieImei produto={p} />
-            </div>
-          ))}
-        </div>
-      </SectionCard>
-
       {/* Para pagar */}
       <SectionCard icon={<Wallet className="h-4 w-4" />} title="Para pagar">
         <div className="space-y-3">
@@ -370,8 +337,40 @@ export function ContratoDetailView({
         <div className="mt-4 flex items-start gap-2 rounded-lg bg-primary/5 px-3 py-2.5">
           <Info className="h-4 w-4 shrink-0 text-primary mt-0.5" />
           <p className="text-[11px] text-muted-foreground leading-snug">
-            O pagamento das parcelas é de responsabilidade do banco parceiro.
+            O pagamento pelo link tem a segurança do banco parceiro da Zavo.
           </p>
+        </div>
+      </SectionCard>
+
+      {/* Sobre o produto */}
+      <SectionCard icon={<Package className="h-4 w-4" />} title="Sobre o produto">
+        <div className="space-y-6">
+          {produtos.map((p, i) => (
+            <div key={i}>
+              {produtos.length > 1 ? (
+                <p className="mb-3 text-xs font-medium text-muted-foreground">
+                  Item {i + 1}
+                </p>
+              ) : null}
+              <ProductSpecs produto={p} />
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      {/* Série / IMEI */}
+      <SectionCard icon={<HardDrive className="h-4 w-4" />} title="Série / IMEI">
+        <div className="space-y-6">
+          {produtos.map((p, i) => (
+            <div key={i}>
+              {produtos.length > 1 ? (
+                <p className="mb-3 text-xs font-medium text-muted-foreground">
+                  Item {i + 1}
+                </p>
+              ) : null}
+              <ProductSerieImei produto={p} />
+            </div>
+          ))}
         </div>
       </SectionCard>
 
@@ -394,13 +393,8 @@ export function ContratoDetailView({
             },
             {
               icon: <Package className="h-4 w-4" />,
-              label: "Valor financiado",
+              label: "Valor parcelado",
               value: formatBRL(financiado),
-            },
-            {
-              icon: <Building2 className="h-4 w-4" />,
-              label: "Instituição financeira",
-              value: contrato.instituicaoFinanceira?.trim() || "—",
             },
             {
               icon: <Calendar className="h-4 w-4" />,

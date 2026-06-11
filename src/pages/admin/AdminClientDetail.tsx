@@ -36,7 +36,6 @@ export default function AdminClientDetail() {
       showClientGreeting={false}
       contractHref={(contratoId) => `/admin/cliente/${id}/contrato/${contratoId}`}
       contractActionLabel="Gerenciar contrato"
-      dadosHref={`/admin/cliente/${id}/dados`}
       produtosHref="/admin/produtos"
       topBar={
         <div className="flex flex-wrap items-center gap-2 pb-1">
