@@ -292,7 +292,11 @@ export default function Register() {
       toast.error(res.message);
       return;
     }
-    toast.success("Cadastro enviado! Aguarde a análise da equipe.");
+    if (res.warning) {
+      toast.warning(res.warning);
+    } else {
+      toast.success("Cadastro enviado! Aguarde a análise da equipe.");
+    }
     clearRegistrationInterest();
     navigate("/cadastro/sucesso");
   }
