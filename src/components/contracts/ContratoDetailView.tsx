@@ -177,8 +177,6 @@ export function ContratoDetailView({
 }: ContratoDetailViewProps) {
   const produtos = getContratoProdutos(contrato);
   const primeiraParcela = contrato.listaParcelas[0];
-  const entrada = contrato.valorEntrada ?? 0;
-  const financiado = Math.max(0, contrato.valor - entrada);
   const contratadoEm = formatContractDate(contrato.criadoEm);
   const paymentLinks = (contrato.paymentLinks ?? []).filter((l) => l.label && l.url);
 
@@ -390,11 +388,6 @@ export function ContratoDetailView({
                 contrato.valorEntrada != null && contrato.valorEntrada > 0
                   ? formatBRL(contrato.valorEntrada)
                   : "—",
-            },
-            {
-              icon: <Package className="h-4 w-4" />,
-              label: "Valor parcelado",
-              value: formatBRL(financiado),
             },
             {
               icon: <Calendar className="h-4 w-4" />,
