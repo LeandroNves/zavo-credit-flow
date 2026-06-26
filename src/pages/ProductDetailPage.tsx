@@ -26,11 +26,14 @@ import {
   type InstallmentMonths,
   calculateInstallmentWithDownPaymentCents,
   calculateInstallmentCents,
+  cartItemHasValidColorSelection,
   formatBRLFromCents,
   getDefaultProductModel,
+  getInitialCartColorsForProduct,
   getProductModelOptions,
   getProductPriceCentsByModel,
   parseProductColors,
+  productRequiresTwoColorChoices,
 } from "@/lib/productsStore";
 import {
   CART_UPDATED_EVENT,
@@ -46,7 +49,6 @@ import {
   ProductPaymentPanel,
   ProductPaymentStickyBar,
 } from "@/components/product/ProductPaymentPanel";
-import { DueDayDialog } from "@/components/product/DueDayDialog";
 import { toast } from "sonner";
 import logo from "@/assets/logo-zavo-2026.png";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -70,7 +72,6 @@ export default function ProductDetailPage() {
   const [cartItems, setCartItems] = useState(() => loadCart());
   const [cartCount, setCartCount] = useState(() => loadCart().reduce((sum, it) => sum + it.qty, 0));
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [buyNowDialogOpen, setBuyNowDialogOpen] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogCategory, setCatalogCategory] = useState<"Todos" | (typeof PRODUCT_CATEGORIES)[number]>("Todos");
   const [catalogSort, setCatalogSort] = useState<"mais-vendidos" | "menor-preco" | "maior-preco" | "promocoes">("mais-vendidos");
@@ -163,14 +164,11 @@ export default function ProductDetailPage() {
     const hasMissingColors = cartItems.some((it) => {
       const p = products.find((x) => x.id === it.productId);
       if (!p) return true;
-      const options = parseProductColors(p.color);
-      const chosen = (it.selectedColors ?? []).filter(Boolean);
-      if (options.length >= 2) return chosen.length < 2 || chosen[0] === chosen[1];
-      return chosen.length < 2;
+      return !cartItemHasValidColorSelection(p, it.selectedColors);
     });
     if (hasMissingColors) {
       setCartOpen(true);
-      toast.error("Selecione duas cores por produto (preferencial e alternativa).");
+      toast.error("Selecione as cores necessárias para cada produto no carrinho.");
       return;
     }
 
@@ -226,7 +224,6 @@ export default function ProductDetailPage() {
     const effectiveModel = selectedModel || getDefaultProductModel(product);
     const effectiveDownPayment: DownPaymentOptionId =
       forcedMonths === 1 ? "none" : selectedDownPayment;
-    const colorOptions = parseProductColors(product.color);
     const current = loadCart();
     const existingIdx = current.findIndex(
       (it) =>
@@ -256,7 +253,7 @@ export default function ProductDetailPage() {
         dueDay: 10,
         months: months as 1 | 6 | 12 | 18 | 24,
         qty: 1,
-        selectedColors: colorOptions.slice(0, 2),
+        selectedColors: getInitialCartColorsForProduct(product),
         addedAt: new Date().toISOString(),
       },
       ...current,
@@ -267,29 +264,6 @@ export default function ProductDetailPage() {
     toast.success("Produto adicionado ao carrinho.");
   };
 
-  const goBuyNow = (dueDay: number) => {
-    const effectiveModel = selectedModel || getDefaultProductModel(product);
-    const colorOptions = parseProductColors(product.color);
-    const item: CartItem = {
-      id: makeCartItemId(),
-      productId: product.id,
-      selectedModel: effectiveModel,
-      selectedDownPayment: selectedDownPayment,
-      dueDay: Math.max(1, Math.min(31, Math.round(dueDay))),
-      months: effectiveSelectedMonths,
-      qty: 1,
-      selectedColors: colorOptions.slice(0, 2),
-      addedAt: new Date().toISOString(),
-    };
-    saveRegistrationInterest({
-      interestType: "produto",
-      cart: buildCartSnapshot({ cartItems: [item], products }),
-    });
-    navigate("/login");
-  };
-
-  const openBuyNowDialog = () => setBuyNowDialogOpen(true);
-
   const trustItems = [
     { icon: Shield, text: "Seu produto é seu desde o início" },
     { icon: Zap, text: "Processo simples, rápido e 100% online" },
@@ -299,12 +273,6 @@ export default function ProductDetailPage() {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-8">
-      <DueDayDialog
-        open={buyNowDialogOpen}
-        onOpenChange={setBuyNowDialogOpen}
-        onConfirm={goBuyNow}
-        description="Informe o dia do mês para vencimento das parcelas, como no carrinho."
-      />
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-border/40">
         <div className="max-w-7xl mx-auto flex items-center justify-between h-14 md:h-16 px-3 md:px-4 lg:px-8">
           <div className="flex items-center gap-2">
@@ -401,9 +369,8 @@ export default function ProductDetailPage() {
                     const alternative = it.selectedColors?.[1] ?? "";
                     const dueDay = Math.max(1, Math.min(31, Math.round(it.dueDay ?? 10)));
                     const missingColors =
-                      colorOptions.length >= 2
-                        ? !preferred || !alternative || preferred === alternative
-                        : !preferred || !alternative;
+                      productRequiresTwoColorChoices(p) &&
+                      !cartItemHasValidColorSelection(p, it.selectedColors);
                     const per = calculateInstallmentWithDownPaymentCents({
                       priceCents: getProductPriceCentsByModel(p, it.selectedModel),
                       months: it.months,
@@ -492,38 +459,44 @@ export default function ProductDetailPage() {
                               </div>
                             </div>
 
-                            <div className="mt-3 grid grid-cols-2 gap-2">
-                              <div>
-                                <p className="text-xs text-muted-foreground mb-1">Cor preferencial</p>
-                                <Select value={preferred} onValueChange={(v) => setPreferredColor(it.id, v)}>
-                                  <SelectTrigger className="h-9">
-                                    <SelectValue placeholder="Escolha" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {colorOptions.map((c) => (
-                                      <SelectItem key={`pref-${it.id}-${c}`} value={c}>
-                                        {c}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                            {productRequiresTwoColorChoices(p) ? (
+                              <div className="mt-3 grid grid-cols-2 gap-2">
+                                <div>
+                                  <p className="text-xs text-muted-foreground mb-1">Cor preferencial</p>
+                                  <Select value={preferred} onValueChange={(v) => setPreferredColor(it.id, v)}>
+                                    <SelectTrigger className="h-9">
+                                      <SelectValue placeholder="Escolha" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {colorOptions.map((c) => (
+                                        <SelectItem key={`pref-${it.id}-${c}`} value={c}>
+                                          {c}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground mb-1">Cor alternativa</p>
+                                  <Select value={alternative} onValueChange={(v) => setAlternativeColor(it.id, v)}>
+                                    <SelectTrigger className="h-9">
+                                      <SelectValue placeholder="Escolha" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {colorOptions.map((c) => (
+                                        <SelectItem key={`alt-${it.id}-${c}`} value={c}>
+                                          {c}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-xs text-muted-foreground mb-1">Cor alternativa</p>
-                                <Select value={alternative} onValueChange={(v) => setAlternativeColor(it.id, v)}>
-                                  <SelectTrigger className="h-9">
-                                    <SelectValue placeholder="Escolha" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {colorOptions.map((c) => (
-                                      <SelectItem key={`alt-${it.id}-${c}`} value={c}>
-                                        {c}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
+                            ) : (
+                              <p className="mt-3 text-xs text-muted-foreground">
+                                Cor: <span className="font-medium text-primary">{p.color}</span>
+                              </p>
+                            )}
                             {missingColors && (
                               <p className="mt-2 text-xs text-destructive">
                                 Selecione duas cores para este produto (preferencial e alternativa).
@@ -688,7 +661,6 @@ export default function ProductDetailPage() {
                   selectedDownPayment={selectedDownPayment}
                   onSelectDownPayment={setSelectedDownPayment}
                   onAddToCart={() => addCurrentProductToCart()}
-                  onBuyNow={openBuyNowDialog}
                 />
 
                 <div className="hidden md:grid grid-cols-2 gap-2">
@@ -706,11 +678,7 @@ export default function ProductDetailPage() {
             </div>
           </section>
 
-          <ProductPaymentStickyBar
-            selectedMonths={effectiveSelectedMonths}
-            onAddToCart={() => addCurrentProductToCart()}
-            onBuyNow={openBuyNowDialog}
-          />
+          <ProductPaymentStickyBar onAddToCart={() => addCurrentProductToCart()} />
 
           {otherProducts.length > 0 && (
             <section className="bg-white rounded-2xl p-4 md:p-5">

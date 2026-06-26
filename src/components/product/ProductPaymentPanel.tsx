@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ChevronRight, Info, Pencil, ShoppingCart, WalletCards } from "lucide-react";
+import { Check, ChevronRight, Info, Pencil, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -72,7 +72,6 @@ type ProductPaymentPanelProps = {
   selectedDownPayment: DownPaymentOptionId;
   onSelectDownPayment: (id: DownPaymentOptionId) => void;
   onAddToCart: () => void;
-  onBuyNow: () => void;
   compact?: boolean;
 };
 
@@ -83,7 +82,6 @@ export function ProductPaymentPanel({
   selectedDownPayment,
   onSelectDownPayment,
   onAddToCart,
-  onBuyNow,
   compact = false,
 }: ProductPaymentPanelProps) {
   const [entryPanelOpen, setEntryPanelOpen] = useState(false);
@@ -215,18 +213,14 @@ export function ProductPaymentPanel({
         <ChevronRight className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0 text-secondary" />
       </button>
 
-      <div className="hidden md:grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+      <div className="hidden md:block pt-1">
         <Button
           variant="outline"
-          className="h-12 rounded-xl gap-2 border-secondary text-secondary hover:bg-secondary/5"
+          className="h-12 w-full rounded-xl gap-2 border-secondary text-secondary hover:bg-secondary/5"
           onClick={onAddToCart}
         >
           <ShoppingCart className="h-4 w-4" />
           Adicionar ao carrinho
-        </Button>
-        <Button className="h-12 rounded-xl gap-2 font-bold" onClick={onBuyNow}>
-          <WalletCards className="h-4 w-4" />
-          Comprar agora
         </Button>
       </div>
     </div>
@@ -235,28 +229,20 @@ export function ProductPaymentPanel({
 
 /** Barra fixa no rodapé (mobile). */
 export function ProductPaymentStickyBar({
-  selectedMonths,
   onAddToCart,
-  onBuyNow,
 }: {
-  selectedMonths: InstallmentMonths;
   onAddToCart: () => void;
-  onBuyNow: () => void;
 }) {
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 border-t bg-card/95 backdrop-blur-md p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
-      <div className="grid grid-cols-2 gap-1.5 max-w-lg mx-auto">
+      <div className="max-w-lg mx-auto">
         <Button
           variant="outline"
-          className="h-9 rounded-lg gap-1 border-secondary text-secondary text-xs"
+          className="h-10 w-full rounded-lg gap-2 border-secondary text-secondary"
           onClick={onAddToCart}
         >
-          <ShoppingCart className="h-3.5 w-3.5" />
-          Carrinho
-        </Button>
-        <Button className="h-9 rounded-lg gap-1 text-xs font-bold" onClick={onBuyNow}>
-          <WalletCards className="h-3.5 w-3.5" />
-          Comprar ({selectedMonths}x)
+          <ShoppingCart className="h-4 w-4" />
+          Adicionar ao carrinho
         </Button>
       </div>
     </div>

@@ -52,10 +52,13 @@ import {
   ALL_INSTALLMENTS,
   type LandingProduct,
   calculateInstallmentCents,
+  cartItemHasValidColorSelection,
   formatBRLFromCents,
   getDefaultProductModel,
+  getInitialCartColorsForProduct,
   getProductPriceCentsByModel,
   parseProductColors,
+  productRequiresTwoColorChoices,
 } from "@/lib/productsStore";
 import { useGlobalLandingProducts } from "@/hooks/useGlobalLandingProducts";
 import {
@@ -239,8 +242,6 @@ export default function LandingPage() {
     if (!product) return;
     const selectedModel = getDefaultProductModel(product);
     const months = pickDefaultMonths(product);
-    const colorOptions = parseProductColors(product.color);
-
     const existingIdx = cartItems.findIndex(
       (it) => it.productId === productId && it.selectedModel === selectedModel && it.months === months,
     );
@@ -259,7 +260,7 @@ export default function LandingPage() {
         dueDay: 10,
         months,
         qty: 1,
-        selectedColors: colorOptions.slice(0, 2),
+        selectedColors: getInitialCartColorsForProduct(product),
         addedAt: new Date().toISOString(),
       },
       ...cartItems,
@@ -320,14 +321,11 @@ export default function LandingPage() {
     const hasMissingColors = cartItems.some((it) => {
       const p = products.find((x) => x.id === it.productId);
       if (!p) return true;
-      const options = parseProductColors(p.color);
-      const chosen = (it.selectedColors ?? []).filter(Boolean);
-      if (options.length >= 2) return chosen.length < 2 || chosen[0] === chosen[1];
-      return chosen.length < 2;
+      return !cartItemHasValidColorSelection(p, it.selectedColors);
     });
     if (hasMissingColors) {
       setCartOpen(true);
-      toast.error("Selecione duas cores por produto (preferencial e alternativa).");
+      toast.error("Selecione as cores necessárias para cada produto no carrinho.");
       return;
     }
     saveRegistrationInterest({
@@ -445,9 +443,9 @@ export default function LandingPage() {
                     const preferred = it.selectedColors?.[0] ?? "";
                     const alternative = it.selectedColors?.[1] ?? "";
                     const dueDay = Math.max(1, Math.min(31, Math.round(it.dueDay ?? 10)));
-                    const missingColors = colorOptions.length >= 2
-                      ? !preferred || !alternative || preferred === alternative
-                      : !preferred || !alternative;
+                    const missingColors =
+                      productRequiresTwoColorChoices(p) &&
+                      !cartItemHasValidColorSelection(p, it.selectedColors);
                     const per = calculateInstallmentCents(getProductPriceCentsByModel(p, it.selectedModel), it.months);
                     return (
                       <div key={it.id} className="border rounded-xl p-3 bg-background">
@@ -528,38 +526,44 @@ export default function LandingPage() {
                               </div>
                             </div>
 
-                            <div className="mt-3 grid grid-cols-2 gap-2">
-                              <div>
-                                <p className="text-xs text-muted-foreground mb-1">Cor preferencial</p>
-                                <Select value={preferred} onValueChange={(v) => setPreferredColor(it.id, v)}>
-                                  <SelectTrigger className="h-9">
-                                    <SelectValue placeholder="Escolha" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {colorOptions.map((c) => (
-                                      <SelectItem key={`pref-${it.id}-${c}`} value={c}>
-                                        {c}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                            {productRequiresTwoColorChoices(p) ? (
+                              <div className="mt-3 grid grid-cols-2 gap-2">
+                                <div>
+                                  <p className="text-xs text-muted-foreground mb-1">Cor preferencial</p>
+                                  <Select value={preferred} onValueChange={(v) => setPreferredColor(it.id, v)}>
+                                    <SelectTrigger className="h-9">
+                                      <SelectValue placeholder="Escolha" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {colorOptions.map((c) => (
+                                        <SelectItem key={`pref-${it.id}-${c}`} value={c}>
+                                          {c}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground mb-1">Cor alternativa</p>
+                                  <Select value={alternative} onValueChange={(v) => setAlternativeColor(it.id, v)}>
+                                    <SelectTrigger className="h-9">
+                                      <SelectValue placeholder="Escolha" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {colorOptions.map((c) => (
+                                        <SelectItem key={`alt-${it.id}-${c}`} value={c}>
+                                          {c}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-xs text-muted-foreground mb-1">Cor alternativa</p>
-                                <Select value={alternative} onValueChange={(v) => setAlternativeColor(it.id, v)}>
-                                  <SelectTrigger className="h-9">
-                                    <SelectValue placeholder="Escolha" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {colorOptions.map((c) => (
-                                      <SelectItem key={`alt-${it.id}-${c}`} value={c}>
-                                        {c}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
+                            ) : (
+                              <p className="mt-3 text-xs text-muted-foreground">
+                                Cor: <span className="font-medium text-primary">{p.color}</span>
+                              </p>
+                            )}
                             {missingColors && (
                               <p className="mt-2 text-xs text-destructive">
                                 Selecione duas cores para este produto (preferencial e alternativa).

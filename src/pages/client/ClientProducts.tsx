@@ -1,21 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { Loader2, Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { getClienteAtualId } from "@/lib/clienteSession";
-import { useGlobalLandingProductsState } from "@/hooks/useGlobalLandingProducts";
+import { useGlobalLandingProducts } from "@/hooks/useGlobalLandingProducts";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import {
   ALL_INSTALLMENTS,
+  cartItemHasValidColorSelection,
   calculateInstallmentCents,
-  calculateInstallmentWithDownPaymentCents,
   formatBRLFromCents,
-  getDefaultProductModel,
-  getProductModelOptions,
-  getProductPriceCentsByModel,
+  getInitialCartColorsForProduct,
   parseProductColors,
+  productRequiresTwoColorChoices,
   type InstallmentMonths,
   type LandingProduct,
 } from "@/lib/productsStore";
@@ -31,7 +29,7 @@ import { createProductRequest } from "@/lib/productRequestsSupabase";
 import { RotatingProductImage } from "@/components/product/RotatingProductImage";
 
 export default function ClientProducts() {
-  const { products, isLoading } = useGlobalLandingProductsState();
+  const products = useGlobalLandingProducts();
   const [items, setItems] = useState<ClientProductCartItem[]>(() => loadClientProductCart());
   const [submitting, setSubmitting] = useState(false);
 
@@ -51,12 +49,8 @@ export default function ClientProducts() {
   function addToCart(productId: string) {
     const p = products.find((x) => x.id === productId);
     if (!p) return;
-    const selectedModel = getDefaultProductModel(p);
     const months = pickDefaultMonths(p);
-    const colorOptions = parseProductColors(p.color);
-    const idx = items.findIndex(
-      (it) => it.productId === productId && it.selectedModel === selectedModel && it.months === months,
-    );
+    const idx = items.findIndex((it) => it.productId === productId && it.months === months);
     if (idx >= 0) {
       persist(items.map((it, i) => (i === idx ? { ...it, qty: Math.min(99, it.qty + 1) } : it)));
       return;
@@ -64,11 +58,9 @@ export default function ClientProducts() {
     persist([{
       id: makeClientProductCartItemId(),
       productId,
-      selectedModel,
-      dueDay: 10,
       months,
       qty: 1,
-      selectedColors: colorOptions.slice(0, 2),
+      selectedColors: getInitialCartColorsForProduct(p),
       addedAt: new Date().toISOString(),
     }, ...items]);
   }
@@ -83,15 +75,6 @@ export default function ClientProducts() {
     persist(items.map((it) => (it.id === id ? { ...it, months: months as InstallmentMonths } : it)));
   }
 
-  function setModel(id: string, model: string) {
-    persist(items.map((it) => (it.id === id ? { ...it, selectedModel: model } : it)));
-  }
-
-  function setDueDay(id: string, dueDay: number) {
-    const d = Math.max(1, Math.min(31, Math.round(dueDay)));
-    persist(items.map((it) => (it.id === id ? { ...it, dueDay: d } : it)));
-  }
-
   function setPreferredColor(id: string, color: string) {
     persist(items.map((it) => (it.id === id ? { ...it, selectedColors: [color, it.selectedColors?.[1] ?? ""].filter(Boolean) } : it)));
   }
@@ -103,16 +86,12 @@ export default function ClientProducts() {
   const cartCount = items.reduce((sum, it) => sum + it.qty, 0);
   const hasInvalid = items.some((it) => {
     const p = products.find((x) => x.id === it.productId);
-    if (!p) return true;
-    return getProductPriceCentsByModel(p, it.selectedModel) <= 0;
+    return !p || !p.priceCents;
   });
   const hasMissingColors = items.some((it) => {
     const p = products.find((x) => x.id === it.productId);
     if (!p) return true;
-    const chosen = (it.selectedColors ?? []).filter(Boolean);
-    const options = parseProductColors(p.color);
-    if (options.length >= 2) return chosen.length < 2 || chosen[0] === chosen[1];
-    return chosen.length < 2;
+    return !cartItemHasValidColorSelection(p, it.selectedColors);
   });
 
   const cartLines = useMemo(
@@ -121,8 +100,7 @@ export default function ClientProducts() {
         .map((it) => {
           const p = products.find((x) => x.id === it.productId);
           if (!p) return null;
-          const selectedPriceCents = getProductPriceCentsByModel(p, it.selectedModel);
-          const per = calculateInstallmentCents(selectedPriceCents, it.months);
+          const per = calculateInstallmentCents(p.priceCents, it.months);
           return { it, p, per };
         })
         .filter(Boolean) as Array<{ it: ClientProductCartItem; p: LandingProduct; per: number }>,
@@ -143,7 +121,7 @@ export default function ClientProducts() {
       return;
     }
     if (hasMissingColors) {
-      toast.error("Selecione duas cores por produto (preferencial e alternativa).");
+      toast.error("Complete as informações de cor dos itens no carrinho.");
       return;
     }
 
@@ -156,27 +134,15 @@ export default function ClientProducts() {
       return;
     }
 
-    const payloadItems = cartLines.map(({ it, p, per }) => {
-      const calc = calculateInstallmentWithDownPaymentCents({
-        priceCents: getProductPriceCentsByModel(p, it.selectedModel),
-        months: it.months,
-        downPaymentOptionId: "none",
-      });
-      return {
+    const payloadItems = cartLines.map(({ it, p, per }) => ({
       productId: p.id,
       name: p.name,
       color: (it.selectedColors ?? []).join(" / ") || p.color,
-      model: it.selectedModel,
       colors: (it.selectedColors ?? []).filter(Boolean).slice(0, 2),
-      downPayment: "Sem entrada",
-      downPaymentValueBRL: formatBRLFromCents(calc.downPaymentCents),
-      dueDay: Math.max(1, Math.min(31, Math.round(it.dueDay ?? 10))),
       months: it.months,
       qty: it.qty,
       perInstallmentBRL: formatBRLFromCents(per),
-      totalPlanBRL: formatBRLFromCents(calc.discountedPlanTotalCents),
-      };
-    });
+    }));
 
     setSubmitting(true);
     try {
@@ -204,56 +170,33 @@ export default function ClientProducts() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2 grid sm:grid-cols-2 gap-4">
           {products.map((p) => {
-            const per6 = p.priceCents ? calculateInstallmentCents(p.priceCents, 6) : 0;
-            const per12 = p.priceCents ? calculateInstallmentCents(p.priceCents, 12) : 0;
-            const total12 = per12 * 12;
+            const months = (p.enabledMonths?.length ? p.enabledMonths : ALL_INSTALLMENTS).slice().sort((a, b) => a - b);
+            const firstMonths = months[0] as InstallmentMonths;
+            const firstPer = calculateInstallmentCents(p.priceCents, firstMonths);
             return (
-              <div key={p.id} className="group bg-white rounded-2xl p-6 border border-border/50 hover:shadow-xl hover:border-secondary/30 transition-all duration-300 space-y-4">
-                <div className="h-48 rounded-lg bg-background flex items-center justify-center overflow-hidden">
+              <div key={p.id} className="rounded-xl border bg-card p-4 space-y-3">
+                <div className="h-40 rounded-lg border bg-background flex items-center justify-center overflow-hidden">
                   <RotatingProductImage
                     images={p.imageSrcs?.length ? p.imageSrcs : [p.imageSrc]}
                     alt={p.name}
-                    containerClassName="h-40 w-full"
-                    intervalMs={3000}
+                    containerClassName="h-32 w-full"
+                    intervalMs={2500}
                   />
                 </div>
                 <div>
-                  <p className="text-lg font-bold text-primary">{p.name}</p>
+                  <p className="font-semibold text-primary">{p.name}</p>
+                  <p className="text-sm text-muted-foreground">{p.color}</p>
                 </div>
-                {p.priceCents > 0 ? (
-                  <div className="space-y-1">
-                    <p className="text-base text-muted-foreground">
-                      <span className="font-bold text-primary">A partir de 6x de {formatBRLFromCents(per6)}</span>
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      12x de <span className="font-semibold text-primary">{formatBRLFromCents(per12)}</span> pagando até vencimento
-                    </p>
-                    <p className="text-xs text-muted-foreground">Total em 12x: {formatBRLFromCents(total12)}</p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Consulte condições com nosso time.</p>
-                )}
-
-                <div className="grid grid-cols-2 gap-2">
-                  <Button className="w-full rounded-full" onClick={() => addToCart(p.id)}>
-                    <ShoppingCart className="h-4 w-4" /> Adicionar
-                  </Button>
-                  <Button asChild variant="outline" className="w-full rounded-full">
-                    <Link to={`/produtos/${p.id}`}>Ver produto</Link>
-                  </Button>
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  A partir de <span className="font-semibold text-primary">{firstMonths}x de {formatBRLFromCents(firstPer)}</span>
+                </p>
+                <Button className="w-full rounded-full" onClick={() => addToCart(p.id)}>
+                  <ShoppingCart className="h-4 w-4" /> Adicionar ao carrinho
+                </Button>
               </div>
             );
           })}
-          {isLoading && (
-            <div className="col-span-full text-center py-12 text-muted-foreground rounded-xl border bg-card">
-              <div className="flex items-center justify-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Carregando produtos...
-              </div>
-            </div>
-          )}
-          {!isLoading && products.length === 0 && (
+          {products.length === 0 && (
             <div className="col-span-full text-center py-12 text-muted-foreground rounded-xl border bg-card">
               Nenhum produto disponível no momento.
             </div>
@@ -269,20 +212,6 @@ export default function ClientProducts() {
               {cartLines.map(({ it, p, per }) => (
                 <div key={it.id} className="rounded-lg border p-3 space-y-2">
                   <p className="text-sm font-medium text-primary">{p.name}</p>
-                  {!!getProductModelOptions(p).length && (
-                    <Select value={it.selectedModel} onValueChange={(v) => setModel(it.id, v)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Modelo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {getProductModelOptions(p).map((opt) => (
-                          <SelectItem key={`${it.id}-${opt.model}`} value={opt.model}>
-                          {opt.model}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
                   <p className="text-xs text-muted-foreground">{p.color}</p>
                   <div className="flex items-center gap-2">
                     <Button size="icon" variant="outline" onClick={() => setQty(it.id, it.qty - 1)}>
@@ -296,18 +225,6 @@ export default function ClientProducts() {
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-                  <Select value={String(Math.max(1, Math.min(31, Math.round(it.dueDay ?? 10))))} onValueChange={(v) => setDueDay(it.id, Number(v))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Dia de vencimento" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                        <SelectItem key={`due-${it.id}-${d}`} value={String(d)}>
-                          Dia {String(d).padStart(2, "0")}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                   <Select value={String(it.months)} onValueChange={(v) => setMonths(it.id, Number(v))}>
                     <SelectTrigger>
                       <SelectValue />
@@ -318,40 +235,48 @@ export default function ClientProducts() {
                         .sort((a, b) => a - b)
                         .map((m) => (
                           <SelectItem key={m} value={String(m)}>
-                            {m}x de {formatBRLFromCents(calculateInstallmentCents(getProductPriceCentsByModel(p, it.selectedModel), m))}
+                            {m}x de {formatBRLFromCents(calculateInstallmentCents(p.priceCents, m))}
                           </SelectItem>
                         ))}
                     </SelectContent>
                   </Select>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <Select value={it.selectedColors?.[0] ?? ""} onValueChange={(v) => setPreferredColor(it.id, v)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Cor preferencial" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {parseProductColors(p.color).map((c) => (
-                          <SelectItem key={`cp-${it.id}-${c}`} value={c}>
-                            {c}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select value={it.selectedColors?.[1] ?? ""} onValueChange={(v) => setAlternativeColor(it.id, v)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Cor alternativa" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {parseProductColors(p.color).map((c) => (
-                          <SelectItem key={`ca-${it.id}-${c}`} value={c}>
-                            {c}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {productRequiresTwoColorChoices(p) ? (
+                      <>
+                        <Select value={it.selectedColors?.[0] ?? ""} onValueChange={(v) => setPreferredColor(it.id, v)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Cor preferencial" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {parseProductColors(p.color).map((c) => (
+                              <SelectItem key={`cp-${it.id}-${c}`} value={c}>
+                                {c}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={it.selectedColors?.[1] ?? ""} onValueChange={(v) => setAlternativeColor(it.id, v)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Cor alternativa" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {parseProductColors(p.color).map((c) => (
+                              <SelectItem key={`ca-${it.id}-${c}`} value={c}>
+                                {c}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground sm:col-span-2">
+                        Cor: <span className="font-medium text-primary">{p.color}</span>
+                      </p>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground">
                     <span className="font-semibold text-primary">{it.months}x</span> de{" "}
-                    <span className="font-semibold text-primary">{formatBRLFromCents(per)}</span>
+                    <span className="font-semibold text-primary">{p.priceCents ? formatBRLFromCents(per) : "—"}</span>
                   </p>
                 </div>
               ))}

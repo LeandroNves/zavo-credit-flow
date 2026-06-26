@@ -4,13 +4,10 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RegistrationInterestCard } from "@/components/RegistrationInterestCard";
 import { setClienteAtualId } from "@/lib/clienteSession";
-import { loadRegistrationInterest } from "@/lib/registrationInterest";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
 import { validatePortalPassword } from "@/lib/clientPasswordPolicy";
-import { formatCPF, normalizeCPF } from "@/lib/brFormat";
 
 export default function Login() {
   const [identificador, setIdentificador] = useState("");
@@ -19,7 +16,6 @@ export default function Login() {
   const [confirmarNovaSenha, setConfirmarNovaSenha] = useState("");
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [interestCart, setInterestCart] = useState(() => loadRegistrationInterest().cart);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -38,7 +34,7 @@ export default function Login() {
 
     const raw = identificador.trim();
     if (!raw || !senha) {
-      toast.error("Preencha CPF ou e-mail e a senha.");
+      toast.error("Preencha nome ou e-mail e a senha.");
       return;
     }
 
@@ -46,20 +42,21 @@ export default function Login() {
     try {
       let email = raw;
       if (!raw.includes("@")) {
-        const cpfDigits = normalizeCPF(raw);
-        if (cpfDigits.length !== 11) {
-          toast.error("CPF inválido. Digite o CPF completo ou use o e-mail.");
-          return;
-        }
         const { data, error } = await supabase.rpc("lookup_email_for_login", {
-          p_identifier: cpfDigits,
+          p_identifier: raw,
         });
         if (error) {
           toast.error(error.message);
           return;
         }
+        if (data === "__AMBIGUOUS__") {
+          toast.error(
+            "Vários cadastros com esse nome. Use o e-mail cadastrado para entrar.",
+          );
+          return;
+        }
         if (!data) {
-          toast.error("Cadastro não encontrado. Verifique CPF ou e-mail.");
+          toast.error("Cadastro não encontrado. Verifique nome ou e-mail.");
           return;
         }
         email = data as string;
@@ -168,15 +165,15 @@ export default function Login() {
         <ArrowLeft className="h-5 w-5" />
       </Button>
       <div className="w-full max-w-md">
-        <RegistrationInterestCard cart={interestCart} className="mb-6" />
+        <div className="text-center mb-8" />
         <div className="bg-card rounded-lg shadow-sm border p-8 space-y-6">
           <h1 className="text-2xl font-bold text-primary text-center">
             {recoveryMode ? "Redefinir senha" : "Acesse sua conta"}
           </h1>
           {!recoveryMode ? (
             <p className="text-sm text-muted-foreground text-center">
-              Use o <strong className="text-foreground">CPF</strong> ou o{" "}
-              <strong className="text-foreground">e-mail do cadastro</strong>.
+              Use o <strong className="text-foreground">e-mail do cadastro</strong> ou o{" "}
+              <strong className="text-foreground">nome completo</strong> (se for único).
               A senha é armazenada com segurança pelo Supabase Auth (hash no servidor).
             </p>
           ) : (
@@ -188,16 +185,12 @@ export default function Login() {
             <>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="ident">CPF ou e-mail</Label>
+                  <Label htmlFor="ident">E-mail ou nome completo</Label>
                   <Input
                     id="ident"
-                    placeholder="000.000.000-00 ou seu@email.com"
+                    placeholder="seu@email.com ou Maria Silva"
                     value={identificador}
-                    onChange={(e) => {
-                      const next = e.target.value;
-                      if (next.includes("@")) setIdentificador(next);
-                      else setIdentificador(formatCPF(next));
-                    }}
+                    onChange={(e) => setIdentificador(e.target.value)}
                     autoComplete="username"
                   />
                 </div>

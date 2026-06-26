@@ -5,21 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
 import { landingProductSeed } from "@/data/landingProductSeed";
 import {
   ALL_INSTALLMENTS,
-  DOWN_PAYMENT_OPTIONS,
-  type DownPaymentOptionId,
   type InstallmentMonths,
   type LandingProduct,
-  type ProductModelOption,
-  PRODUCT_BRANDS,
-  PRODUCT_CATEGORIES,
-  type ProductBrand,
-  type ProductCategory,
   PRODUCTS_UPDATED_EVENT,
-  calculateInstallmentWithDownPaymentCents,
   calculateInstallmentCents,
   formatBRLFromCents,
   loadLandingProducts,
@@ -32,7 +23,6 @@ import {
   fetchLandingProductsFromSupabase,
   subscribeLandingProductsChanges,
 } from "@/lib/productsSupabase";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function toCentsFromBRL(input: string): number {
   const normalized = input.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
@@ -56,7 +46,6 @@ async function readFileAsDataUrl(file: File): Promise<string> {
 }
 
 const MONTH_LABEL: Record<InstallmentMonths, string> = {
-  1: "À vista (1x)",
   6: "6 meses",
   12: "12 meses",
   18: "18 meses",
@@ -66,13 +55,9 @@ const MONTH_LABEL: Record<InstallmentMonths, string> = {
 type Draft = {
   id?: string;
   name: string;
-  category: ProductCategory;
-  brand: ProductBrand;
-  isOnSale: boolean;
   color: string;
-  description: string;
-  deliveryTime: string;
-  modelOptions: Array<{ model: string; price: string }>;
+  singleColor: boolean;
+  price: string;
   imageSrcs: string[];
   enabledMonths: InstallmentMonths[];
 };
@@ -80,30 +65,12 @@ type Draft = {
 function makeEmptyDraft(): Draft {
   return {
     name: "",
-    category: "Celular",
-    brand: "Apple",
-    isOnSale: false,
     color: "",
-    description: "",
-    deliveryTime: "",
-    modelOptions: [{ model: "", price: "" }],
+    singleColor: false,
+    price: "",
     imageSrcs: [],
     enabledMonths: [...ALL_INSTALLMENTS],
   };
-}
-
-async function uploadProductImage(args: { dataUrl: string; productId?: string }): Promise<string> {
-  const res = await fetch("/api/admin/upload-product-image", {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dataUrl: args.dataUrl, productId: args.productId ?? "" }),
-  });
-  const data = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string; error?: string; message?: string };
-  if (!res.ok || !data.ok || !data.url) {
-    throw new Error(data.message || data.error || "Falha ao enviar imagem");
-  }
-  return data.url;
 }
 
 export default function AdminProducts() {
@@ -112,9 +79,6 @@ export default function AdminProducts() {
   );
   const [draft, setDraft] = useState<Draft>(() => makeEmptyDraft());
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [previewModel, setPreviewModel] = useState("");
-  const [previewDownPayment, setPreviewDownPayment] = useState<DownPaymentOptionId>("none");
-  const [previewEarlyPayment, setPreviewEarlyPayment] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -155,52 +119,20 @@ export default function AdminProducts() {
     [products],
   );
 
-  const parsedModelOptions = useMemo(
-    () =>
-      draft.modelOptions
-        .map((x) => ({ model: x.model.trim(), priceCents: toCentsFromBRL(x.price) }))
-        .filter((x) => x.model && x.priceCents > 0)
-        .filter(
-          (x, i, arr) =>
-            arr.findIndex((y) => y.model.toLowerCase() === x.model.toLowerCase()) === i,
-        ) as ProductModelOption[],
-    [draft.modelOptions],
-  );
-
-  useEffect(() => {
-    if (!parsedModelOptions.length) {
-      setPreviewModel("");
-      return;
-    }
-    if (!parsedModelOptions.some((x) => x.model === previewModel)) {
-      setPreviewModel(parsedModelOptions[0].model);
-    }
-  }, [parsedModelOptions, previewModel]);
-
   const previewInstallments = useMemo(() => {
-    const selectedModelPriceCents =
-      parsedModelOptions.find((x) => x.model === previewModel)?.priceCents ??
-      parsedModelOptions[0]?.priceCents ??
-      0;
+    const priceCents = toCentsFromBRL(draft.price);
     return draft.enabledMonths
       .slice()
       .sort((a, b) => a - b)
       .map((m) => ({
         months: m,
-        calc: calculateInstallmentWithDownPaymentCents({
-          priceCents: selectedModelPriceCents,
-          months: m,
-          downPaymentOptionId: previewDownPayment,
-        }),
+        perInstallment: calculateInstallmentCents(priceCents, m),
       }));
-  }, [draft.enabledMonths, parsedModelOptions, previewDownPayment, previewModel]);
+  }, [draft.price, draft.enabledMonths]);
 
   function resetDraft() {
     setDraft(makeEmptyDraft());
     setEditingId(null);
-    setPreviewDownPayment("none");
-    setPreviewEarlyPayment(true);
-    setPreviewModel("");
   }
 
   async function persist(next: LandingProduct[]) {
@@ -218,10 +150,6 @@ export default function AdminProducts() {
           ok?: boolean;
           error?: string;
           message?: string;
-          index?: number;
-          id?: string | null;
-          name?: string | null;
-          reason?: string;
         };
         if (!r.ok || !data.ok) {
           setProducts(prev);
@@ -233,8 +161,6 @@ export default function AdminProducts() {
                 : data.error === "invalid_service_role_key"
                   ? data.message ||
                     "Use a chave service_role (secreta) em SUPABASE_SERVICE_ROLE_KEY, não a chave anon."
-                  : data.error === "invalid_product"
-                    ? `Produto inválido no índice ${data.index ?? "?"}${data.name ? ` (${data.name})` : ""}${data.reason ? ` - ${data.reason}` : ""}.`
                   : data.message || data.error || "Não foi possível salvar o catálogo.",
           );
           return;
@@ -259,18 +185,9 @@ export default function AdminProducts() {
     setDraft({
       id: p.id,
       name: p.name,
-      category: p.category,
-      brand: p.brand,
-      isOnSale: p.isOnSale,
       color: p.color,
-      description: p.description ?? "",
-      deliveryTime: p.deliveryTime ?? "",
-      modelOptions: (p.modelOptions?.length
-        ? p.modelOptions
-        : (p.specifications ?? []).map((model) => ({ model, priceCents: p.priceCents }))).map((x) => ({
-        model: x.model,
-        price: fromCentsToBRLInput(x.priceCents),
-      })),
+      singleColor: Boolean(p.singleColor),
+      price: fromCentsToBRLInput(p.priceCents),
       imageSrcs: [...(p.imageSrcs?.length ? p.imageSrcs : [p.imageSrc])],
       enabledMonths: [...p.enabledMonths],
     });
@@ -293,17 +210,7 @@ export default function AdminProducts() {
 
   async function onPickImages(files: FileList | null) {
     if (!files || files.length === 0) return;
-    const pickedDataUrls = await Promise.all(Array.from(files).map((file) => readFileAsDataUrl(file)));
-    const picked = await (async () => {
-      // Em produção (Supabase), não salva base64 no catálogo: sobe para Storage e guarda URL.
-      if (isSupabaseConfigured) {
-        return await Promise.all(
-          pickedDataUrls.map(async (dataUrl) => await uploadProductImage({ dataUrl, productId: draft.id ?? editingId ?? "" })),
-        );
-      }
-      // fallback local: mantém data URL (dev sem Supabase)
-      return pickedDataUrls;
-    })();
+    const picked = await Promise.all(Array.from(files).map((file) => readFileAsDataUrl(file)));
     setDraft((d) => {
       const merged = [...d.imageSrcs, ...picked].filter(Boolean);
       const unique = merged.filter((v, i, a) => a.indexOf(v) === i);
@@ -315,43 +222,21 @@ export default function AdminProducts() {
     setDraft((d) => ({ ...d, imageSrcs: d.imageSrcs.filter((_, i) => i !== idx) }));
   }
 
-  function addModelOptionRow() {
-    setDraft((d) => ({ ...d, modelOptions: [...d.modelOptions, { model: "", price: "" }] }));
-  }
-
-  function removeModelOptionRow(idx: number) {
-    setDraft((d) => {
-      if (d.modelOptions.length <= 1) return d;
-      return { ...d, modelOptions: d.modelOptions.filter((_, i) => i !== idx) };
-    });
-  }
-
   async function save() {
     const name = draft.name.trim();
     const color = draft.color.trim();
-    const category = draft.category;
-    const brand = draft.brand;
-    const isOnSale = draft.isOnSale;
-    const description = draft.description.trim();
-    const deliveryTime = draft.deliveryTime.trim();
     const imageSrcs = draft.imageSrcs
       .map((x) => x.trim())
       .filter(Boolean)
       .filter((x, i, a) => a.indexOf(x) === i);
     const imageSrc = imageSrcs[0] ?? "";
-    const modelOptions = draft.modelOptions
-      .map((x) => ({ model: x.model.trim(), priceCents: toCentsFromBRL(x.price) }))
-      .filter((x) => x.model && x.priceCents > 0)
-      .filter(
-        (x, i, arr) =>
-          arr.findIndex((y) => y.model.toLowerCase() === x.model.toLowerCase()) === i,
-      ) as ProductModelOption[];
-    const priceCents = modelOptions.length ? Math.min(...modelOptions.map((x) => x.priceCents)) : 0;
+    const priceCents = toCentsFromBRL(draft.price);
     const enabledMonths = draft.enabledMonths.length ? draft.enabledMonths : [...ALL_INSTALLMENTS];
 
     if (!name) return;
     if (!imageSrc) return;
-    if (priceCents <= 0 || modelOptions.length === 0) return;
+    if (!color) return;
+    if (priceCents <= 0) return;
 
     const nowIso = new Date().toISOString();
 
@@ -361,14 +246,8 @@ export default function AdminProducts() {
           ? {
               ...p,
               name,
-              category,
-              brand,
-              isOnSale,
-              color,
-              description,
-              deliveryTime,
-              specifications: [],
-              modelOptions,
+              color: draft.singleColor ? color.split(/[,/|]/)[0]?.trim() || color : color,
+              singleColor: draft.singleColor,
               imageSrc,
               imageSrcs,
               priceCents,
@@ -385,14 +264,15 @@ export default function AdminProducts() {
     const newProduct: LandingProduct = {
       id: makeProductId(),
       name,
-      category,
-      brand,
-      isOnSale,
-      color,
-      description,
-      deliveryTime,
+      category: "Celular",
+      brand: "Apple",
+      isOnSale: false,
+      color: draft.singleColor ? color.split(/[,/|]/)[0]?.trim() || color : color,
+      singleColor: draft.singleColor,
+      description: "",
+      deliveryTime: "",
       specifications: [],
-      modelOptions,
+      modelOptions: [],
       imageSrc,
       imageSrcs,
       priceCents,
@@ -420,34 +300,10 @@ export default function AdminProducts() {
         <div>
           <h1 className="text-2xl font-bold text-primary">Produtos da Landing</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Gerencie os itens da loja com categoria, marca, promoção, imagens, preço e parcelas.
+            Gerencie os itens de “Produtos mais procurados” (imagem, nome, cor, preço e parcelas).
           </p>
         </div>
         <div className="flex gap-2">
-          {isSupabaseConfigured && (
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => {
-                void (async () => {
-                  try {
-                    const r = await fetch("/api/admin/migrate-product-images", { method: "POST", credentials: "include" });
-                    const data = (await r.json().catch(() => ({}))) as { ok?: boolean; scanned?: number; migrated?: number; error?: string; message?: string };
-                    if (!r.ok || !data.ok) {
-                      toast.error(data.message || data.error || "Não foi possível migrar imagens.");
-                      return;
-                    }
-                    toast.success(`Migração concluída. Itens verificados: ${data.scanned ?? "?"}. Migrados: ${data.migrated ?? "?"}.`);
-                    window.dispatchEvent(new Event(PRODUCTS_UPDATED_EVENT));
-                  } catch (e: any) {
-                    toast.error(e?.message || "Não foi possível migrar imagens.");
-                  }
-                })();
-              }}
-            >
-              Migrar imagens antigas
-            </Button>
-          )}
           <Button variant="outline" className="gap-2" onClick={seedIfEmpty}>
             <RefreshCcw className="h-4 w-4" /> Recarregar
           </Button>
@@ -464,13 +320,7 @@ export default function AdminProducts() {
             <h2 className="font-semibold text-primary">
               {editingId ? "Editar produto" : "Adicionar produto"}
             </h2>
-            {(editingId ||
-              draft.name ||
-              draft.imageSrcs.length > 0 ||
-              draft.color ||
-              draft.description ||
-              draft.deliveryTime ||
-              draft.modelOptions.some((x) => x.model || x.price)) && (
+            {(editingId || draft.name || draft.imageSrcs.length > 0 || draft.price || draft.color) && (
               <Button variant="ghost" size="sm" onClick={resetDraft}>
                 Limpar
               </Button>
@@ -486,128 +336,44 @@ export default function AdminProducts() {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Categoria</Label>
-              <Select
-                value={draft.category}
-                onValueChange={(value) => setDraft((d) => ({ ...d, category: value as ProductCategory }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRODUCT_CATEGORIES.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Marca</Label>
-              <Select
-                value={draft.brand}
-                onValueChange={(value) => setDraft((d) => ({ ...d, brand: value as ProductBrand }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a marca" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRODUCT_BRANDS.map((brand) => (
-                    <SelectItem key={brand} value={brand}>
-                      {brand}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={draft.isOnSale}
-              onCheckedChange={(value) => setDraft((d) => ({ ...d, isOnSale: Boolean(value) }))}
-            />
-            Produto em promoção
-          </label>
-
           <div className="space-y-2">
             <Label>Cor</Label>
             <Input
               value={draft.color}
               onChange={(e) => setDraft((d) => ({ ...d, color: e.target.value }))}
-              placeholder='Ex.: Preto, Branco, Laranja'
+              placeholder={draft.singleColor ? "Ex.: Branco" : "Ex.: Titânio Azul, Preto"}
+            />
+            <label className="flex items-start gap-2 text-sm cursor-pointer">
+              <Checkbox
+                checked={draft.singleColor}
+                onCheckedChange={(v) =>
+                  setDraft((d) => ({
+                    ...d,
+                    singleColor: Boolean(v),
+                    color: Boolean(v) ? d.color.split(/[,/|]/)[0]?.trim() || d.color : d.color,
+                  }))
+                }
+              />
+              <span>
+                <span className="font-medium text-primary">Apenas uma cor</span>
+                <span className="block text-xs text-muted-foreground mt-0.5">
+                  Marque para produtos como AirPods (só branco). O cliente não precisará escolher cor
+                  preferencial e alternativa.
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Preço do produto (R$)</Label>
+            <Input
+              value={draft.price}
+              onChange={(e) => setDraft((d) => ({ ...d, price: e.target.value }))}
+              placeholder="7000,00"
+              inputMode="decimal"
             />
             <p className="text-xs text-muted-foreground">
-              A ordem das cores deve seguir a ordem das imagens para seleção na página do produto.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Descrição</Label>
-            <Textarea
-              value={draft.description}
-              onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
-              placeholder="Detalhes do produto para exibir na página de produto."
-              rows={4}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Prazo de entrega</Label>
-            <Textarea
-              value={draft.deliveryTime}
-              onChange={(e) => setDraft((d) => ({ ...d, deliveryTime: e.target.value }))}
-              placeholder="Ex.: Envio em até 2 dias úteis e entrega entre 5 e 10 dias úteis."
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Modelos e preço base (R$)</Label>
-              <Button type="button" variant="outline" size="sm" onClick={addModelOptionRow}>
-                <Plus className="h-4 w-4 mr-1" /> Adicionar modelo
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {draft.modelOptions.map((row, idx) => (
-                <div key={`model-row-${idx}`} className="grid grid-cols-[1fr_170px_auto] gap-2 items-center">
-                  <Input
-                    value={row.model}
-                    onChange={(e) =>
-                      setDraft((d) => ({
-                        ...d,
-                        modelOptions: d.modelOptions.map((it, i) =>
-                          i === idx ? { ...it, model: e.target.value } : it,
-                        ),
-                      }))
-                    }
-                    placeholder="Ex.: 128GB"
-                  />
-                  <Input
-                    value={row.price}
-                    onChange={(e) =>
-                      setDraft((d) => ({
-                        ...d,
-                        modelOptions: d.modelOptions.map((it, i) =>
-                          i === idx ? { ...it, price: e.target.value } : it,
-                        ),
-                      }))
-                    }
-                    placeholder="7000,00"
-                    inputMode="decimal"
-                  />
-                  <Button type="button" variant="ghost" size="icon" onClick={() => removeModelOptionRow(idx)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              O cliente escolhe o modelo e o valor/parcelas serão calculados pelo preço daquele modelo.
+              O usuário final verá apenas as parcelas (com taxas e arredondamento para “.99”).
             </p>
           </div>
 
@@ -661,62 +427,10 @@ export default function AdminProducts() {
 
           <div className="rounded-xl border bg-background p-4">
             <p className="text-sm font-medium text-primary mb-2">Prévia de parcelas</p>
-            <div className="space-y-3 mb-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Modelo para prévia</Label>
-                <Select value={previewModel} onValueChange={setPreviewModel}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Escolha o modelo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {parsedModelOptions.map((opt) => (
-                      <SelectItem key={`preview-model-${opt.model}`} value={opt.model}>
-                        {opt.model} ({formatBRLFromCents(opt.priceCents)})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">Entrada da simulação</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {DOWN_PAYMENT_OPTIONS.map((entry) => (
-                    <label key={`preview-entry-${entry.id}`} className="flex items-center gap-2 rounded-md border p-2 text-xs">
-                      <Checkbox
-                        checked={previewDownPayment === entry.id}
-                        onCheckedChange={(checked) => {
-                          if (checked) setPreviewDownPayment(entry.id);
-                        }}
-                      />
-                      {entry.label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <label className="flex items-center gap-2 text-xs">
-                <Checkbox
-                  checked={previewEarlyPayment}
-                  onCheckedChange={(checked) => setPreviewEarlyPayment(Boolean(checked))}
-                />
-                Aplicar pagamento antes do vencimento (15% na parcela)
-              </label>
-            </div>
             <div className="space-y-1">
               {previewInstallments.map((x) => (
                 <div key={x.months} className="text-sm text-muted-foreground">
-                  {x.months}x de{" "}
-                  <span className="font-semibold text-primary">
-                    {formatBRLFromCents(
-                      previewEarlyPayment
-                        ? x.calc.earlyPaymentPerInstallmentCents
-                        : x.calc.perInstallmentCents,
-                    )}
-                  </span>
-                  <span className="text-xs ml-1">
-                    (total financiado: {formatBRLFromCents(x.calc.financedTotalCents)})
-                  </span>
+                  {x.months}x de <span className="font-semibold text-primary">{formatBRLFromCents(x.perInstallment)}</span>
                 </div>
               ))}
               {previewInstallments.length === 0 && (
@@ -753,8 +467,12 @@ export default function AdminProducts() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-semibold text-primary truncate">{p.name}</p>
-                      <p className="text-sm text-muted-foreground truncate">{p.brand} • {p.category}</p>
-                      <p className="text-xs text-muted-foreground truncate">{p.color}</p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {p.color}
+                        {p.singleColor ? (
+                          <span className="ml-1 text-xs text-secondary">(apenas uma cor)</span>
+                        ) : null}
+                      </p>
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" className="gap-2" onClick={() => startEdit(p)}>
@@ -767,23 +485,8 @@ export default function AdminProducts() {
                   </div>
 
                   <div className="mt-2 text-sm text-muted-foreground">
-                    A partir de: <span className="font-medium text-primary">{formatBRLFromCents(p.priceCents)}</span>
+                    Preço base: <span className="font-medium text-primary">{formatBRLFromCents(p.priceCents)}</span>
                   </div>
-                  {!!p.modelOptions?.length && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {p.modelOptions.map((opt) => (
-                        <span key={`${p.id}-${opt.model}`} className="text-xs px-2.5 py-1 rounded-full bg-secondary/10 text-secondary">
-                          {opt.model}: {formatBRLFromCents(opt.priceCents)}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {p.isOnSale && (
-                    <div className="mt-1 text-xs font-medium text-emerald-700">Em promoção</div>
-                  )}
-
-                  {!!p.description && <p className="mt-2 text-sm text-muted-foreground">{p.description}</p>}
-                  {!!p.deliveryTime && <p className="mt-1 text-xs text-muted-foreground">Prazo: {p.deliveryTime}</p>}
 
                   <div className="mt-2 flex flex-wrap gap-2">
                     {p.enabledMonths

@@ -4,11 +4,5 @@
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
-  ],
-  "functions": {
-    "api/admin/generate-document.ts": {
-      "maxDuration": 60,
-      "includeFiles": "api/_lib/templates/**"
-    }
-  }
+  ]
 }

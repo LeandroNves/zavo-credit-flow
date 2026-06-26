@@ -13,8 +13,8 @@ import {
 } from "@/lib/productsSupabase";
 
 /**
- * Cat√°logo da landing / loja: Supabase quando configurado (global + Realtime);
- * sen√£o localStorage com seed padr√£o (comportamento anterior).
+ * Cat·logo da landing / loja: Supabase quando configurado (global + Realtime);
+ * sen„o localStorage com seed padr„o (comportamento anterior).
  */
 export function useGlobalLandingProductsState(): {
   products: LandingProduct[];

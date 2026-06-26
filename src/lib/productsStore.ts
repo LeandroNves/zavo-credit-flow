@@ -42,6 +42,8 @@ export type LandingProduct = {
   brand: ProductBrand;
   isOnSale: boolean;
   color: string;
+  /** Quando true, o cliente não precisa escolher cor preferencial + alternativa (ex.: AirPods só em branco). */
+  singleColor: boolean;
   description: string;
   deliveryTime: string;
   specifications: string[];
@@ -136,6 +138,7 @@ function normalizeProduct(p: unknown): LandingProduct | null {
   const brand = normalizeBrand(obj.brand);
   const isOnSale = Boolean(obj.isOnSale);
   const color = safeString(obj.color).trim();
+  const singleColor = Boolean(obj.singleColor);
   const description = safeString(obj.description).trim();
   const deliveryTime = safeString(obj.deliveryTime).trim();
   const specifications = normalizeStringArray(obj.specifications);
@@ -166,6 +169,7 @@ function normalizeProduct(p: unknown): LandingProduct | null {
     brand,
     isOnSale,
     color,
+    singleColor,
     description,
     deliveryTime,
     specifications,
@@ -289,6 +293,41 @@ export function parseProductColors(colorField: string): string[] {
     .map((x) => x.trim())
     .filter(Boolean)
     .filter((x, i, arr) => arr.indexOf(x) === i);
+}
+
+/** Produto exige duas cores no carrinho (preferencial + alternativa)? */
+export function productRequiresTwoColorChoices(
+  product: Pick<LandingProduct, "singleColor" | "color">,
+): boolean {
+  return !product.singleColor;
+}
+
+/** Cores iniciais ao adicionar ao carrinho. */
+export function getInitialCartColorsForProduct(
+  product: Pick<LandingProduct, "singleColor" | "color">,
+): string[] {
+  const options = parseProductColors(product.color);
+  if (product.singleColor) {
+    const only = options[0] ?? product.color.trim();
+    return only ? [only] : [];
+  }
+  return options.slice(0, 2);
+}
+
+export function cartItemHasValidColorSelection(
+  product: Pick<LandingProduct, "singleColor" | "color">,
+  selectedColors: string[] | undefined,
+): boolean {
+  const chosen = (selectedColors ?? []).filter(Boolean);
+  if (product.singleColor) {
+    const only = parseProductColors(product.color)[0] ?? product.color.trim();
+    return only ? chosen.length >= 1 : chosen.length >= 1;
+  }
+  const options = parseProductColors(product.color);
+  if (options.length >= 2) {
+    return chosen.length >= 2 && chosen[0] !== chosen[1];
+  }
+  return chosen.length >= 2;
 }
 
 export function getProductModelOptions(product: LandingProduct): ProductModelOption[] {

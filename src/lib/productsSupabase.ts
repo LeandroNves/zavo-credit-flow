@@ -1,13 +1,13 @@
 import { RealtimeClient } from "@supabase/realtime-js";
 import {
   ALL_INSTALLMENTS,
-  type InstallmentMonths,
-  type LandingProduct,
-  type ProductModelOption,
   PRODUCT_BRANDS,
   PRODUCT_CATEGORIES,
+  type InstallmentMonths,
+  type LandingProduct,
   type ProductBrand,
   type ProductCategory,
+  type ProductModelOption,
 } from "@/lib/productsStore";
 
 const catalogUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
@@ -19,12 +19,13 @@ export const isCatalogSupabaseConfigured = Boolean(catalogUrl && catalogAnonKey)
 type LandingProductRow = {
   id: string;
   name: string;
-  category?: string | null;
-  brand?: string | null;
-  is_on_sale?: boolean | null;
   color: string;
-  description?: string | null;
-  delivery_time?: string | null;
+  single_color?: boolean;
+  category?: string;
+  brand?: string;
+  is_on_sale?: boolean;
+  description?: string;
+  delivery_time?: string;
   specifications?: unknown;
   model_options?: unknown;
   price_cents: number;
@@ -50,7 +51,7 @@ function getLandingRealtime(): RealtimeClient | null {
 }
 
 function isInstallmentMonths(n: number): n is InstallmentMonths {
-  return n === 1 || n === 6 || n === 12 || n === 18 || n === 24;
+  return n === 6 || n === 12 || n === 18 || n === 24;
 }
 
 function normalizeEnabledMonths(raw: unknown): InstallmentMonths[] {
@@ -80,88 +81,69 @@ function parseImageSrcs(raw: unknown): string[] {
     .filter((v, i, a) => a.indexOf(v) === i);
 }
 
-function parseStringArray(raw: unknown): string[] {
-  let arr: unknown[] = [];
-  if (Array.isArray(raw)) arr = raw;
-  else if (typeof raw === "string" && raw.trim()) {
-    try {
-      const p = JSON.parse(raw) as unknown;
-      if (Array.isArray(p)) arr = p;
-    } catch {
-      return [];
-    }
-  }
-  return arr
+function parseSpecifications(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
     .map((x) => (typeof x === "string" ? x.trim() : ""))
     .filter(Boolean)
-    .filter((v, i, a) => a.indexOf(v) === i);
+    .filter((x, i, a) => a.indexOf(x) === i);
 }
 
 function parseModelOptions(raw: unknown): ProductModelOption[] {
-  const arr = Array.isArray(raw) ? raw : [];
-  return arr
-    .map((x) => {
-      if (!x || typeof x !== "object") return null;
-      const o = x as Record<string, unknown>;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const o = item as Record<string, unknown>;
       const model = typeof o.model === "string" ? o.model.trim() : "";
-      // Compatibilidade com dados legados no banco:
-      // - priceCents (novo, camelCase)
-      // - price_cents (snake_case)
-      const rawPrice = o.priceCents ?? o.price_cents;
-      const priceCents = Number(rawPrice);
-      if (!model || !Number.isFinite(priceCents) || priceCents <= 0) return null;
-      return { model, priceCents: Math.round(priceCents) };
+      const priceCents = Math.max(
+        0,
+        Math.round(Number(o.price_cents ?? o.priceCents) || 0),
+      );
+      if (!model || priceCents <= 0) return null;
+      return { model, priceCents };
     })
     .filter(Boolean) as ProductModelOption[];
-}
-
-function normalizeCategory(value: unknown): ProductCategory {
-  const v = typeof value === "string" ? value.trim() : "";
-  return (PRODUCT_CATEGORIES as readonly string[]).includes(v)
-    ? (v as ProductCategory)
-    : "Celular";
-}
-
-function normalizeBrand(value: unknown): ProductBrand {
-  const v = typeof value === "string" ? value.trim() : "";
-  return (PRODUCT_BRANDS as readonly string[]).includes(v)
-    ? (v as ProductBrand)
-    : "Apple";
 }
 
 function mapRow(r: LandingProductRow): LandingProduct | null {
   const id = String(r.id ?? "").trim();
   const name = String(r.name ?? "").trim();
   const color = String(r.color ?? "").trim();
-  const description = String(r.description ?? "").trim();
-  const deliveryTime = String(r.delivery_time ?? "").trim();
-  const specifications = parseStringArray(r.specifications);
-  const modelOptions = parseModelOptions(r.model_options);
-  const fallbackPriceCents = Math.max(0, Math.round(Number(r.price_cents) || 0));
-  const priceCents = modelOptions.length
-    ? Math.min(...modelOptions.map((x) => x.priceCents))
-    : fallbackPriceCents;
+  const categoryRaw = String(r.category ?? "").trim();
+  const brandRaw = String(r.brand ?? "").trim();
+  const category = (PRODUCT_CATEGORIES as readonly string[]).includes(categoryRaw)
+    ? (categoryRaw as ProductCategory)
+    : "Celular";
+  const brand = (PRODUCT_BRANDS as readonly string[]).includes(brandRaw)
+    ? (brandRaw as ProductBrand)
+    : "Apple";
+  const priceCents = Math.max(0, Math.round(Number(r.price_cents) || 0));
   let imageSrc = String(r.image_src ?? "").trim();
   let imageSrcs = parseImageSrcs(r.image_srcs);
   const primary = imageSrcs[0] || imageSrc;
   if (!id || !name || !primary) return null;
   if (!imageSrc) imageSrc = primary;
   if (!imageSrcs.length) imageSrcs = [primary];
+  const modelOptions = parseModelOptions(r.model_options);
   const nowIso = new Date().toISOString();
   const createdAt = String(r.created_at ?? "").trim() || nowIso;
   const updatedAt = String(r.updated_at ?? "").trim() || nowIso;
   return {
     id,
     name,
-    category: normalizeCategory(r.category),
-    brand: normalizeBrand(r.brand),
+    category,
+    brand,
     isOnSale: Boolean(r.is_on_sale),
     color,
-    description,
-    deliveryTime,
-    specifications,
+    singleColor: Boolean(r.single_color),
+    description: String(r.description ?? "").trim(),
+    deliveryTime: String(r.delivery_time ?? "").trim(),
+    specifications: parseSpecifications(r.specifications),
     modelOptions,
-    priceCents,
+    priceCents: modelOptions.length
+      ? Math.min(...modelOptions.map((x) => x.priceCents))
+      : priceCents,
     imageSrc: primary,
     imageSrcs,
     enabledMonths: normalizeEnabledMonths(r.enabled_months),

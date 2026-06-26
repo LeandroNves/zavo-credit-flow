@@ -40,7 +40,7 @@ async function readJsonBody(
 }
 
 function isInstallmentMonths(n: number): boolean {
-  return n === 1 || n === 6 || n === 12 || n === 18 || n === 24;
+  return n === 6 || n === 12 || n === 18 || n === 24;
 }
 
 function normalizeEnabledMonths(raw: unknown): number[] {
@@ -57,64 +57,12 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
   const o = p as Record<string, unknown>;
   const id = typeof o.id === "string" ? o.id.trim() : "";
   const name = typeof o.name === "string" ? o.name.trim() : "";
-  const category = typeof o.category === "string" ? o.category.trim() : "";
-  const brand = typeof o.brand === "string" ? o.brand.trim() : "";
-  const isOnSale = Boolean(o.isOnSale);
   const color = typeof o.color === "string" ? o.color.trim() : "";
-  const description = typeof o.description === "string" ? o.description.trim() : "";
-  const deliveryTime =
-    typeof o.deliveryTime === "string" ? o.deliveryTime.trim() : "";
-  const specsRaw = Array.isArray(o.specifications) ? o.specifications : [];
-  const specifications = specsRaw
-    .map((x) => (typeof x === "string" ? x.trim() : ""))
-    .filter(Boolean)
-    .filter((v, i, a) => a.indexOf(v) === i);
-
-  function parsePriceToCents(v: unknown): number | null {
-    if (typeof v === "number") {
-      if (!Number.isFinite(v)) return null;
-      const cents = Math.round(v);
-      return cents > 0 ? cents : null;
-    }
-    if (typeof v === "string") {
-      const normalized = v.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
-      const n = Number(normalized);
-      if (!Number.isFinite(n)) return null;
-      // Strings (legado) vêm no formato BRL (ex.: "7000,00") e precisam virar centavos.
-      const cents = Math.round(n * 100);
-      return cents > 0 ? cents : null;
-    }
-    return null;
-  }
-
-  const modelOptionsRaw = Array.isArray(o.modelOptions) ? o.modelOptions : [];
-  let modelOptions = modelOptionsRaw
-    .map((item) => {
-      if (!item || typeof item !== "object") return null;
-      const obj = item as Record<string, unknown>;
-      const model = typeof obj.model === "string" ? obj.model.trim() : "";
-
-      // Compat: pode vir como { priceCents } (novo) ou { price } (legado).
-      const parsedFromPriceCents = parsePriceToCents(obj.priceCents);
-      const parsedFromPrice = parsePriceToCents(obj.price);
-      const priceCents = parsedFromPriceCents ?? parsedFromPrice;
-
-      if (!model || !priceCents || priceCents <= 0) return null;
-      return { model, priceCents: Math.round(priceCents) };
-    })
-    .filter(Boolean)
-    .filter(
-      (x, i, arr) =>
-        arr.findIndex((y) => y?.model.toLowerCase() === x?.model.toLowerCase()) === i,
-    );
   const priceRaw = o.priceCents;
-  let priceCents: number = 0;
-  if (typeof priceRaw === "number") {
-    priceCents = Number.isFinite(priceRaw) ? Math.max(0, Math.round(priceRaw)) : 0;
-  } else if (typeof priceRaw === "string") {
-    const parsed = parsePriceToCents(priceRaw);
-    priceCents = parsed != null ? Math.max(0, Math.round(parsed)) : 0;
-  }
+  const priceCents =
+    typeof priceRaw === "number" && Number.isFinite(priceRaw)
+      ? Math.max(0, Math.round(priceRaw))
+      : Number.NaN;
   const imageSrc = typeof o.imageSrc === "string" ? o.imageSrc.trim() : "";
   const imageSrcsRaw = Array.isArray(o.imageSrcs) ? o.imageSrcs : [];
   const imageSrcs = imageSrcsRaw
@@ -123,15 +71,28 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
     .filter((v, i, a) => a.indexOf(v) === i);
   const primary = imageSrcs[0] || imageSrc;
   if (!id || !name || !primary) return null;
-  // Compatibilidade: se o admin mandar apenas `specifications` (legado),
-  // transforma em model_options usando o preço base do produto.
-  if (modelOptions.length === 0 && specifications.length > 0) {
-    modelOptions = specifications.map((m) => ({ model: m, priceCents }));
-  }
-  // Quando houver model_options válidos, o preço base do produto vira o menor deles.
-  if (modelOptions.length > 0) {
-    priceCents = Math.min(...modelOptions.map((x) => x.priceCents));
-  }
+  if (!Number.isFinite(priceCents) || priceCents <= 0) return null;
+
+  const modelOptionsRaw = Array.isArray(o.modelOptions) ? o.modelOptions : [];
+  const model_options = modelOptionsRaw
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const m = item as Record<string, unknown>;
+      const model = typeof m.model === "string" ? m.model.trim() : "";
+      const pc =
+        typeof m.priceCents === "number" && Number.isFinite(m.priceCents)
+          ? Math.max(0, Math.round(m.priceCents))
+          : 0;
+      if (!model || pc <= 0) return null;
+      return { model, price_cents: pc };
+    })
+    .filter(Boolean);
+
+  const specifications = Array.isArray(o.specifications)
+    ? o.specifications
+        .map((x) => (typeof x === "string" ? x.trim() : ""))
+        .filter(Boolean)
+    : [];
 
   const nowIso = new Date().toISOString();
   const createdAt =
@@ -142,14 +103,15 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
   return {
     id,
     name,
-    category: category || "Celular",
-    brand: brand || "Apple",
-    is_on_sale: isOnSale,
+    category: typeof o.category === "string" && o.category.trim() ? o.category.trim() : "Celular",
+    brand: typeof o.brand === "string" && o.brand.trim() ? o.brand.trim() : "Apple",
+    is_on_sale: Boolean(o.isOnSale),
     color: color || "",
-    description,
-    delivery_time: deliveryTime,
+    single_color: Boolean(o.singleColor),
+    description: typeof o.description === "string" ? o.description : "",
+    delivery_time: typeof o.deliveryTime === "string" ? o.deliveryTime : "",
     specifications,
-    model_options: modelOptions,
+    model_options,
     price_cents: priceCents,
     image_src: primary,
     image_srcs: imageSrcs.length ? imageSrcs : [primary],
@@ -157,23 +119,6 @@ function productBodyToRpcRow(p: unknown): Record<string, unknown> | null {
     created_at: createdAt,
     updated_at: updatedAt,
   };
-}
-
-function inspectInvalidProduct(p: unknown): string {
-  if (!p || typeof p !== "object") return "product_not_object";
-  const o = p as Record<string, unknown>;
-  const id = typeof o.id === "string" ? o.id.trim() : "";
-  const name = typeof o.name === "string" ? o.name.trim() : "";
-  const imageSrc = typeof o.imageSrc === "string" ? o.imageSrc.trim() : "";
-  const imageSrcsRaw = Array.isArray(o.imageSrcs) ? o.imageSrcs : [];
-  const imageSrcs = imageSrcsRaw
-    .map((x) => (typeof x === "string" ? x.trim() : ""))
-    .filter(Boolean);
-  const primary = imageSrcs[0] || imageSrc;
-  if (!id) return "missing_id";
-  if (!name) return "missing_name";
-  if (!primary) return "missing_image";
-  return "unknown_invalid_product";
 }
 
 export async function handleAdminProductsPost(
@@ -251,17 +196,7 @@ export async function handleAdminProductsPost(
     if (!row) {
       res.statusCode = 400;
       res.setHeader("Content-Type", "application/json");
-      const product = products[i] as Record<string, unknown> | undefined;
-      res.end(
-        JSON.stringify({
-          ok: false,
-          error: "invalid_product",
-          index: i,
-          id: typeof product?.id === "string" ? product.id : null,
-          name: typeof product?.name === "string" ? product.name : null,
-          reason: inspectInvalidProduct(products[i]),
-        }),
-      );
+      res.end(JSON.stringify({ ok: false, error: "invalid_product", index: i }));
       return;
     }
     items.push(row);
